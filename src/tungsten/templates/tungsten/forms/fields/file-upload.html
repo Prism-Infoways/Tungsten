@@ -1,0 +1,50 @@
+{% from "tungsten/forms/macros.html" import wrapper, ui_action %}
+{% call wrapper(field, v) %}
+<div class="grid gap-3">
+  {% for f in v.files %}<input type="hidden" name="{{ v.path }}" value="{{ f.path }}">{% endfor %}
+  {% if v.image %}
+  <div class="flex flex-wrap gap-3">
+    {% for f in v.files %}
+    <div class="group relative {{ 'h-24 w-24 rounded-full' if v.avatar else 'h-24 w-24 rounded-lg' }} overflow-hidden bg-gray-100 ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
+      <img src="{{ f.url }}" alt="{{ f.name }}" class="h-full w-full object-cover">
+      {% if not v.disabled %}
+      {{ ui_action(form, 'file.remove:' ~ v.path ~ ':' ~ loop.index0, 'Remove', 'absolute right-1 top-1 hidden rounded-full bg-gray-950/70 p-1 text-white group-hover:block', 'x') }}
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% if not v.disabled and (v.multiple or not v.files) %}
+    <label class="flex {{ 'h-24 w-24 rounded-full' if v.avatar else 'h-24 w-24 rounded-lg' }} cursor-pointer flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-300 text-gray-400 transition hover:border-primary-500 hover:text-primary-500 dark:border-white/20">
+      {{ icon('plus', 'h-6 w-6') }}
+      <input type="file" class="sr-only" name="{{ v.path }}.__upload" {% if v.accept %}accept="{{ v.accept }}"{% endif %}
+             hx-post="{{ form.refresh_url }}" hx-encoding="multipart/form-data" hx-trigger="change"
+             hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form">
+    </label>
+    {% endif %}
+  </div>
+  {% else %}
+  {% if v.files %}
+  <ul class="divide-y divide-gray-100 rounded-lg ring-1 ring-gray-950/10 dark:divide-white/5 dark:ring-white/10">
+    {% for f in v.files %}
+    <li class="flex items-center justify-between gap-x-3 px-3 py-2 text-sm">
+      <a href="{{ f.url }}" target="_blank" class="flex items-center gap-x-2 truncate {{ colors.LINK.primary }}">{{ icon('paperclip', 'h-4 w-4') }}{{ f.name }}</a>
+      {% if not v.disabled %}{{ ui_action(form, 'file.remove:' ~ v.path ~ ':' ~ loop.index0, 'Remove', 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if not v.disabled and (v.multiple or not v.files) %}
+  <label class="flex cursor-pointer items-center gap-x-4 rounded-lg border-2 border-dashed border-gray-300 px-4 py-4 transition hover:border-primary-500 dark:border-white/20">
+    <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/5">{{ icon('upload', 'h-5 w-5') }}</span>
+    <span class="grid text-sm">
+      <span class="font-medium text-gray-950 dark:text-white">Click to upload</span>
+      <span class="text-gray-500 dark:text-gray-400">{{ v.accept or 'Any file' }}{% if v.max_size %} up to {{ (v.max_size / 1024) | round(1) if v.max_size >= 1024 else v.max_size }}{{ 'MB' if v.max_size >= 1024 else 'KB' }}{% endif %}</span>
+    </span>
+    <input type="file" class="sr-only" name="{{ v.path }}.__upload" {% if v.accept %}accept="{{ v.accept }}"{% endif %}
+           hx-post="{{ form.refresh_url }}" hx-encoding="multipart/form-data" hx-trigger="change"
+           hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form">
+  </label>
+  {% endif %}
+  {% endif %}
+  {% if v.disabled and not v.files %}<p class="text-sm text-gray-500">No file.</p>{% endif %}
+</div>
+{% endcall %}

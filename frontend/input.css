@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  [x-cloak] { display: none !important; }
+  html { -webkit-font-smoothing: antialiased; }
+}
+
+@layer components {
+  .tw-input {
+    @apply block w-full rounded-lg border-0 bg-white py-2 px-3 text-sm text-gray-950 shadow-sm ring-1 ring-inset ring-gray-950/10
+      placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-500
+      disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500
+      dark:bg-white/5 dark:text-white dark:ring-white/10 dark:placeholder:text-gray-500 dark:focus:ring-primary-500 dark:disabled:bg-transparent dark:disabled:text-gray-400;
+  }
+  .tw-input-error { @apply ring-danger-600 dark:ring-danger-500 focus:ring-danger-600; }
+  .tw-checkbox {
+    @apply h-4 w-4 rounded border-0 bg-white text-primary-600 shadow-sm ring-1 ring-inset ring-gray-950/10
+      focus:ring-2 focus:ring-primary-600 focus:ring-offset-0 checked:ring-0 disabled:opacity-60
+      dark:bg-white/5 dark:ring-white/20 dark:checked:bg-primary-500;
+  }
+  .tw-radio {
+    @apply h-4 w-4 border-0 bg-white text-primary-600 shadow-sm ring-1 ring-inset ring-gray-950/10 focus:ring-2
+      focus:ring-primary-600 focus:ring-offset-0 checked:ring-0 dark:bg-white/5 dark:ring-white/20 dark:checked:bg-primary-500;
+  }
+  .tw-label { @apply text-sm font-medium leading-6 text-gray-950 dark:text-white; }
+  .tw-card { @apply rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10; }
+  .tw-btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold outline-none transition
+      duration-75 focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-70;
+  }
+  .tw-btn-sm { @apply px-2.5 py-1.5 text-xs; }
+  .tw-icon-btn {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg outline-none transition hover:bg-gray-950/5 focus-visible:ring-2
+      dark:hover:bg-white/5;
+  }
+  .tw-nav-item {
+    @apply flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-300 transition hover:bg-white/5 hover:text-white;
+  }
+  .tw-nav-item-active { @apply bg-primary-500/15 text-primary-400 hover:bg-primary-500/20 hover:text-primary-300; }
+  .tw-prose { @apply prose prose-sm max-w-none dark:prose-invert; }
+
+  trix-editor.tw-trix {
+    @apply min-h-[8rem] rounded-b-lg border-0 px-3 py-2 text-sm text-gray-950 dark:text-white;
+  }
+  trix-toolbar .trix-button-group { @apply border-gray-200 dark:border-white/10 !important; }
+  trix-toolbar .trix-button { @apply dark:bg-white/80 !important; }
+  .ts-wrapper.tw-ts .ts-control {
+    @apply min-h-[38px] rounded-lg border-0 bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-inset ring-gray-950/10
+      dark:bg-white/5 dark:text-white dark:ring-white/10;
+  }
+  .ts-wrapper.tw-ts.focus .ts-control { @apply ring-2 ring-primary-500 shadow-sm; }
+  .ts-wrapper.tw-ts .ts-control input { @apply text-sm dark:text-white; }
+  .ts-wrapper.tw-ts.multi .ts-control > div.item {
+    @apply rounded-md bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 ring-1 ring-inset ring-primary-600/10
+      dark:bg-primary-400/10 dark:text-primary-400;
+  }
+  .ts-dropdown { @apply mt-1 rounded-lg border-0 bg-white text-sm shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:text-white dark:ring-white/10 !important; }
+  .ts-dropdown .active { @apply bg-gray-50 text-gray-950 dark:bg-white/5 dark:text-white !important; }
+  .ts-dropdown .option { @apply px-3 py-2; }
+}

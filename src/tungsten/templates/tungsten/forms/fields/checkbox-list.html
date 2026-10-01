@@ -1,0 +1,26 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% call wrapper(field, v) %}
+<div x-data="{ toggleAll(on) { $root.querySelectorAll('input[type=checkbox]:not(:disabled)').forEach(c => c.checked = on); } }">
+  {% if v.bulk and not v.disabled %}
+  <div class="mb-2 flex gap-x-3 text-sm">
+    <button type="button" class="{{ colors.LINK.primary }} font-medium" @click="toggleAll(true)">Select all</button>
+    <button type="button" class="{{ colors.LINK.gray }} font-medium" @click="toggleAll(false)">Deselect all</button>
+  </div>
+  {% endif %}
+  <div class="grid gap-x-6 gap-y-3 {{ v.grid }}">
+    {% for o in v.options %}
+    <label class="flex items-start gap-x-3">
+      <input type="checkbox" name="{{ v.path }}" value="{{ o.value }}" class="tw-checkbox mt-1"
+             {% if o.selected %}checked{% endif %} {% if v.disabled or o.disabled %}disabled{% endif %} {{ v.live }}>
+      <span class="grid text-sm">
+        <span class="font-medium text-gray-950 dark:text-white">{{ o.label }}</span>
+        {% if o.description %}<span class="text-gray-500 dark:text-gray-400">{{ o.description }}</span>{% endif %}
+      </span>
+    </label>
+    {% else %}
+    <p class="text-sm text-gray-500">No options available.</p>
+    {% endfor %}
+  </div>
+</div>
+{{ mirror(v) }}
+{% endcall %}

@@ -1,0 +1,10 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% call wrapper(field, v) %}
+<textarea id="{{ v.id }}" name="{{ v.path }}" rows="{{ v.rows }}"
+          class="tw-input {{ 'tw-input-error' if v.errors }}"
+          {% if v.autosize %}x-data x-init="$el.style.height = $el.scrollHeight + 'px'" @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"{% endif %}
+          {% if v.maxlength %}maxlength="{{ v.maxlength }}"{% endif %}
+          {% if v.placeholder %}placeholder="{{ v.placeholder }}"{% endif %}
+          {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>{{ v.state if v.state is not none else '' }}</textarea>
+{{ mirror(v) }}
+{% endcall %}

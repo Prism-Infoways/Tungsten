@@ -1,0 +1,41 @@
+{% from "tungsten/forms/macros.html" import ui_action %}
+{% set key = v.key %}
+<div class="tw-card {{ 'md:grid md:grid-cols-4' if v.vertical }}">
+  <input type="hidden" name="_tw_ui.{{ key }}" value="{{ v.current }}">
+  <ol class="{{ 'flex gap-1 overflow-x-auto border-b border-gray-100 p-3 dark:border-white/10 md:flex-col md:border-b-0 md:border-e md:p-4' if v.vertical else 'flex gap-1 overflow-x-auto border-b border-gray-100 p-3 dark:border-white/10' }}">
+    {% for s in v.steps %}
+    {% set state = 'done' if s.index < v.current else ('current' if s.index == v.current else 'todo') %}
+    <li class="shrink-0">
+      <button type="button" {% if v.skippable or s.index < v.current %}hx-post="{{ form.refresh_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form" hx-vals='{"_tw_ui_action": "wizard.goto:{{ key }}:{{ s.index }}"}'{% else %}disabled{% endif %}
+              class="flex w-full items-center gap-x-3 rounded-lg px-3 py-2 text-start text-sm transition {{ 'bg-primary-50 dark:bg-primary-500/10' if state == 'current' }}">
+        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold
+                     {{ 'bg-primary-600 text-white' if state == 'current' else ('bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300' if state == 'done' else 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400') }}
+                     {{ 'ring-2 ring-danger-500' if s.errors }}">
+          {% if state == 'done' %}{{ icon('check', 'h-4 w-4') }}{% elif s.icon %}{{ icon(s.icon, 'h-4 w-4') }}{% else %}{{ s.index + 1 }}{% endif %}
+        </span>
+        <span class="grid">
+          <span class="font-medium {{ 'text-primary-700 dark:text-primary-400' if state == 'current' else 'text-gray-700 dark:text-gray-300' }}">{{ s.label }}</span>
+          {% if s.description %}<span class="text-xs text-gray-500 dark:text-gray-400">{{ s.description }}</span>{% endif %}
+        </span>
+      </button>
+    </li>
+    {% endfor %}
+  </ol>
+  <div class="{{ 'md:col-span-3' if v.vertical }} p-6">
+    {% for s in v.steps %}
+    <div {% if s.index != v.current %}hidden{% endif %}>
+      {{ form.render_schema(s.step.child_components(), v.base, s.step._columns) }}
+    </div>
+    {% endfor %}
+    {% if not form.is_disabled %}
+    <div class="mt-6 flex items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
+      <div>{% if v.current > 0 %}{{ ui_action(form, 'wizard.previous:' ~ key, 'Back', 'tw-btn ' ~ colors.BUTTON.gray) }}{% endif %}</div>
+      {% if v.current < v.last %}
+      {{ ui_action(form, 'wizard.next:' ~ key, 'Next', 'tw-btn ' ~ colors.BUTTON.primary) }}
+      {% else %}
+      <button type="submit" class="tw-btn {{ colors.BUTTON.primary }}">{{ v.submit_label }}</button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>

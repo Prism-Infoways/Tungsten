@@ -1,0 +1,178 @@
+{#
+  Tungsten UI kit — the small building blocks every page reuses.
+  Import with:  {% import "tungsten/components/ui.html" as ui %}
+#}
+
+{# ---------------------------------------------------------------- buttons #}
+{% macro button_classes(color='primary', style='button', size='md', outlined=false) -%}
+{%- set sizes = {'sm': 'px-2.5 py-1.5 text-xs', 'md': 'px-3 py-2 text-sm', 'lg': 'px-4 py-2.5 text-sm'} -%}
+{%- if style == 'link' -%}
+inline-flex items-center gap-1.5 text-sm font-semibold {{ colors.pick(colors.LINK, color) }}
+{%- elif style == 'icon' -%}
+inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white ring-1 ring-gray-950/10 transition dark:bg-white/5 dark:ring-white/10 {{ colors.pick(colors.ICON_BUTTON, color if color != 'primary' else 'gray') }}
+{%- elif style == 'soft' -%}
+tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.SOFT_BUTTON, color) }}
+{%- elif style == 'dropdown' -%}
+flex w-full items-center gap-2 rounded-md px-2 py-2 text-start text-sm transition hover:bg-gray-50 dark:hover:bg-white/5 {{ colors.pick(colors.TEXT, color) if color not in ('primary', 'gray') else 'text-gray-700 dark:text-gray-200' }}
+{%- elif outlined -%}
+tw-btn {{ sizes.get(size, sizes.md) }} bg-white ring-1 ring-gray-950/10 dark:bg-transparent dark:ring-white/20 {{ colors.pick(colors.LINK, color) }}
+{%- else -%}
+tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro button(label, color='primary', icon_name=None, href=None, type='button', style='button', size='md', attrs_='', outlined=false) %}
+{% if href %}
+<a href="{{ href }}" class="{{ button_classes(color, style, size, outlined) }}" {{ attrs_ }}>{{ icon(icon_name, 'h-4 w-4' if size != 'lg' else 'h-5 w-5') }}<span>{{ label }}</span></a>
+{% else %}
+<button type="{{ type }}" class="{{ button_classes(color, style, size, outlined) }}" {{ attrs_ }}>{{ icon(icon_name, 'h-4 w-4' if size != 'lg' else 'h-5 w-5') }}<span>{{ label }}</span></button>
+{% endif %}
+{% endmacro %}
+
+{% macro icon_button(icon_name, label, color='gray', href=None, attrs_='', bordered=true) %}
+{% set cls = button_classes(color, 'icon') if bordered else 'tw-icon-btn ' ~ colors.pick(colors.ICON_BUTTON, color) %}
+{% if href %}
+<a href="{{ href }}" class="{{ cls }}" title="{{ label }}" aria-label="{{ label }}" {{ attrs_ }}>{{ icon(icon_name, 'h-4 w-4') }}</a>
+{% else %}
+<button type="button" class="{{ cls }}" title="{{ label }}" aria-label="{{ label }}" {{ attrs_ }}>{{ icon(icon_name, 'h-4 w-4') }}</button>
+{% endif %}
+{% endmacro %}
+
+{# ---------------------------------------------------------------- badges #}
+{% macro badge(text, color='gray', icon_name=None, size='sm') %}
+<span class="inline-flex items-center gap-x-1 whitespace-nowrap rounded-md px-2 {{ 'py-0.5 text-xs' if size == 'sm' else 'py-1 text-sm' }} font-medium ring-1 ring-inset {{ colors.pick(colors.BADGE, color) }}">
+  {{ icon(icon_name, 'h-3.5 w-3.5') }}{{ text }}
+</span>
+{% endmacro %}
+
+{% macro count_pill(n, color='primary') %}
+{% if n is not none and n != '' %}
+<span class="ms-auto inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold {{ colors.pick(colors.BUTTON, color) }}">{{ n }}</span>
+{% endif %}
+{% endmacro %}
+
+{# ---------------------------------------------------------------- avatar #}
+{% macro avatar(name, url=None, size='h-9 w-9', text='text-sm') %}
+{% if url %}
+<img src="{{ url }}" alt="{{ name }}" class="{{ size }} shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-gray-900">
+{% else %}
+{% set parts = (name or '?').split() %}
+{% set tones = ['bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300', 'bg-info-100 text-info-700 dark:bg-info-500/20 dark:text-info-300', 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-300', 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300', 'bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-300', 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300', 'bg-warning-100 text-warning-700 dark:bg-warning-500/20 dark:text-warning-300'] %}
+{% set ns = namespace(h=0) %}{% for ch in (name or '?') %}{% set ns.h = ns.h + ch | string | length * loop.index * (ch | ord_value) %}{% endfor %}
+<span class="{{ size }} {{ text }} {{ tones[ns.h % tones | length] }} inline-flex shrink-0 items-center justify-center rounded-full font-semibold">
+  {{- (parts[0][0] ~ (parts[-1][0] if parts | length > 1 else '')) | upper -}}
+</span>
+{% endif %}
+{% endmacro %}
+
+{# ---------------------------------------------------------------- cards #}
+{% macro card(heading=None, description=None, padding='p-6', classes='', link=None, link_label='View all') %}
+<section class="tw-card {{ classes }}">
+  {% if heading %}
+  <header class="flex items-start justify-between gap-4 px-6 pt-5">
+    <div>
+      <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ heading }}</h3>
+      {% if description %}<p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+    </div>
+    {% if link %}<a href="{{ link }}" class="flex shrink-0 items-center gap-1 text-sm font-medium {{ colors.LINK.primary }}">{{ link_label }}{{ icon('arrow-right', 'h-4 w-4') }}</a>{% endif %}
+  </header>
+  {% endif %}
+  <div class="{{ padding }}">{{ caller() }}</div>
+</section>
+{% endmacro %}
+
+{# ---------------------------------------------------------------- dropdown #}
+{% macro dropdown(align='end', width='w-56', classes='') %}
+<div class="relative {{ classes }}" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
+  <div @click="open = !open">{{ caller('trigger') }}</div>
+  <div x-show="open" x-cloak x-transition.opacity.duration.100ms
+       class="absolute z-30 mt-2 {{ 'end-0' if align == 'end' else 'start-0' }} {{ width }} rounded-xl bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+    {{ caller('panel') }}
+  </div>
+</div>
+{% endmacro %}
+
+{# ---------------------------------------------------------------- headers #}
+{% macro breadcrumbs(items) %}
+{% if items %}
+<nav class="mb-2 flex items-center gap-x-2 text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
+  {% for label, url in items %}
+    {% if not loop.first %}{{ icon('chevron-right', 'h-4 w-4 text-gray-400') }}{% endif %}
+    {% if url %}<a href="{{ url }}" class="hover:text-gray-700 dark:hover:text-gray-200">{{ label }}</a>{% else %}<span>{{ label }}</span>{% endif %}
+  {% endfor %}
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% macro empty_state(heading, description=None, icon_name='inbox') %}
+<div class="flex flex-col items-center justify-center px-6 py-12 text-center">
+  <span class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400">{{ icon(icon_name, 'h-6 w-6') }}</span>
+  <h4 class="text-base font-semibold text-gray-950 dark:text-white">{{ heading }}</h4>
+  {% if description %}<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+  {% if caller %}<div class="mt-4 flex gap-3">{{ caller() }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{# ---------------------------------------------------------------- stat card #}
+{% macro trend(value, direction='up', color=None, suffix='vs last month') %}
+{% set c = color or ('success' if direction == 'up' else 'danger') %}
+<p class="mt-1 flex items-center gap-x-1 text-sm font-semibold {{ colors.pick(colors.TEXT, c) }}">
+  {{ icon('arrow-up' if direction == 'up' else 'arrow-down', 'h-4 w-4') }}{{ value }}
+  {% if suffix %}<span class="ms-1 font-normal text-gray-500 dark:text-gray-400">{{ suffix }}</span>{% endif %}
+</p>
+{% endmacro %}
+
+{% macro sparkline(points, color='primary', id='spark') %}
+{% if points and points | length > 1 %}
+{% set lo = points | min %}{% set hi = points | max %}{% set span = (hi - lo) or 1 %}
+{% set n = points | length - 1 %}
+{% set ns = namespace(d='') %}
+{% for p in points %}
+  {% set x = (loop.index0 / n * 100) | round(2) %}{% set y = (36 - (p - lo) / span * 32) | round(2) %}
+  {% set ns.d = ns.d ~ ('M' if loop.first else ' L') ~ x ~ ' ' ~ y %}
+{% endfor %}
+<svg viewBox="0 0 100 40" preserveAspectRatio="none" class="h-11 w-20 xl:w-24" aria-hidden="true">
+  <defs><linearGradient id="{{ id }}" x1="0" x2="0" y1="0" y2="1">
+    <stop offset="0%" stop-color="{{ colors.css_rgb(color) }}" stop-opacity="0.25"/>
+    <stop offset="100%" stop-color="{{ colors.css_rgb(color) }}" stop-opacity="0"/>
+  </linearGradient></defs>
+  <path d="{{ ns.d }} L100 40 L0 40 Z" fill="url(#{{ id }})"/>
+  <path d="{{ ns.d }}" fill="none" stroke="{{ colors.css_rgb(color) }}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>
+{% endif %}
+{% endmacro %}
+
+{% macro stat_card(label, value, icon_name=None, color='primary', description=None, trend_value=None, trend_direction='up', trend_color=None, chart=None, url=None, id='stat') %}
+{% set tag = 'a' if url else 'div' %}
+<{{ tag }} {% if url %}href="{{ url }}"{% endif %} class="tw-card relative block overflow-hidden p-5 {{ 'transition hover:ring-primary-500/40' if url }}">
+  <div class="flex items-start gap-4">
+    {% if icon_name %}
+    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl {{ colors.pick(colors.SOFT_ICON, color) }}">{{ icon(icon_name, 'h-6 w-6') }}</span>
+    {% endif %}
+    <div class="min-w-0 flex-1">
+      <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ label }}</p>
+      <p class="mt-1 text-2xl font-bold tracking-tight text-gray-950 dark:text-white">{{ value }}</p>
+    </div>
+  </div>
+  <div class="mt-3 flex items-end justify-between gap-2">
+    <div class="min-w-0 whitespace-nowrap text-sm">
+      {% if trend_value %}
+      {% set c = trend_color or ('success' if trend_direction == 'up' else 'danger') %}
+      <p class="flex items-center gap-x-1 font-semibold {{ colors.pick(colors.TEXT, c) }}">{{ icon('arrow-up' if trend_direction == 'up' else 'arrow-down', 'h-4 w-4') }}{{ trend_value }}</p>
+      <p class="text-gray-500 dark:text-gray-400">{{ description or 'vs last month' }}</p>
+      {% elif description %}<p class="text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+    </div>
+    {% if chart %}<div class="shrink-0">{{ sparkline(chart, trend_color or color, id) }}</div>{% endif %}
+  </div>
+</{{ tag }}>
+{% endmacro %}
+
+{# ---------------------------------------------------------------- toolbar input #}
+{% macro search_input(name, value='', placeholder='Search...', id=None, attrs_='', shortcut=None) %}
+<label class="relative block">
+  <span class="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-gray-400">{{ icon('search', 'h-4 w-4') }}</span>
+  <input type="search" name="{{ name }}" value="{{ value }}" placeholder="{{ placeholder }}" {% if id %}id="{{ id }}"{% endif %}
+         autocomplete="off" class="tw-input ps-9 {{ 'pe-12' if shortcut }}" {{ attrs_ }}>
+  {% if shortcut %}<kbd class="pointer-events-none absolute inset-y-0 end-2 my-auto flex h-6 items-center rounded-md border border-gray-200 px-1.5 text-xs text-gray-400 dark:border-white/10">{{ shortcut }}</kbd>{% endif %}
+</label>
+{% endmacro %}

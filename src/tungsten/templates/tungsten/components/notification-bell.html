@@ -1,0 +1,11 @@
+<div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
+  <button type="button" class="tw-icon-btn relative h-10 w-10 text-gray-500 dark:text-gray-400" aria-label="Notifications"
+          @click="open = !open" hx-get="{{ panel.url('_tw', 'notifications') }}" hx-target="#tw-notifications" hx-trigger="click">
+    {{ icon('bell', 'h-5 w-5') }}
+    <span hx-get="{{ panel.url('_tw', 'notifications', 'badge') }}" hx-trigger="load{% if panel.notifications_polling %}, every {{ panel.notifications_polling }}{% endif %}, tw-notifications-changed from:body" hx-swap="innerHTML"></span>
+  </button>
+  <div x-show="open" x-cloak x-transition.opacity.duration.100ms
+       class="absolute end-0 z-40 mt-2 w-80 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-950/5 sm:w-96 dark:bg-gray-900 dark:ring-white/10">
+    <div id="tw-notifications"><p class="p-6 text-center text-sm text-gray-500">Loading…</p></div>
+  </div>
+</div>

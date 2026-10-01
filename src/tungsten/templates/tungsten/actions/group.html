@@ -1,0 +1,14 @@
+{% import "tungsten/components/ui.html" as ui %}
+{% call(part) ui.dropdown(width='w-52') %}
+  {% if part == 'trigger' %}
+    {% if button %}
+    <button type="button" class="{{ ui.button_classes(color, 'soft' if soft else 'button', 'md') }}">{{ icon(group_icon, 'h-4 w-4') if not soft }}<span>{{ label }}</span>{{ icon('chevron-down', 'h-4 w-4') }}</button>
+    {% else %}
+    <button type="button" class="{{ ui.button_classes('gray', 'icon') }}" title="{{ label }}" aria-label="{{ label }}">{{ icon(group_icon, 'h-4 w-4') }}</button>
+    {% endif %}
+  {% else %}
+    {% for a in items %}
+      {% include "tungsten/actions/button.html" %}
+    {% endfor %}
+  {% endif %}
+{% endcall %}

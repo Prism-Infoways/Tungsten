@@ -1,0 +1,992 @@
+"""HTTP routes for a panel. All handlers run synchronously in a thread pool
+with their own DB session (see :func:`build_app`)."""
+
+from __future__ import annotations
+
+import re
+import secrets
+from typing import TYPE_CHECKING, Any, Callable
+
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import String, cast, func, or_, select, update
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import QueryParams
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+
+from .actions.action import Action, Halt, flatten_actions
+from .context import Context
+from .forms.form import Form, ValidationError
+from .hosts import Host, RelationHost
+from .notifications import Notification
+from .panel import STATIC_DIR
+from .support.evaluate import call, evaluate
+from .tables.columns import ToggleColumn
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .panel import Panel
+
+
+class NotFound(Exception):
+    pass
+
+
+class Forbidden(Exception):
+    pass
+
+
+SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+
+
+def build_app(panel: "Panel") -> FastAPI:
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, title=panel.brand_name)
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=panel.secret_key,
+        session_cookie=f"tungsten_{panel.id}",
+        same_site="lax",
+        https_only=panel.https_only_cookies,
+    )
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
+    routes = Routes(panel)
+    routes.register(app)
+    for fn in panel._extra_routes:
+        fn(app, panel)
+    return app
+
+
+class Routes:
+    def __init__(self, panel: "Panel") -> None:
+        self.panel = panel
+
+    # ------------------------------------------------------------------ plumbing
+    async def run(self, request: Request, handler: Callable, *, public: bool = False, read_form: bool = False,
+                  **kwargs: Any) -> Response:
+        formdata = None
+        if read_form and request.method == "POST":
+            formdata = await request.form(max_files=50, max_fields=10000)
+        try:
+            return await run_in_threadpool(self._run_sync, request, handler, public, formdata, kwargs)
+        finally:
+            if formdata is not None:
+                await formdata.close()
+
+    def _run_sync(self, request: Request, handler: Callable, public: bool, formdata: Any, kwargs: dict) -> Response:
+        panel = self.panel
+        if panel.session_factory is None:
+            raise RuntimeError("Panel needs session_factory= or engine=")
+        with panel.session_factory() as db:
+            ctx = Context(panel, request, db)
+            if panel.auth.enabled:
+                ctx.user = panel.auth.load_user(ctx)
+                if ctx.user is not None and not panel.auth.allowed(ctx, ctx.user):
+                    panel.auth.logout(ctx)
+                if not public and ctx.user is None:
+                    return ctx.go(panel.url("login", next=request.url.path if request.method == "GET" else None))
+            ctx.tenant = panel.tenancy.resolve(ctx)
+            if request.method == "POST" and not self._csrf_ok(ctx, formdata):
+                return HTMLResponse("Page expired. Please refresh and try again.", status_code=419)
+            try:
+                return handler(ctx, formdata, **kwargs)
+            except NotFound:
+                db.rollback()
+                return self.error(ctx, 404, "Page not found", "We couldn't find what you were looking for.")
+            except (Forbidden, PermissionError):
+                db.rollback()
+                return self.error(ctx, 403, "Not allowed", "You don't have permission to do that.")
+            except Exception:
+                db.rollback()
+                raise
+
+    def _csrf_ok(self, ctx: Context, formdata: Any) -> bool:
+        expected = ctx.session.get("tw_csrf")
+        if not expected:
+            return False
+        given = ctx.request.headers.get("X-CSRF-Token") or (formdata.get("_token") if formdata is not None else None)
+        return bool(given) and secrets.compare_digest(str(given), str(expected))
+
+    def error(self, ctx: Context, status: int, title: str, message: str) -> Response:
+        if ctx.is_htmx:
+            Notification(title).body(message).danger().send(ctx)
+            return ctx.finalize(Response(status_code=204))
+        html = self.panel.render_page(ctx, "tungsten/pages/error.html", status=status, title=title, message=message)
+        return HTMLResponse(str(html), status_code=status)
+
+    # ------------------------------------------------------------------ resolution
+    def resolve_host(self, ctx: Context, key: str | None) -> Host:
+        panel = self.panel
+        if not key:
+            raise NotFound()
+        kind, _, rest = key.partition(":")
+        if kind == "resource":
+            resource = panel.resource(rest)
+            if resource is None:
+                raise NotFound()
+            if not resource.can(ctx, "view_any"):
+                raise Forbidden()
+            return resource.host()
+        if kind == "relation":
+            try:
+                slug, owner_key, name = rest.split(":", 2)
+            except ValueError:
+                raise NotFound() from None
+            resource = panel.resource(slug)
+            if resource is None:
+                raise NotFound()
+            owner = resource.host().find_record(ctx, owner_key)
+            if owner is None:
+                raise NotFound()
+            if not resource.can(ctx, "view", owner):
+                raise Forbidden()
+            manager = next((m for m in resource.get_relations() if m.get_name() == name), None)
+            if manager is None:
+                raise NotFound()
+            return RelationHost(resource, owner, manager)
+        if kind == "widget":
+            widget = panel.widget(rest)
+            if widget is None or not hasattr(widget, "host"):
+                raise NotFound()
+            if not widget.can_view(ctx):
+                raise Forbidden()
+            return widget.host()
+        if kind == "page":
+            page = panel.page("" if rest == "_dashboard" else rest)
+            if page is None:
+                raise NotFound()
+            if not page.can_access(ctx):
+                raise Forbidden()
+            return page.host()
+        if kind == "profile" and panel.auth.enabled:
+            from .auth.profile import ProfileHost
+
+            return ProfileHost(panel)
+        raise NotFound()
+
+    def find_action(self, ctx: Context, host: Host, scope: str, name: str, record: Any = None,
+                    params: Any = None) -> Action:
+        if scope == "page":
+            getter = getattr(host, "all_page_actions", None) or host.page_actions
+            for a in flatten_actions(getter(ctx, record)):
+                if a.name == name:
+                    a.scope = "page"
+                    return a
+            raise NotFound()
+        table = host.get_table(ctx)
+        if table is None:
+            raise NotFound()
+        table.bind(ctx, host, params=params if params is not None else QueryParams(""))
+        action = table.find_action(scope, name)
+        if action is None:
+            raise NotFound()
+        return action
+
+    def host_form(self, ctx: Context, host: Host, operation: str, record: Any) -> Form:
+        form = host.form(ctx, operation, record)
+        if form is None:
+            raise NotFound()
+        if form.ctx is None or form.source.get("kind") != "host":
+            form.bind(ctx, operation=operation, record=record,
+                      source={"kind": "host", "host": host.key, "op": operation,
+                              "record": host.record_key(record) if record is not None else ""})
+        return form
+
+    def check_operation(self, ctx: Context, host: Host, operation: str, record: Any) -> None:
+        ability = {"create": "create", "edit": "update", "view": "view"}.get(operation, "update")
+        if not host.can(ctx, ability, record):
+            raise Forbidden()
+
+    # ------------------------------------------------------------------ routes
+    def register(self, app: FastAPI) -> None:
+        r = self
+        g, p = app.get, app.post
+
+        @g("/storage/{path:path}")
+        async def storage(path: str):
+            storage = r.panel.storage
+            if not hasattr(storage, "path"):
+                return Response(status_code=404)
+            try:
+                full = storage.path(path)
+            except ValueError:
+                return Response(status_code=404)
+            if not full.is_file():
+                return Response(status_code=404)
+            return FileResponse(full, headers={"X-Content-Type-Options": "nosniff",
+                                               "Content-Security-Policy": "sandbox"})
+
+        # auth
+        @g("/login")
+        async def login(request: Request):
+            return await r.run(request, r.login, public=True)
+
+        @p("/login")
+        async def login_post(request: Request):
+            return await r.run(request, r.login, public=True, read_form=True)
+
+        @p("/logout")
+        async def logout(request: Request):
+            return await r.run(request, r.logout, public=True, read_form=True)
+
+        @g("/forgot-password")
+        async def forgot(request: Request):
+            return await r.run(request, r.forgot_password, public=True)
+
+        @p("/forgot-password")
+        async def forgot_post(request: Request):
+            return await r.run(request, r.forgot_password, public=True, read_form=True)
+
+        @g("/reset-password/{token}")
+        async def reset(request: Request, token: str):
+            return await r.run(request, r.reset_password, public=True, token=token)
+
+        @p("/reset-password/{token}")
+        async def reset_post(request: Request, token: str):
+            return await r.run(request, r.reset_password, public=True, read_form=True, token=token)
+
+        @g("/profile")
+        async def profile(request: Request):
+            return await r.run(request, r.profile)
+
+        @p("/profile")
+        async def profile_post(request: Request):
+            return await r.run(request, r.profile, read_form=True)
+
+        # internal endpoints
+        @g("/_tw/table")
+        async def table(request: Request):
+            return await r.run(request, r.table)
+
+        @p("/_tw/toggle")
+        async def toggle(request: Request):
+            return await r.run(request, r.toggle, read_form=True)
+
+        @g("/_tw/action")
+        async def action_get(request: Request):
+            return await r.run(request, r.action)
+
+        @p("/_tw/action")
+        async def action_post(request: Request):
+            return await r.run(request, r.action, read_form=True)
+
+        @p("/_tw/form")
+        async def form_refresh(request: Request):
+            return await r.run(request, r.form_refresh, read_form=True)
+
+        @p("/_tw/form/options")
+        async def form_options(request: Request):
+            return await r.run(request, r.form_options, read_form=True)
+
+        @g("/_tw/search")
+        async def search(request: Request):
+            return await r.run(request, r.search)
+
+        @g("/_tw/notifications")
+        async def notifications(request: Request):
+            return await r.run(request, r.notifications)
+
+        @p("/_tw/notifications")
+        async def notifications_post(request: Request):
+            return await r.run(request, r.notifications, read_form=True)
+
+        @g("/_tw/notifications/badge")
+        async def notifications_badge(request: Request):
+            return await r.run(request, r.notifications_badge)
+
+        @g("/_tw/widget/{widget_id}")
+        async def widget(request: Request, widget_id: str):
+            return await r.run(request, r.widget, widget_id=widget_id)
+
+        @g("/_tw/export")
+        async def export(request: Request):
+            return await r.run(request, r.export)
+
+        @p("/_tw/tenant")
+        async def tenant(request: Request):
+            return await r.run(request, r.switch_tenant, read_form=True)
+
+        # pages & resources
+        @g("/")
+        async def home(request: Request):
+            return await r.run(request, r.home)
+
+        @p("/")
+        async def home_post(request: Request):
+            return await r.run(request, r.home, read_form=True)
+
+        @g("/{slug}")
+        async def index(request: Request, slug: str):
+            return await r.run(request, r.index, slug=slug)
+
+        @p("/{slug}")
+        async def index_post(request: Request, slug: str):
+            return await r.run(request, r.index, read_form=True, slug=slug)
+
+        @g("/{slug}/create")
+        async def create(request: Request, slug: str):
+            return await r.run(request, r.create, slug=slug)
+
+        @p("/{slug}/create")
+        async def create_post(request: Request, slug: str):
+            return await r.run(request, r.create, read_form=True, slug=slug)
+
+        @g("/{slug}/{key}")
+        async def view(request: Request, slug: str, key: str):
+            return await r.run(request, r.record_page, slug=slug, key=key, operation="view")
+
+        @g("/{slug}/{key}/edit")
+        async def edit(request: Request, slug: str, key: str):
+            return await r.run(request, r.record_page, slug=slug, key=key, operation="edit")
+
+        @p("/{slug}/{key}/edit")
+        async def edit_post(request: Request, slug: str, key: str):
+            return await r.run(request, r.record_page, read_form=True, slug=slug, key=key, operation="edit")
+
+    # ------------------------------------------------------------------ auth
+    def _auth_form(self, ctx: Context, fields: list) -> Form:
+        form = Form().schema(fields).columns(1)
+        form.bind(ctx, operation="create", refresh_url="", id="tw-auth-form")
+        return form
+
+    def login(self, ctx: Context, fd: Any) -> Response:
+        from .forms import TextInput
+
+        panel = self.panel
+        if not panel.auth.enabled:
+            return ctx.go(panel.url())
+        if ctx.user is not None:
+            return ctx.go(panel.url())
+        form = self._auth_form(ctx, [
+            TextInput("email").label("Email").email().required().placeholder("you@company.com").autofocus()
+            .autocomplete("username"),
+            TextInput("password").label("Password").password().revealable().required().autocomplete("current-password")
+            .hint(None),
+        ])
+        error = None
+        if fd is not None:
+            form.load(fd)
+            try:
+                data = form.validate()
+                user = panel.auth.attempt(ctx, data["email"], form.get("password") or "")
+                if user is None:
+                    form.add_error("email", "These credentials do not match our records.")
+                else:
+                    panel.auth.login(ctx, user)
+                    nxt = ctx.request.query_params.get("next") or fd.get("next") or ""
+                    if not nxt.startswith(panel.path or "/") or nxt.startswith("//"):
+                        nxt = panel.url()
+                    return RedirectResponse(nxt, status_code=303)
+            except ValidationError:
+                pass
+            except PermissionError as exc:
+                error = str(exc)
+        else:
+            form.fill()
+        return ctx.render("tungsten/auth/login.html", form=form, error=error,
+                          next=ctx.request.query_params.get("next", ""))
+
+    def logout(self, ctx: Context, fd: Any) -> Response:
+        self.panel.auth.logout(ctx)
+        return RedirectResponse(self.panel.url("login"), status_code=303)
+
+    def forgot_password(self, ctx: Context, fd: Any) -> Response:
+        from .forms import TextInput
+
+        panel = self.panel
+        if not panel.auth.enabled or not panel.auth.password_reset:
+            raise NotFound()
+        form = self._auth_form(ctx, [TextInput("email").label("Email").email().required().autofocus()])
+        sent = False
+        if fd is not None:
+            form.load(fd)
+            try:
+                data = form.validate()
+                user = panel.auth.find_by_email(ctx.db, data["email"])
+                if user is not None:
+                    token = panel.auth.create_reset_token(ctx.db, data["email"])
+                    url = f"{ctx.request.url.scheme}://{ctx.request.url.netloc}{panel.url('reset-password', token)}"
+                    call(panel.auth.mailer, to=getattr(user, panel.auth.email_field),
+                         subject=f"Reset your {panel.brand_name} password",
+                         body=f"Hello,\n\nUse this link to set a new password:\n{url}\n\n"
+                              f"The link works for {panel.auth.reset_token_minutes} minutes. "
+                              "If you did not ask for this, you can ignore this email.")
+                sent = True
+            except ValidationError:
+                pass
+        else:
+            form.fill()
+        return ctx.render("tungsten/auth/forgot-password.html", form=form, sent=sent)
+
+    def reset_password(self, ctx: Context, fd: Any, token: str) -> Response:
+        from .forms import TextInput
+
+        panel = self.panel
+        email = panel.auth.email_for_token(ctx.db, token)
+        form = self._auth_form(ctx, [
+            TextInput("password").label("New password").password().revealable().required().min_length(8).autofocus(),
+            TextInput("password_confirmation").label("Confirm password").password().revealable().required()
+            .same("password"),
+        ])
+        if email is None:
+            return ctx.render("tungsten/auth/reset-password.html", form=None, invalid=True)
+        if fd is not None:
+            form.load(fd)
+            try:
+                form.validate()
+                user = panel.auth.find_by_email(ctx.db, email)
+                if user is not None:
+                    setattr(user, panel.auth.password_field, panel.auth.hash(form.get("password")))
+                    ctx.db.commit()
+                panel.auth.consume_token(ctx.db, token)
+                Notification("Password updated").body("You can now sign in with your new password.").success().send(ctx)
+                ctx.flash()
+                return RedirectResponse(panel.url("login"), status_code=303)
+            except ValidationError:
+                pass
+        else:
+            form.fill()
+        return ctx.render("tungsten/auth/reset-password.html", form=form, invalid=False)
+
+    def profile(self, ctx: Context, fd: Any) -> Response:
+        from .auth.profile import ProfileHost
+
+        if not self.panel.auth.enabled or not self.panel.auth.profile:
+            raise NotFound()
+        host = ProfileHost(self.panel)
+        form = host.form(ctx)
+        if fd is None:
+            form.fill(ctx.user)
+            return ctx.render("tungsten/pages/profile.html", form=form, title="My profile")
+        form.load(fd)
+        try:
+            data = form.validate()
+        except ValidationError:
+            return ctx.html(form.render())
+        host.update(ctx, ctx.user, data, form)
+        Notification("Profile saved").success().send(ctx)
+        form.fill(ctx.user)
+        return ctx.html(form.render())
+
+    # ------------------------------------------------------------------ pages
+    def home(self, ctx: Context, fd: Any) -> Response:
+        if self.panel.dashboard is None:
+            first = next((r for r in self.panel.get_resources() if r.can(ctx, "view_any")), None)
+            if first is None:
+                raise NotFound()
+            return ctx.go(first.get_url(ctx))
+        return self.custom_page(ctx, fd, self.panel.dashboard)
+
+    def custom_page(self, ctx: Context, fd: Any, page: Any) -> Response:
+        if not page.can_access(ctx):
+            raise Forbidden()
+        host = page.host()
+        form = host.form(ctx, "edit")
+        if form is not None:
+            form.id = "tw-page-form"
+            if fd is None:
+                form.fill_from(call(page.mount, ctx=ctx, db=ctx.db, user=ctx.user) or {})
+            else:
+                form.load(fd)
+                try:
+                    data = form.validate()
+                except ValidationError:
+                    return ctx.html(form.render())
+                result = host.save(ctx, data)
+                if isinstance(result, Response):
+                    return result
+                Notification("Saved").success().send(ctx)
+                if ctx.redirect_to:
+                    return ctx.go(ctx.redirect_to)
+                return ctx.html(form.render())
+        elif fd is not None:
+            raise NotFound()
+        actions = flatten_actions(host.page_actions(ctx))
+        for a in actions:
+            a.scope = "page"
+        return ctx.render(
+            page.template,
+            page=page,
+            host=host,
+            form=form,
+            title=page.get_title(),
+            subheading=page.get_subheading(ctx),
+            content=page.content(ctx),
+            widgets=page.get_widgets(ctx),
+            header_actions=host.page_actions(ctx),
+        )
+
+    def index(self, ctx: Context, fd: Any, slug: str) -> Response:
+        resource = self.panel.resource(slug)
+        if resource is None:
+            page = self.panel.page(slug)
+            if page is None:
+                raise NotFound()
+            return self.custom_page(ctx, fd, page)
+        if fd is not None:
+            raise NotFound()
+        if not resource.can(ctx, "view_any"):
+            raise Forbidden()
+        host = resource.host()
+        table = host.get_table(ctx).bind(ctx, host)
+        actions = host.page_actions(ctx, None, "list")
+        for a in flatten_actions(actions):
+            a.scope = "page"
+        return ctx.render(
+            "tungsten/resources/list.html",
+            resource=resource,
+            host=host,
+            table=table,
+            header_actions=actions,
+            widgets=[w for w in resource.header_widgets(ctx, "list") if w.can_view(ctx)],
+            title=resource.get_plural_label(),
+            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)), ("List", None)],
+        )
+
+    def create(self, ctx: Context, fd: Any, slug: str) -> Response:
+        resource = self.panel.resource(slug)
+        if resource is None or not resource.has_page("create"):
+            raise NotFound()
+        if not resource.can(ctx, "create"):
+            raise Forbidden()
+        host = resource.host()
+        form = host.form(ctx, "create")
+        form.id = "tw-record-form"
+        if fd is None:
+            form.fill()
+        else:
+            form.load(fd)
+            try:
+                data = form.validate()
+            except ValidationError:
+                return ctx.html(form.render())
+            record = host.create(ctx, data, form)
+            self.panel.log_activity(ctx, "created", record)
+            ctx.db.commit()
+            Notification("Created").body(f"{resource.get_label()} was created.").success().send(ctx)
+            if fd.get("_another"):
+                return ctx.go(resource.get_url(ctx, "create"))
+            target = host.edit_url(ctx, record) if resource.can(ctx, "update", record) else None
+            return ctx.go(target or host.view_url(ctx, record) or resource.get_url(ctx))
+        actions = host.page_actions(ctx, None, "create")
+        for a in flatten_actions(actions):
+            a.scope = "page"
+        return ctx.render(
+            "tungsten/resources/record.html",
+            resource=resource,
+            host=host,
+            form=form,
+            record=None,
+            operation="create",
+            header_actions=actions,
+            relations=[],
+            title=f"Create {resource.get_label().lower()}",
+            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)), ("Create", None)],
+        )
+
+    def record_page(self, ctx: Context, fd: Any, slug: str, key: str, operation: str) -> Response:
+        resource = self.panel.resource(slug)
+        if resource is None:
+            raise NotFound()
+        if operation == "view" and not resource.has_page("view"):
+            if resource.has_page("edit"):
+                return ctx.go(resource.get_url(ctx, "edit", key))
+            raise NotFound()
+        if operation == "edit" and not resource.has_page("edit"):
+            raise NotFound()
+        host = resource.host()
+        record = host.find_record(ctx, key)
+        if record is None:
+            raise NotFound()
+        ability = "update" if operation == "edit" else "view"
+        if not resource.can(ctx, ability, record):
+            raise Forbidden()
+        if operation == "edit" and host.is_trashed(record) and fd is not None:
+            raise Forbidden()
+        form = host.form(ctx, operation, record)
+        form.id = "tw-record-form"
+        if fd is not None:
+            form.load(fd)
+            try:
+                data = form.validate()
+            except ValidationError:
+                return ctx.html(form.render())
+            host.update(ctx, record, data, form)
+            self.panel.log_activity(ctx, "updated", record)
+            ctx.db.commit()
+            Notification("Saved").body("Your changes were saved.").success().send(ctx)
+            ctx.db.refresh(record)
+            form = host.form(ctx, operation, record)
+            form.id = "tw-record-form"
+            form.fill(record)
+            return ctx.html(form.render())
+        form.fill(record)
+        actions = host.page_actions(ctx, record, operation)
+        for a in flatten_actions(actions):
+            a.scope = "page"
+        relations = []
+        for manager in resource.get_relations():
+            if operation == "view" and not manager.show_on_view:
+                continue
+            rhost = RelationHost(resource, record, manager)
+            if not rhost.can(ctx, "view_any"):
+                continue
+            table = rhost.get_table(ctx).bind(ctx, rhost, params=QueryParams(""))
+            relations.append({"manager": manager, "host": rhost, "table": table,
+                              "badge": call(manager.badge, ctx=ctx, owner=record)})
+        title_record = resource.get_record_title(record)
+        return ctx.render(
+            "tungsten/resources/record.html",
+            resource=resource,
+            host=host,
+            form=form,
+            record=record,
+            record_title=title_record,
+            operation=operation,
+            header_actions=actions,
+            relations=relations,
+            trashed=host.is_trashed(record),
+            title=(f"Edit {resource.get_label().lower()}" if operation == "edit" else title_record),
+            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)),
+                         (title_record, None) if operation == "view" else ("Edit", None)],
+        )
+
+    # ------------------------------------------------------------------ tables
+    def table(self, ctx: Context, fd: Any) -> Response:
+        params = ctx.request.query_params
+        host = self.resolve_host(ctx, params.get("host"))
+        table = host.get_table(ctx)
+        if table is None:
+            raise NotFound()
+        table.bind(ctx, host, params=params)
+        response = ctx.html(table.render())
+        push = table.push_url()
+        if push and not params.get("_nopush"):
+            response.headers["HX-Replace-Url"] = push
+        return response
+
+    def toggle(self, ctx: Context, fd: Any) -> Response:
+        host = self.resolve_host(ctx, fd.get("host"))
+        record = host.find_record(ctx, fd.get("record"))
+        if record is None:
+            raise NotFound()
+        if not host.can(ctx, "update", record):
+            raise Forbidden()
+        table = host.get_table(ctx).bind(ctx, host, params=QueryParams(""))
+        column = next((c for c in table._columns if isinstance(c, ToggleColumn) and c.name == fd.get("column")), None)
+        if column is None:
+            raise NotFound()
+        column.update(table, record, not bool(getattr(record, column.name)))
+        ctx.db.commit()
+        Notification("Saved").success().duration(2000).send(ctx)
+        return ctx.finalize(Response(status_code=204))
+
+    # ------------------------------------------------------------------ actions
+    def _action_context(self, ctx: Context, src: Any) -> tuple:
+        host = self.resolve_host(ctx, src.get("_tw_host"))
+        scope = src.get("_tw_scope") or "page"
+        name = src.get("_tw_name") or ""
+        key = src.get("_tw_record") or ""
+        record = host.find_record(ctx, key) if key else None
+        if key and record is None:
+            raise NotFound()
+        action = self.find_action(ctx, host, scope, name, record, params=src)
+        records = None
+        if scope == "bulk":
+            keys = list(dict.fromkeys(src.getlist("records")))
+            records = host.find_records(ctx, keys)
+        if not action.is_available(host, ctx, record):
+            raise Forbidden()
+        return host, action, record, records, scope
+
+    def _action_form(self, ctx: Context, host: Host, action: Action, record: Any, records: Any, scope: str,
+                     form_id: str | None = None) -> Form | None:
+        form = action.build_form(ctx, host, record, records)
+        if form is None:
+            return None
+        operation = getattr(action, "operation", "create")
+        form.bind(ctx, operation=operation, record=record, id=form_id or "tw-action-form",
+                  source={"kind": "action", "host": host.key, "scope": scope, "name": action.name,
+                          "record": host.record_key(record) if record is not None else ""})
+        return form
+
+    def _modal(self, ctx: Context, host: Host, action: Action, record: Any, records: Any, scope: str,
+               form: Form | None) -> Response:
+        ev = action.ev(ctx, record, records, host=host)
+        heading = evaluate(action._modal_heading, **ev)
+        if heading is None:
+            heading = action.get_modal_heading(host) if hasattr(action, "get_modal_heading") else action.get_label(ev)
+            if getattr(action, "operation", None) in ("edit", "view") and record is not None:
+                heading = f"{action.get_label(ev)} {host.record_title(record)}".strip()
+        description = evaluate(action._modal_description, **ev)
+        if description is None and hasattr(action, "get_modal_description"):
+            description = action.get_modal_description(host)
+        confirm_only = form is None
+        if description is None and confirm_only:
+            description = "Are you sure you would like to do this?"
+            if scope == "bulk":
+                description = f"Are you sure you want to do this to {len(records or [])} selected records?"
+        submit = evaluate(action._modal_submit_label, **ev) if action._modal_submit_label is not None else (
+            None if getattr(action, "operation", None) == "view" else ("Confirm" if confirm_only else "Submit"))
+        if hasattr(action, "operation") and action._modal_submit_label is None:
+            submit = {"create": "Create", "edit": "Save changes", "view": None}.get(action.operation, submit)
+        color = evaluate(action._color, **ev) or "primary"
+        m = {
+            "endpoint": ctx.url("_tw", "action"),
+            "heading": heading,
+            "description": description,
+            "icon": evaluate(action._modal_icon, **ev),
+            "icon_color": evaluate(action._modal_icon_color, **ev) or color,
+            "submit_label": submit,
+            "cancel_label": evaluate(action._modal_cancel_label, **ev) or "Cancel",
+            "color": color if color != "gray" else "primary",
+            "width": action._modal_width,
+            "slide_over": action._slide_over,
+            "confirm_only": confirm_only,
+            "content": evaluate(action._modal_content, **ev),
+            "multipart": False,
+        }
+        hidden = {"_tw_host": host.key, "_tw_scope": scope, "_tw_name": action.name,
+                  "_tw_record": host.record_key(record) if record is not None else ""}
+        keys = [host.record_key(r) for r in records or []]
+        html = self.panel.renderer.render("tungsten/actions/modal.html", m=m, form=form, hidden=hidden, records=keys,
+                                          ctx=ctx)
+        return ctx.html(html)
+
+    def action(self, ctx: Context, fd: Any) -> Response:
+        src = fd if fd is not None else ctx.request.query_params
+        host, action, record, records, scope = self._action_context(ctx, src)
+        if scope == "bulk" and not records:
+            Notification("Select some records first").warning().send(ctx)
+            return ctx.finalize(Response(status_code=204))
+        form = self._action_form(ctx, host, action, record, records, scope)
+        if fd is None:  # open the modal
+            if form is not None:
+                action.fill(form, ctx, record, records)
+            return self._modal(ctx, host, action, record, records, scope, form)
+        data: dict = {}
+        if form is not None:
+            form.load(fd)
+            try:
+                data = form.validate()
+            except ValidationError:
+                return self._modal(ctx, host, action, record, records, scope, form)
+        try:
+            result = action.run(ctx, host, record, records, data, form)
+        except Halt:
+            if form is not None:
+                return self._modal(ctx, host, action, record, records, scope, form)
+            return ctx.finalize(Response(status_code=204))
+        except ValidationError as exc:
+            if form is not None:
+                form.errors = exc.errors
+                return self._modal(ctx, host, action, record, records, scope, form)
+            raise
+        if isinstance(result, Response):
+            return result
+        note = action.success_notification(ctx, record, records)
+        if note is not None:
+            note.send(ctx)
+        redirect = ctx.redirect_to or evaluate(action._success_redirect, **action.ev(ctx, record, records, result=result))
+        if redirect:
+            return ctx.go(redirect)
+        if scope == "page":
+            return ctx.refresh()
+        ctx.dispatch("tw-refresh")
+        ctx.dispatch("tw-close-modal")
+        if scope == "bulk" and action._deselect_after:
+            ctx.dispatch("tw-deselect")
+        return ctx.html("")
+
+    # ------------------------------------------------------------------ live forms
+    def _resolve_form(self, ctx: Context, fd: Any) -> Form:
+        kind = fd.get("_tw_kind")
+        host = self.resolve_host(ctx, fd.get("_tw_host"))
+        record_key = fd.get("_tw_record") or ""
+        if kind == "host":
+            operation = fd.get("_tw_op") or "create"
+            record = host.find_record(ctx, record_key) if record_key else (ctx.user if host.key == "profile" else None)
+            if record_key and record is None:
+                raise NotFound()
+            if host.key.startswith(("resource:", "relation:")):
+                self.check_operation(ctx, host, operation, record)
+            form = self.host_form(ctx, host, operation, record)
+        elif kind == "action":
+            scope = fd.get("_tw_scope") or "page"
+            record = host.find_record(ctx, record_key) if record_key else None
+            action = self.find_action(ctx, host, scope, fd.get("_tw_name") or "", record)
+            if not action.is_available(host, ctx, record):
+                raise Forbidden()
+            records = host.find_records(ctx, fd.getlist("records")) if scope == "bulk" else None
+            form = self._action_form(ctx, host, action, record, records, scope)
+            if form is None:
+                raise NotFound()
+        else:
+            raise NotFound()
+        form_id = fd.get("_tw_form_id")
+        if form_id and SAFE_ID.match(form_id):
+            form.id = form_id
+        return form
+
+    def form_refresh(self, ctx: Context, fd: Any) -> Response:
+        form = self._resolve_form(ctx, fd)
+        form.load(fd)
+        for key in list(fd.keys()):
+            if not key.endswith(".__upload"):
+                continue
+            upload = fd.get(key)
+            path = key[: -len(".__upload")]
+            if not getattr(upload, "filename", None):
+                continue
+            found = form.find(path)
+            if found is None or not hasattr(found[0], "accept_upload"):
+                continue
+            field = found[0]
+            if field.is_disabled(form, found[2]):
+                continue
+            error = field.check_upload(upload.filename, upload.content_type or "", upload.size or 0)
+            if error is None:
+                try:
+                    stored = self.panel.storage.save(upload.file, upload.filename, field._directory)
+                    field.accept_upload(form, path, stored)
+                except ValueError as exc:
+                    error = str(exc)
+            if error:
+                form.add_error(path, error)
+        ui_action = fd.get("_tw_ui_action")
+        if ui_action:
+            form.handle_ui_action(ui_action)
+        else:
+            changed = ctx.request.headers.get("HX-Trigger-Name")
+            if changed:
+                form.state_updated(changed)
+        return ctx.html(form.render())
+
+    def form_options(self, ctx: Context, fd: Any) -> Response:
+        form = self._resolve_form(ctx, fd)
+        form.load(fd)
+        found = form.find(fd.get("_tw_field") or "")
+        if found is None or not hasattr(found[0], "search_options"):
+            raise NotFound()
+        options = found[0].search_options(form, fd.get("q") or "")
+        return JSONResponse([{"value": str(k), "text": label} for k, label in options])
+
+    # ------------------------------------------------------------------ global search
+    def search(self, ctx: Context, fd: Any) -> Response:
+        from .tables.table import Table
+
+        q = (ctx.request.query_params.get("q") or "").strip()
+        groups = []
+        pages = []
+        if q:
+            ql = q.lower()
+            for group in self.panel.build_navigation(ctx):
+                for item in group.items + [c for i in group.items for c in i.children]:
+                    if ql in item.label.lower():
+                        pages.append(item)
+            for resource in self.panel.get_resources():
+                if not resource.global_search_attributes or not resource.can(ctx, "view_any"):
+                    continue
+                host = resource.host()
+                helper = Table()
+                helper.model = resource.model
+                conds = []
+                for attr in resource.global_search_attributes:
+                    try:
+                        conds.append(helper._relation_condition(
+                            resource.model, attr, lambda c: cast(c, String).ilike(f"%{q}%")))
+                    except (KeyError, AttributeError):
+                        continue
+                if not conds:
+                    continue
+                query = host.scoped_query(ctx, with_trashed=False).where(or_(*conds)).limit(resource.global_search_limit)
+                records = ctx.db.scalars(query).all()
+                if not records:
+                    continue
+                items = []
+                for rec in records:
+                    url = (host.edit_url(ctx, rec) if resource.can(ctx, "update", rec) else None) or host.view_url(ctx, rec)
+                    items.append({
+                        "title": resource.global_search_title(rec),
+                        "details": resource.global_search_details(rec),
+                        "image": resource.global_search_image(rec),
+                        "url": url or resource.get_url(ctx),
+                    })
+                groups.append({"label": resource.get_plural_label(), "icon": resource.icon, "entries": items})
+        html = self.panel.renderer.render("tungsten/components/search-results.html", q=q, groups=groups,
+                                          pages=pages[:6], ctx=ctx)
+        return ctx.html(html)
+
+    # ------------------------------------------------------------------ notifications
+    def _notification_query(self, ctx: Context):
+        from .models import DatabaseNotification
+
+        uid = self.panel.auth.user_id(ctx.user)
+        return select(DatabaseNotification).where(DatabaseNotification.user_id == uid)
+
+    def notifications(self, ctx: Context, fd: Any) -> Response:
+        import datetime as dt
+
+        from .models import DatabaseNotification
+
+        if ctx.user is None or not self.panel.database_notifications:
+            raise NotFound()
+        uid = self.panel.auth.user_id(ctx.user)
+        if fd is not None:
+            nid = fd.get("id")
+            stmt = update(DatabaseNotification).where(DatabaseNotification.user_id == uid,
+                                                      DatabaseNotification.read_at.is_(None))
+            if fd.get("clear"):
+                for n in ctx.db.scalars(self._notification_query(ctx)):
+                    ctx.db.delete(n)
+            elif nid:
+                ctx.db.execute(stmt.where(DatabaseNotification.id == int(nid)).values(read_at=dt.datetime.now()))
+            else:
+                ctx.db.execute(stmt.values(read_at=dt.datetime.now()))
+            ctx.db.commit()
+            ctx.dispatch("tw-notifications-changed")
+        items = ctx.db.scalars(self._notification_query(ctx).order_by(DatabaseNotification.id.desc()).limit(30)).all()
+        unread = sum(1 for n in items if n.read_at is None)
+        html = self.panel.renderer.render("tungsten/components/notifications.html", items=items, unread=unread, ctx=ctx)
+        return ctx.html(html)
+
+    def notifications_badge(self, ctx: Context, fd: Any) -> Response:
+        from .models import DatabaseNotification
+
+        if ctx.user is None or not self.panel.database_notifications:
+            return ctx.html("")
+        count = ctx.db.scalar(select(func.count()).select_from(
+            self._notification_query(ctx).where(DatabaseNotification.read_at.is_(None)).subquery())) or 0
+        return ctx.html(self.panel.renderer.render("tungsten/components/notification-badge.html", count=count))
+
+    # ------------------------------------------------------------------ widgets / tenants
+    def widget(self, ctx: Context, fd: Any, widget_id: str) -> Response:
+        widget = self.panel.widget(widget_id)
+        if widget is None:
+            raise NotFound()
+        if not widget.can_view(ctx):
+            raise Forbidden()
+        return ctx.html(widget.render(ctx))
+
+    def export(self, ctx: Context, fd: Any) -> Response:
+        from .importexport import export_rows, write_csv, write_xlsx
+
+        params = ctx.request.query_params
+        host = self.resolve_host(ctx, params.get("host"))
+        if host.get_table(ctx) is None:
+            raise NotFound()
+        keys = params.getlist("keys") or None
+        rows = export_rows(ctx, host, params, keys, params.getlist("columns") or None)
+        fmt = params.get("format", "csv")
+        name = re.sub(r"[^a-z0-9-]+", "-", (host.title() or "export").lower()).strip("-") or "export"
+        if fmt == "xlsx":
+            body, media = write_xlsx(rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        else:
+            body, media, fmt = write_csv(rows), "text/csv; charset=utf-8", "csv"
+        return Response(body, media_type=media,
+                        headers={"Content-Disposition": f'attachment; filename="{name}.{fmt}"'})
+
+    def switch_tenant(self, ctx: Context, fd: Any) -> Response:
+        if not self.panel.tenancy.enabled or not self.panel.tenancy.switch(ctx, fd.get("tenant") or ""):
+            raise NotFound()
+        return ctx.go(self.panel.url())
+

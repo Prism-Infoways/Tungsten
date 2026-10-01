@@ -1,0 +1,23 @@
+<div class="grid gap-y-2" data-field="{{ v.path }}">
+  {% if v.show_label and not v.on_label %}<span class="tw-label">{{ v.label }}</span>{% endif %}
+  <label class="inline-flex items-center gap-x-3" x-data="{ on: {{ 'true' if v.state else 'false' }} }">
+    <input type="checkbox" id="{{ v.id }}" name="{{ v.path }}" value="1" class="peer sr-only" x-model="on"
+           {% if v.state %}checked{% endif %} {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>
+    <span class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out
+                 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          :class="on ? '{{ colors.pick({'primary':'bg-primary-600','success':'bg-success-600','danger':'bg-danger-600','warning':'bg-warning-500','info':'bg-info-600','gray':'bg-gray-600'}, v.on_color) }}' : 'bg-gray-200 dark:bg-gray-700'">
+      <span class="pointer-events-none absolute top-0.5 inline-flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+            :class="on ? 'translate-x-5' : 'translate-x-0.5'">
+        {% if v.on_icon %}<span x-show="on" class="text-primary-600">{{ icon(v.on_icon, 'h-3 w-3') }}</span>{% endif %}
+        {% if v.off_icon %}<span x-show="!on" class="text-gray-400">{{ icon(v.off_icon, 'h-3 w-3') }}</span>{% endif %}
+      </span>
+    </span>
+    <span class="text-sm font-medium text-gray-950 dark:text-white">
+      {% if v.on_label %}<span x-text="on ? '{{ v.on_label }}' : '{{ v.off_label }}'">{{ v.on_label if v.state else v.off_label }}</span>
+      {% elif not v.show_label %}{{ v.label }}{% endif %}
+    </span>
+  </label>
+  {% if v.disabled and v.state %}<input type="hidden" name="{{ v.path }}" value="1">{% endif %}
+  {% for error in v.errors %}<p class="text-sm text-danger-600 dark:text-danger-400" data-error>{{ error }}</p>{% endfor %}
+  {% if v.helper_text %}<p class="text-sm text-gray-500 dark:text-gray-400">{{ v.helper_text }}</p>{% endif %}
+</div>

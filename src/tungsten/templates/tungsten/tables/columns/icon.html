@@ -1,0 +1,3 @@
+<div class="flex {{ v.justify }}" {% if v.tooltip %}title="{{ v.tooltip }}"{% endif %}>
+  {% if v.icon %}<span class="{{ colors.pick(colors.TEXT, v.color) }}">{{ icon(v.icon, v.size) }}</span>{% endif %}
+</div>

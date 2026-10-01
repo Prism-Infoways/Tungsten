@@ -1,0 +1,33 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror, ring %}
+{% call wrapper(field, v) %}
+{% set grouped = v.prefix or v.suffix or v.prefix_icon or v.suffix_icon or v.revealable %}
+<div class="flex rounded-lg shadow-sm ring-1 transition duration-75 focus-within:ring-2 focus-within:ring-primary-500 {{ ring(v) }}
+            {{ 'bg-gray-50 dark:bg-transparent' if v.disabled else 'bg-white dark:bg-white/5' }}"
+     {% if v.revealable %}x-data="{ show: false }"{% endif %}>
+  {% if v.prefix_icon or v.prefix %}
+  <div class="flex items-center gap-x-2 border-e border-gray-200 ps-3 pe-2 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
+    {{ icon(v.prefix_icon, 'h-5 w-5 text-gray-400') }}{% if v.prefix %}<span>{{ v.prefix }}</span>{% endif %}
+  </div>
+  {% endif %}
+  <input id="{{ v.id }}" name="{{ v.path }}" value="{{ v.state if v.state is not none else '' }}"
+         {% if v.revealable %}:type="show ? 'text' : 'password'"{% endif %}
+         type="{{ v.type }}" {{ v.input_attrs }}
+         class="block w-full border-0 bg-transparent py-2 px-3 text-sm text-gray-950 outline-none placeholder:text-gray-400 focus:ring-0 disabled:cursor-not-allowed disabled:text-gray-500 dark:text-white dark:placeholder:text-gray-500 dark:disabled:text-gray-400"
+         {% if v.placeholder %}placeholder="{{ v.placeholder }}"{% endif %}
+         {% if v.disabled %}disabled{% endif %} {% if v.autofocus %}autofocus{% endif %}
+         {% if v.datalist %}list="{{ v.id }}-list"{% endif %}
+         {{ v.live }} {{ v.extra }}>
+  {% if v.revealable %}
+  <button type="button" class="px-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" @click="show = !show" tabindex="-1">
+    <span x-show="!show">{{ icon('eye', 'h-4 w-4') }}</span><span x-show="show" x-cloak>{{ icon('eye-off', 'h-4 w-4') }}</span>
+  </button>
+  {% endif %}
+  {% if v.suffix_icon or v.suffix %}
+  <div class="flex items-center gap-x-2 border-s border-gray-200 ps-2 pe-3 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
+    {% if v.suffix %}<span>{{ v.suffix }}</span>{% endif %}{{ icon(v.suffix_icon, 'h-5 w-5 text-gray-400') }}
+  </div>
+  {% endif %}
+</div>
+{% if v.datalist %}<datalist id="{{ v.id }}-list">{% for value, label in v.datalist %}<option value="{{ value }}">{% endfor %}</datalist>{% endif %}
+{{ mirror(v) }}
+{% endcall %}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full antialiased">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"defaultSettleDelay": 0, "historyCacheSize": 0, "refreshOnHistoryMiss": true, "scrollIntoViewOnBoost": false, "includeIndicatorStyles": true}'>
+  <title>{% block title %}{{ title ~ ' · ' if title }}{{ panel.brand_name }}{% endblock %}</title>
+  <link rel="icon" href="{{ panel.favicon or panel.asset('favicon.svg') }}">
+  <script>
+    (function () {
+      var allowed = {{ 'true' if panel.dark_mode else 'false' }};
+      var stored = null;
+      try { stored = localStorage.getItem('tw-theme'); } catch (e) {}
+      var theme = stored || '{{ panel.default_theme }}';
+      var dark = allowed && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+      document.documentElement.classList.toggle('dark', dark);
+    })();
+  </script>
+  {% if panel.font %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ panel.font | replace(' ', '+') }}:wght@400;500;600;700;800&display=swap">
+  <style>:root { --tw-font: '{{ panel.font }}'; }</style>
+  {% endif %}
+  <style>{{ panel.theme_css() }}</style>
+  <link rel="stylesheet" href="{{ panel.asset('tungsten.css') }}">
+  <link rel="stylesheet" href="{{ panel.asset('vendor/trix.css') }}">
+  <link rel="stylesheet" href="{{ panel.asset('vendor/tom-select.css') }}">
+  <script src="{{ panel.asset('vendor/htmx.min.js') }}"></script>
+  <script defer src="{{ panel.asset('vendor/trix.umd.min.js') }}"></script>
+  <script defer src="{{ panel.asset('vendor/tom-select.complete.min.js') }}"></script>
+  <script defer src="{{ panel.asset('vendor/chart.umd.min.js') }}"></script>
+  <script defer src="{{ panel.asset('tungsten.js') }}"></script>
+  <script defer src="{{ panel.asset('vendor/alpine.min.js') }}"></script>
+  {{ panel.hooks('head.end', ctx) }}
+</head>
+<body class="h-full bg-gray-50 font-sans text-gray-950 dark:bg-gray-950 dark:text-white"
+      hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
+      x-data x-init="$store.toasts.init({{ tojson_attr(flash) }})">
+  {{ panel.hooks('body.start', ctx) }}
+  {% block body %}{% endblock %}
+  <div id="tw-modal"></div>
+  {% include "tungsten/components/toasts.html" %}
+  {{ panel.hooks('body.end', ctx) }}
+</body>
+</html>

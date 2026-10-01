@@ -1,0 +1,57 @@
+{% from "tungsten/forms/macros.html" import wrapper, ui_action %}
+{% call wrapper(field, v) %}
+{% set btn = 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.gray %}
+{% if v.table %}
+<div class="overflow-x-auto rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 dark:bg-white/5">
+      <tr>
+        {% for f in v.row_fields %}<th class="px-3 py-2 text-start font-medium text-gray-950 dark:text-white">{{ f.get_label(form) }}</th>{% endfor %}
+        {% if not v.disabled %}<th class="w-px"></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+      {% for row in v.rows %}
+      <tr class="align-top">
+        <input type="hidden" name="{{ row.base }}.__row" value="1">
+        {% if row.key %}<input type="hidden" name="{{ row.base }}.__key" value="{{ row.key }}">{% endif %}
+        {% for f in v.row_fields %}<td class="px-2 py-2 [&_.tw-label]:sr-only">{{ f.render(form, row.base) }}</td>{% endfor %}
+        {% if not v.disabled %}
+        <td class="px-2 py-2"><div class="flex items-center">
+          {% if v.can_delete %}{{ ui_action(form, 'repeater.remove:' ~ v.path ~ ':' ~ row.index, 'Delete', 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}{% endif %}
+        </div></td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<ul class="grid gap-4">
+  {% for row in v.rows %}
+  <li class="tw-card overflow-hidden" x-data="{ open: true }">
+    <input type="hidden" name="{{ row.base }}.__row" value="1">
+    {% if row.key %}<input type="hidden" name="{{ row.base }}.__key" value="{{ row.key }}">{% endif %}
+    <div class="flex items-center gap-x-2 border-b border-gray-100 bg-gray-50/60 px-4 py-2 dark:border-white/5 dark:bg-white/5">
+      <span class="flex-1 truncate text-sm font-medium text-gray-950 dark:text-white">{{ row.label or ('#' ~ (row.index + 1)) }}</span>
+      {% if not v.disabled %}
+        {% if v.reorderable %}
+          {% if not loop.first %}{{ ui_action(form, 'repeater.up:' ~ v.path ~ ':' ~ row.index, 'Move up', btn, 'arrow-up') }}{% endif %}
+          {% if not loop.last %}{{ ui_action(form, 'repeater.down:' ~ v.path ~ ':' ~ row.index, 'Move down', btn, 'arrow-down') }}{% endif %}
+        {% endif %}
+        {% if v.can_add %}{{ ui_action(form, 'repeater.clone:' ~ v.path ~ ':' ~ row.index, 'Clone', btn, 'copy') }}{% endif %}
+        {% if v.can_delete %}{{ ui_action(form, 'repeater.remove:' ~ v.path ~ ':' ~ row.index, 'Delete', 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}{% endif %}
+      {% endif %}
+      {% if v.collapsible %}
+      <button type="button" class="{{ btn }}" @click="open = !open"><span :class="open ? '' : '-rotate-90'" class="transition">{{ icon('chevron-down', 'h-4 w-4') }}</span></button>
+      {% endif %}
+    </div>
+    <div class="p-4" x-show="open">{{ form.render_schema(v.schema, row.base, v.columns) }}</div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if not v.disabled and v.can_add %}
+<div>{{ ui_action(form, 'repeater.add:' ~ v.path, v.add_label, 'tw-btn tw-btn-sm ' ~ colors.BUTTON.gray) }}</div>
+{% endif %}
+{% endcall %}

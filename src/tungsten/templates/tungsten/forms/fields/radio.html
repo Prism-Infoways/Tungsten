@@ -1,0 +1,16 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% call wrapper(field, v) %}
+<div class="{{ 'flex flex-wrap gap-x-6 gap-y-3' if v.inline else 'grid gap-y-3' }}">
+  {% for o in v.options %}
+  <label class="flex items-start gap-x-3">
+    <input type="radio" name="{{ v.path }}" value="{{ o.value }}" class="tw-radio mt-1"
+           {% if o.selected %}checked{% endif %} {% if v.disabled or o.disabled %}disabled{% endif %} {{ v.live }}>
+    <span class="grid text-sm">
+      <span class="font-medium text-gray-950 dark:text-white">{{ o.label }}</span>
+      {% if o.description %}<span class="text-gray-500 dark:text-gray-400">{{ o.description }}</span>{% endif %}
+    </span>
+  </label>
+  {% endfor %}
+</div>
+{{ mirror(v) }}
+{% endcall %}

@@ -1,0 +1,10 @@
+<div class="grid gap-y-2" data-field="{{ v.path }}">
+  <label class="flex items-center gap-x-3">
+    <input type="checkbox" id="{{ v.id }}" name="{{ v.path }}" value="1" class="tw-checkbox"
+           {% if v.state %}checked{% endif %} {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>
+    <span class="tw-label">{{ v.label }}{% if v.required and not v.disabled %}<sup class="text-danger-600">*</sup>{% endif %}</span>
+  </label>
+  {% if v.disabled and v.state %}<input type="hidden" name="{{ v.path }}" value="1">{% endif %}
+  {% for error in v.errors %}<p class="text-sm text-danger-600 dark:text-danger-400" data-error>{{ error }}</p>{% endfor %}
+  {% if v.helper_text %}<p class="text-sm text-gray-500 dark:text-gray-400">{{ v.helper_text }}</p>{% endif %}
+</div>

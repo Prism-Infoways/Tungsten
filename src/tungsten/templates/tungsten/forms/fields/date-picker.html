@@ -1,0 +1,8 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% call wrapper(field, v) %}
+<input id="{{ v.id }}" name="{{ v.path }}" type="{{ v.input_type }}" value="{{ v.state or '' }}"
+       class="tw-input {{ 'tw-input-error' if v.errors }} dark:[color-scheme:dark]"
+       {% if v.min %}min="{{ v.min }}"{% endif %} {% if v.max %}max="{{ v.max }}"{% endif %} {% if v.step %}step="{{ v.step }}"{% endif %}
+       {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>
+{{ mirror(v) }}
+{% endcall %}

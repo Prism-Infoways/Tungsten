@@ -1,0 +1,26 @@
+{% extends "tungsten/layout/base.html" %}
+{% block body %}
+<div class="flex min-h-full">
+  <div class="relative hidden w-0 flex-1 overflow-hidden bg-sidebar-950 lg:block">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgb(var(--tw-c-primary-600)/0.55),transparent_60%)]"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgb(var(--tw-c-primary-400)/0.18),transparent_55%)]"></div>
+    <svg class="absolute bottom-0 left-0 w-full text-black/40" viewBox="0 0 800 300" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 300 L0 210 L120 120 L190 170 L300 60 L380 150 L460 90 L560 190 L650 110 L800 200 L800 300 Z" fill="currentColor"/>
+      <path d="M0 300 L0 250 L150 180 L260 230 L370 140 L480 220 L600 160 L720 230 L800 210 L800 300 Z" fill="black" opacity=".35"/>
+    </svg>
+    <div class="relative flex h-full flex-col justify-between p-12">
+      <a href="{{ panel.url() }}" class="flex items-center gap-3">{% include "tungsten/components/brand.html" %}</a>
+      <div class="max-w-md pb-24">
+        <h2 class="text-3xl font-bold leading-tight text-white">{{ panel.login_hero.heading }}</h2>
+        <p class="mt-4 text-lg text-sidebar-300">{{ panel.login_hero.text }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="flex flex-1 flex-col justify-center bg-white px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 dark:bg-gray-900">
+    <div class="mx-auto w-full max-w-sm lg:w-96">
+      <div class="mb-8 flex items-center gap-3 lg:hidden [&_span]:!text-gray-950 dark:[&_span]:!text-white">{% include "tungsten/components/brand.html" %}</div>
+      {% block auth %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}

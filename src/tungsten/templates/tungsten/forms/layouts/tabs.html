@@ -1,0 +1,19 @@
+<div class="{{ 'tw-card' if v.contained }}" x-data="{ tab: '{{ v.active }}' }">
+  <input type="hidden" name="_tw_ui.{{ v.key }}" :value="tab" value="{{ v.active }}">
+  <nav class="flex gap-x-1 overflow-x-auto {{ 'border-b border-gray-200 px-3 dark:border-white/10' if v.contained else 'border-b border-gray-200 dark:border-white/10' }}" role="tablist">
+    {% for t in v.tabs %}
+    <button type="button" role="tab" @click="tab = '{{ t.index }}'"
+            class="-mb-px flex shrink-0 items-center gap-x-2 border-b-2 px-4 py-3 text-sm font-medium transition"
+            :class="tab === '{{ t.index }}' ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'">
+      {{ icon(t.icon, 'h-4 w-4') }}{{ t.label }}
+      {% if t.errors %}<span class="rounded-full bg-danger-50 px-1.5 text-xs text-danger-600 dark:bg-danger-500/10 dark:text-danger-400">{{ t.errors }}</span>
+      {% elif t.badge %}<span class="rounded-full bg-gray-100 px-1.5 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-300">{{ t.badge }}</span>{% endif %}
+    </button>
+    {% endfor %}
+  </nav>
+  {% for t in v.tabs %}
+  <div class="{{ 'p-6' if v.contained else 'pt-6' }}" x-show="tab === '{{ t.index }}'" {% if v.active != t.index|string %}x-cloak{% endif %} role="tabpanel">
+    {{ form.render_schema(t.tab.child_components(), v.base, t.tab._columns) }}
+  </div>
+  {% endfor %}
+</div>

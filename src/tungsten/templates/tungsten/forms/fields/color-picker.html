@@ -1,0 +1,12 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror, ring %}
+{% call wrapper(field, v) %}
+<div class="flex items-center gap-x-2 rounded-lg bg-white px-2 py-1 shadow-sm ring-1 focus-within:ring-2 focus-within:ring-primary-500 dark:bg-white/5 {{ ring(v) }}"
+     x-data="{ color: '{{ v.state or '' }}' }">
+  <input type="color" class="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0" :value="color || '#000000'"
+         @input="color = $event.target.value" {% if v.disabled %}disabled{% endif %}>
+  <input id="{{ v.id }}" name="{{ v.path }}" type="text" x-model="color" placeholder="#000000"
+         class="block w-full border-0 bg-transparent px-1 py-1 text-sm text-gray-950 focus:ring-0 dark:text-white"
+         {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>
+</div>
+{{ mirror(v) }}
+{% endcall %}

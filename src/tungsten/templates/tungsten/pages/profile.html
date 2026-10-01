@@ -1,0 +1,13 @@
+{% extends "tungsten/layout/app.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block content %}
+{% set subheading = 'Manage your account details and password.' %}
+{% set breadcrumbs = [('Profile', None)] %}
+{% include "tungsten/components/page-header.html" %}
+<form hx-post="{{ panel.url('profile') }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" class="grid gap-6">
+  {{ form.render() }}
+  <div class="flex justify-end">
+    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>Save changes</span></button>
+  </div>
+</form>
+{% endblock %}

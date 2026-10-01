@@ -1,0 +1,15 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% call wrapper(field, v) %}
+{% if v.disabled %}
+<div class="tw-prose rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-gray-950/10 dark:bg-transparent dark:ring-white/10">{{ v.safe_html or '—' }}</div>
+{{ mirror(v) }}
+{% else %}
+<div class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 focus-within:ring-2 focus-within:ring-primary-500 dark:bg-white/5 {{ 'ring-danger-600' if v.errors else 'ring-gray-950/10 dark:ring-white/20' }}">
+  <input type="hidden" id="{{ v.id }}" name="{{ v.path }}" value="{{ v.safe_html }}">
+  <trix-toolbar id="{{ v.id }}-toolbar" class="border-b border-gray-200 px-2 pt-2 dark:border-white/10"></trix-toolbar>
+  <trix-editor input="{{ v.id }}" toolbar="{{ v.id }}-toolbar" class="tw-trix tw-prose"
+               {% if v.placeholder %}placeholder="{{ v.placeholder }}"{% endif %}
+               {% if field._live %}data-tw-live="{{ v.id }}"{% endif %}></trix-editor>
+</div>
+{% endif %}
+{% endcall %}

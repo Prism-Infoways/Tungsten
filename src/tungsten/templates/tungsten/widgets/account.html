@@ -1,0 +1,9 @@
+{% import "tungsten/components/ui.html" as ui %}
+<div class="tw-card flex items-center gap-4 p-5">
+  {{ ui.avatar(panel.auth.display_name(ctx.user), panel.auth.avatar_url(ctx.user), 'h-12 w-12', 'text-base') }}
+  <div class="flex-1">
+    <p class="text-base font-semibold text-gray-950 dark:text-white">Welcome</p>
+    <p class="text-sm text-gray-500 dark:text-gray-400">{{ panel.auth.display_name(ctx.user) }}</p>
+  </div>
+  <a href="{{ panel.url('profile') }}" class="{{ ui.button_classes('gray', size='sm') }}">{{ icon('user', 'h-4 w-4') }}<span>Profile</span></a>
+</div>

@@ -1,0 +1,54 @@
+{% extends "tungsten/layout/app.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block content %}
+{% set subheading = resource.description if operation == 'create' else ({'edit': 'Update the details below and save your changes.', 'view': None}[operation]) %}
+{% set editable = operation in ('create', 'edit') and not trashed %}
+{% set extra_actions %}
+  {% if editable and not form.has_wizard %}
+  <a href="{{ resource.get_url(ctx) }}" class="{{ ui.button_classes('gray') }}">Cancel</a>
+  <button type="submit" form="tw-record-form-el" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ 'Create' if operation == 'create' else 'Save changes' }}</span></button>
+  {% endif %}
+{% endset %}
+{% include "tungsten/components/page-header.html" %}
+
+{% if trashed %}
+<div class="mb-6 flex items-center gap-3 rounded-xl bg-warning-50 px-4 py-3 text-sm text-warning-800 ring-1 ring-warning-600/20 dark:bg-warning-500/10 dark:text-warning-300">
+  {{ icon('triangle-alert', 'h-5 w-5') }}<span>This record has been deleted. Restore it to make changes.</span>
+</div>
+{% endif %}
+
+<form id="tw-record-form-el" {% if editable %}hx-post="{{ ctx.request.url.path }}" hx-target="#{{ form.id }}" hx-swap="outerHTML"{% else %}onsubmit="return false"{% endif %} class="grid gap-6">
+  {{ form.render() }}
+  {% if editable and not form.has_wizard %}
+  <div class="flex flex-wrap items-center gap-3">
+    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ 'Create' if operation == 'create' else 'Save changes' }}</span></button>
+    {% if operation == 'create' %}
+    <button type="submit" name="_another" value="1" class="{{ ui.button_classes('gray') }}">Create &amp; create another</button>
+    {% endif %}
+    <a href="{{ resource.get_url(ctx) }}" class="{{ ui.button_classes('gray', 'link') }} px-2">Cancel</a>
+  </div>
+  {% endif %}
+</form>
+
+{% if relations %}
+<div class="mt-8" x-data="{ rel: 0 }">
+  {% if relations | length > 1 %}
+  <nav class="mb-4 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-white/10">
+    {% for r in relations %}
+    <button type="button" @click="rel = {{ loop.index0 }}" class="-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition"
+            :class="rel === {{ loop.index0 }} ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'">
+      {{ icon(r.manager.icon, 'h-4 w-4') }}{{ r.manager.get_title() }}
+      {% if r.badge is not none %}<span class="rounded-full bg-gray-100 px-2 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-300">{{ r.badge }}</span>{% endif %}
+    </button>
+    {% endfor %}
+  </nav>
+  {% endif %}
+  {% for r in relations %}
+  <section x-show="rel === {{ loop.index0 }}" {% if not loop.first %}x-cloak{% endif %}>
+    {% if relations | length == 1 %}<h2 class="mb-3 flex items-center gap-2 text-lg font-semibold">{{ icon(r.manager.icon, 'h-5 w-5 text-gray-400') }}{{ r.manager.get_title() }}</h2>{% endif %}
+    {{ r.table.render() }}
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,26 @@
+{% if v.aside %}
+<section class="grid gap-x-6 gap-y-4 md:grid-cols-3">
+  <div>
+    <h3 class="flex items-center gap-x-2 text-base font-semibold text-gray-950 dark:text-white">{{ icon(v.icon, 'h-5 w-5 text-gray-400') }}{{ v.heading }}</h3>
+    {% if v.description %}<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ v.description }}</p>{% endif %}
+  </div>
+  <div class="tw-card p-6 md:col-span-2">{{ form.render_schema(layout.child_components(), v.base, layout._columns) }}</div>
+</section>
+{% else %}
+<section class="tw-card" x-data="{ open: {{ 'false' if v.collapsed else 'true' }} }">
+  {% if v.heading %}
+  <header class="flex items-center gap-x-3 px-6 {{ 'py-3' if v.compact else 'py-4' }} {{ 'cursor-pointer' if v.collapsible }}"
+          {% if v.collapsible %}@click="open = !open"{% endif %}>
+    {% if v.icon %}<span class="text-gray-400">{{ icon(v.icon, 'h-5 w-5') }}</span>{% endif %}
+    <div class="flex-1">
+      <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ v.heading }}</h3>
+      {% if v.description %}<p class="text-sm text-gray-500 dark:text-gray-400">{{ v.description }}</p>{% endif %}
+    </div>
+    {% if v.collapsible %}<span class="text-gray-400 transition" :class="open ? 'rotate-180' : ''">{{ icon('chevron-down', 'h-5 w-5') }}</span>{% endif %}
+  </header>
+  {% endif %}
+  <div class="{{ 'border-t border-gray-100 dark:border-white/10' if v.heading }} {{ 'p-4' if v.compact else 'p-6' }}" x-show="open" {% if v.collapsed %}x-cloak{% endif %}>
+    {{ form.render_schema(layout.child_components(), v.base, layout._columns) }}
+  </div>
+</section>
+{% endif %}

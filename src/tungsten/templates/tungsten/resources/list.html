@@ -1,0 +1,8 @@
+{% extends "tungsten/layout/app.html" %}
+{% block content %}
+{% set subheading = resource.description %}
+{% include "tungsten/components/page-header.html" %}
+{% with columns = 4 %}{% include "tungsten/components/widgets.html" %}{% endwith %}
+{{ panel.hooks('resource.list.before-table', ctx) }}
+{{ table.render() }}
+{% endblock %}

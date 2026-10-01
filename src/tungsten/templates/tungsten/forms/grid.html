@@ -1,0 +1,6 @@
+<div class="grid gap-6 {{ grid_class(columns) }}">
+  {% for component in components %}
+  {% set html = component.render(form, base) %}
+  {% if html %}<div class="{{ component.span_class() }}">{{ html }}</div>{% endif %}
+  {% endfor %}
+</div>

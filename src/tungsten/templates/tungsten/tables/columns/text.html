@@ -1,0 +1,33 @@
+{% import "tungsten/components/ui.html" as ui %}
+{% if v.avatar %}<div class="flex items-center gap-3 {{ v.justify }}">
+  {% if v.avatar.url %}<img src="{{ v.avatar.url }}" alt="" class="h-10 w-10 shrink-0 {{ 'rounded-full' if v.avatar_circular else 'rounded-lg' }} bg-gray-100 object-cover ring-1 ring-gray-950/5 dark:bg-white/5">
+  {% else %}{{ ui.avatar(v.avatar.name, None, 'h-10 w-10') }}{% endif %}
+{% endif %}
+<div class="flex {{ 'flex-col' if v.as_list or v.description_position == 'below' else 'items-center gap-2' }} {{ v.justify }} {{ v.classes }}" {% if v.tooltip %}title="{{ v.tooltip }}"{% endif %}>
+  {% if v.description and v.description_position == 'above' %}<span class="text-xs text-gray-500 dark:text-gray-400">{{ v.description }}</span>{% endif %}
+  {% if not v.entries %}
+    <span class="text-sm text-gray-400 dark:text-gray-500">{{ v.placeholder if v.placeholder is not none else '' }}</span>
+  {% elif v.badge %}
+    <div class="flex flex-wrap gap-1.5 {{ v.justify }}">
+      {% for it in v.entries %}{{ ui.badge(it.text, it.color or 'gray', it.icon) }}{% endfor %}
+      {% if v.more %}<span class="text-xs text-gray-500">+{{ v.more }} more</span>{% endif %}
+    </div>
+  {% else %}
+    {% set tag = 'ul' if v.as_list else 'div' %}
+    <{{ tag }} class="{{ 'list-disc ps-4' if v.as_list else 'flex flex-wrap items-center gap-x-1' }} {{ v.size }} {{ v.weight }} {{ 'font-mono' if v.mono }}">
+      {% for it in v.entries %}
+      {% set inner %}{% if it.icon and v.icon_position == 'before' %}{{ icon(it.icon, 'h-4 w-4 shrink-0') }}{% endif %}{% if it.prefix %}{{ it.prefix }}{% endif %}{{ it.text }}{% if it.suffix %}{{ it.suffix }}{% endif %}{% if it.icon and v.icon_position == 'after' %}{{ icon(it.icon, 'h-4 w-4 shrink-0') }}{% endif %}{% endset %}
+      <{{ 'li' if v.as_list else 'span' }} class="{{ 'inline-flex items-center gap-1.5' if not v.as_list }} {{ colors.pick(colors.TEXT, it.color) if it.color else 'text-gray-950 dark:text-white' }}"
+          {% if it.full %}title="{{ it.full }}"{% endif %}>
+        {% if v.url %}<a href="{{ v.url }}" {% if v.new_tab %}target="_blank" rel="noopener"{% endif %} class="hover:underline">{{ inner }}</a>{% else %}{{ inner }}{% endif %}
+        {% if v.copyable %}<button type="button" class="text-gray-400 hover:text-gray-600" title="Copy" data-tw-local
+                onclick="event.preventDefault(); navigator.clipboard.writeText({{ (it.full or it.text) | string | tojson | forceescape }}); window.twToast && twToast({title: 'Copied', status: 'success'})">{{ icon('copy', 'h-3.5 w-3.5') }}</button>{% endif %}
+        {%- if not v.as_list and not loop.last %},{% endif -%}
+      </{{ 'li' if v.as_list else 'span' }}>
+      {% endfor %}
+      {% if v.more %}<span class="text-xs text-gray-500">+{{ v.more }} more</span>{% endif %}
+    </{{ tag }}>
+  {% endif %}
+  {% if v.description and v.description_position == 'below' %}<span class="text-sm text-gray-500 dark:text-gray-400">{{ v.description }}</span>{% endif %}
+</div>
+{% if v.avatar %}</div>{% endif %}

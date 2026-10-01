@@ -1,0 +1,17 @@
+{% extends "tungsten/layout/app.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block content %}
+{% include "tungsten/components/page-header.html" %}
+{% with columns = page.widget_columns %}{% include "tungsten/components/widgets.html" %}{% endwith %}
+{% if content %}<div class="mb-6">{{ content }}</div>{% endif %}
+{% if form %}
+<form hx-post="{{ page.get_url(ctx) }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" class="grid gap-6">
+  {{ form.render() }}
+  {% if not form.has_wizard %}
+  <div class="flex justify-end gap-3">
+    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ page.save_label }}</span></button>
+  </div>
+  {% endif %}
+</form>
+{% endif %}
+{% endblock %}

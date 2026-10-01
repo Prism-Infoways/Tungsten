@@ -1,0 +1,45 @@
+{% macro wrapper(field, v) %}
+<div class="grid gap-y-2" data-field="{{ v.path }}">
+  {% if v.show_label %}
+  <div class="flex items-center justify-between gap-x-3">
+    <label for="{{ v.id }}" class="tw-label">
+      {{- v.label -}}
+      {% if v.required and not v.disabled %}<sup class="font-medium text-danger-600 dark:text-danger-400">*</sup>{% endif %}
+    </label>
+    {% if v.hint %}
+    <span class="flex items-center gap-x-1 text-sm text-gray-500 dark:text-gray-400">{{ v.hint }}{{ icon(v.hint_icon, 'h-4 w-4') }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
+  {{ caller() }}
+  {% for error in v.errors %}
+  <p class="text-sm text-danger-600 dark:text-danger-400" data-error>{{ error }}</p>
+  {% endfor %}
+  {% if v.helper_text %}
+  <p class="text-sm text-gray-500 dark:text-gray-400">{{ v.helper_text }}</p>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{# Disabled inputs are not submitted, so mirror their state to survive live re-renders. #}
+{% macro mirror(v) %}
+{% if v.disabled %}
+  {% if v.state is iterable and v.state is not string %}
+    {% for item in v.state %}<input type="hidden" name="{{ v.path }}" value="{{ item }}">{% endfor %}
+  {% elif v.state is sameas true %}<input type="hidden" name="{{ v.path }}" value="1">
+  {% elif v.state is not sameas false and v.state is not none %}<input type="hidden" name="{{ v.path }}" value="{{ v.state }}">
+  {% endif %}
+{% endif %}
+{% endmacro %}
+
+{% macro ring(v) -%}
+{{ 'ring-danger-600 dark:ring-danger-500' if v.errors else 'ring-gray-950/10 dark:ring-white/20' }}
+{%- endmacro %}
+
+{% macro ui_action(form, action, label, cls='', icon_name=None, title=None) %}
+<button type="button" class="{{ cls }}" title="{{ title or label }}"
+        hx-post="{{ form.refresh_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML"
+        hx-include="closest form" hx-vals='{"_tw_ui_action": "{{ action }}"}'>
+  {% if icon_name %}{{ icon(icon_name, 'h-4 w-4') }}{% endif %}{% if label and not icon_name %}{{ label }}{% endif %}
+</button>
+{% endmacro %}

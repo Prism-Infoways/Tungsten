@@ -1,0 +1,11 @@
+{% extends "tungsten/layout/app.html" %}
+{% block content %}
+{% set title = page.greeting(ctx) %}
+{% include "tungsten/components/page-header.html" %}
+{% with columns = page.widget_columns %}{% include "tungsten/components/widgets.html" %}{% endwith %}
+{% if content %}{{ content }}{% endif %}
+{% if not widgets and not content %}
+{% import "tungsten/components/ui.html" as ui %}
+<div class="tw-card">{{ ui.empty_state('Your dashboard is empty', 'Add widgets with panel.widgets([...]) to see stats and charts here.', 'layout-dashboard') }}</div>
+{% endif %}
+{% endblock %}

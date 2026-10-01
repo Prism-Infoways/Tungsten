@@ -1,0 +1,30 @@
+{% from "tungsten/forms/macros.html" import wrapper, ring %}
+{% call wrapper(field, v) %}
+<div x-data="{
+        tags: {{ tojson_attr(v.state or []) }},
+        draft: '',
+        add() { const t = this.draft.trim().replace(/,$/, ''); if (t && !this.tags.includes(t)) { this.tags.push(t); this.$nextTick(() => this.changed()); } this.draft = ''; },
+        remove(i) { this.tags.splice(i, 1); this.$nextTick(() => this.changed()); },
+        changed() { this.$refs.sentinel.dispatchEvent(new Event('change', { bubbles: true })); }
+     }"
+     class="rounded-lg bg-white px-2 py-1.5 shadow-sm ring-1 focus-within:ring-2 focus-within:ring-primary-500 dark:bg-white/5 {{ ring(v) }}">
+  <div class="flex flex-wrap items-center gap-1.5">
+    <template x-for="(tag, i) in tags" :key="tag">
+      <span class="inline-flex items-center gap-x-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset {{ colors.pick(colors.BADGE, v.color) }}">
+        <span x-text="tag"></span>
+        <input type="hidden" name="{{ v.path }}" :value="tag">
+        {% if not v.disabled %}<button type="button" @click="remove(i)" class="opacity-60 hover:opacity-100">{{ icon('x', 'h-3 w-3') }}</button>{% endif %}
+      </span>
+    </template>
+    {% if not v.disabled %}
+    <input id="{{ v.id }}" type="text" x-model="draft" list="{{ v.id }}-suggestions"
+           @keydown.enter.prevent="add()" @keydown.comma.prevent="add()" @blur="add()"
+           @keydown.backspace="if (!draft && tags.length) remove(tags.length - 1)"
+           placeholder="{{ v.placeholder or 'New tag' }}"
+           class="min-w-[8rem] flex-1 border-0 bg-transparent px-1 py-0.5 text-sm text-gray-950 placeholder:text-gray-400 focus:ring-0 dark:text-white">
+    {% endif %}
+  </div>
+  <input type="hidden" x-ref="sentinel" {{ v.live }}>
+  {% if v.suggestions %}<datalist id="{{ v.id }}-suggestions">{% for s in v.suggestions %}<option value="{{ s }}">{% endfor %}</datalist>{% endif %}
+</div>
+{% endcall %}
