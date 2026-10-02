@@ -66,6 +66,7 @@ Pass attribute names, or `Group` objects for more control. Dotted names group by
 | `Group(attribute, label=None)` | One way to group. |
 | `Group.label(text)` | Name in the dropdown ("Group by customer"). |
 | `Group.title(fn)` | The heading text. `fn` gets a `record`; a new heading starts whenever the text changes. |
+| `Group.collapsible()` | Users can click a group heading to hide or show its rows. |
 
 ```python
 table.groups(
@@ -78,7 +79,7 @@ Rows are sorted by the group attribute first, then by the user's sort. Users can
 
 ## Totals and summaries
 
-`summarize()` adds a footer row with totals. The numbers are computed in the database over **all** rows that match the current search, filters and tab, not only the current page.
+`summarize()` adds a footer row with totals. The numbers are computed over **all** rows that match the current search, filters and tab, not only the current page.
 
 ```python
 from tungsten.tables import Average, Count, Max, Min, Sum
@@ -105,8 +106,14 @@ Each summarizer takes an optional label as its first argument, and has:
 | `numeric(decimals=0)` | Show the value with thousands separators. |
 | `format_state_using(fn)` | Your own format. `fn` gets `state` (the value). |
 
+Summaries of real columns are computed in the database. For a column that computes its value with `state()`, the summary is worked out in Python from the values in the cells, which loads every matching row. That is fine for small tables; for big ones, prefer a real column.
+
+```python
+TextColumn("products_count").state(lambda record: len(record.products)).summarize(Sum())
+```
+
 > [!NOTE]
-> Summaries work on real columns of the table's model. They are skipped for dotted names (`customer.name`), and they can't be used on columns that compute their value with `state()`.
+> Summaries are skipped for dotted names (`customer.name`) unless the column has `state()`.
 
 ## Show and hide columns
 
@@ -132,8 +139,7 @@ The argument is the column that stores the position (default `"sort"`). Your mod
 
 While reordering, the table shows all rows on one page, sorted by that column, without grouping or row selection. Click **Done reordering** to go back. Only users who may update records see the button.
 
-> [!TIP]
-> Positions are numbered from 1 for the rows on screen. Clear filters and search before reordering, so every row gets a position.
+You can reorder with a search, filter or tab active. The rows you move swap places among themselves, and rows that are not on screen keep their place. After each drop, every record gets a fresh position from 1 up, so no two rows share a number.
 
 ## Inline editing
 

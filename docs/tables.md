@@ -76,11 +76,22 @@ TextColumn("full_name").searchable(
 )
 ```
 
+### A search box for one column
+
+`is_individual=True` gives a column its own search box, under its heading. It narrows the rows by that column only. Add `is_global=False` to leave the column out of the main search box.
+
+```python
+TextColumn("sku").searchable(is_individual=True, is_global=False)
+TextColumn("email").searchable(is_individual=True)    # in both boxes
+```
+
+The text is kept in the URL (`?col_search.sku=PRE-001`) and shows as an active filter chip.
+
 ### Search options on the table
 
 | Method | What it does |
 | --- | --- |
-| `searchable(False)` | Hide the search box even when columns are searchable. `searchable(True)` forces it on. |
+| `searchable(False)` | Hide the main search box even when columns are searchable. `searchable(True)` forces it on. |
 | `search_placeholder(text)` | Text in the empty search box (default "Search products..."). |
 
 ## Sorting

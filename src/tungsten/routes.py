@@ -977,11 +977,7 @@ class Routes:
         column = table._reorder_column
         if not column:
             raise NotFound()
-        keys = list(dict.fromkeys(fd.getlist("keys")))
-        by_key = {host.record_key(r): r for r in host.find_records(ctx, keys)}
-        for position, key in enumerate(keys, start=1):
-            if key in by_key:
-                setattr(by_key[key], column, position)
+        table.reorder(fd.getlist("keys"))
         ctx.db.commit()
         Notification("Order saved").success().duration(2000).send(ctx)
         return ctx.finalize(Response(status_code=204))

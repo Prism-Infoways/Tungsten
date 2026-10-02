@@ -61,7 +61,8 @@ class Column(Component):
         self._searchable: Any = False
         self._search_query: Callable | None = None
         self._search_columns: list[str] | None = None
-        self._global_searchable = False
+        self._global_searchable = True
+        self._individual_searchable = False
         self._toggleable = False
         self._hidden_by_default = False
         self._alignment = "start"
@@ -91,12 +92,18 @@ class Column(Component):
         return self
 
     def searchable(self, condition: bool = True, query: Callable | None = None,
-                   columns: list[str] | None = None, is_global: bool = True) -> "Column":
-        """Include in the table search. ``columns`` searches other attributes instead."""
+                   columns: list[str] | None = None, is_global: bool = True,
+                   is_individual: bool = False) -> "Column":
+        """Include in the table search. ``columns`` searches other attributes instead.
+
+        ``is_global`` puts the column in the main search box above the table;
+        ``is_individual`` gives the column its own search box under its heading.
+        """
         self._searchable = condition
         self._search_query = query
         self._search_columns = columns
         self._global_searchable = is_global
+        self._individual_searchable = is_individual
         return self
 
     def toggleable(self, condition: bool = True, hidden_by_default: bool = False) -> "Column":
@@ -582,11 +589,17 @@ class ImageColumn(Column):
         self._default_url: Any = None
 
     def circular(self, condition: bool = True) -> "ImageColumn":
+        """Round images."""
         self._circular = condition
+        if condition:
+            self._square = False
         return self
 
     def square(self, condition: bool = True) -> "ImageColumn":
+        """Square images with sharp corners (the default has slightly rounded corners)."""
         self._square = condition
+        if condition:
+            self._circular = False
         return self
 
     def size(self, px: int) -> "ImageColumn":
@@ -621,7 +634,8 @@ class ImageColumn(Column):
         urls = [to_url(str(p)) for p in paths]
         if not urls and self._default_url:
             urls = [evaluate(self._default_url, **v["ev"])]
-        v.update(urls=urls, circular=self._circular, size=self._size, stacked=self._stacked)
+        v.update(urls=urls, circular=self._circular, square=self._square and not self._circular,
+                 size=self._size, stacked=self._stacked)
         return v
 
 

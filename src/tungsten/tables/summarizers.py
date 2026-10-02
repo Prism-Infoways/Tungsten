@@ -46,6 +46,19 @@ class Summarizer(Component):
 
         return getattr(func, {"average": "avg"}.get(self.function, self.function))(column)
 
+    def compute(self, values: list) -> Any:
+        """The same summary in Python, for columns without a database column (``state()``)."""
+        values = [v for v in values if v is not None]
+        if self.function == "count":
+            return len(values)
+        if not values:
+            return None
+        if self.function == "sum":
+            return sum(values)
+        if self.function == "average":
+            return sum(values) / len(values)
+        return min(values) if self.function == "min" else max(values)
+
     def format(self, value: Any) -> Any:
         if self._format is not None:
             return call(self._format, state=value)
