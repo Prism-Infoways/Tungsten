@@ -10,8 +10,12 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
 
     Alpine.store("theme", {
       mode: "system",
+      // Panel(dark_mode=False): always light, whatever the OS or a stored choice says
+      allowed: document.documentElement.dataset.darkMode !== "false",
       init: function () {
-        try { this.mode = localStorage.getItem("tw-theme") || document.documentElement.dataset.defaultTheme || "system"; } catch (e) {}
+        this.mode = document.documentElement.dataset.defaultTheme || "system";
+        try { this.mode = localStorage.getItem("tw-theme") || this.mode; } catch (e) {}
+        if (!this.allowed) return;
         var self = this;
         window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { self.apply(); });
       },
@@ -22,7 +26,7 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
         document.dispatchEvent(new CustomEvent("tw-theme-changed"));
       },
       apply: function () {
-        var dark = this.mode === "dark" || (this.mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        var dark = this.allowed && (this.mode === "dark" || (this.mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches));
         document.documentElement.classList.toggle("dark", dark);
       },
     });

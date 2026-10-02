@@ -50,6 +50,15 @@ The icons ship inside the package. Some Heroicon-style names also work, such as 
 
 Resources use `file-text` and pages use `file` when you set no icon.
 
+To show a different icon while the item is the current page, set `active_icon` too:
+
+```python
+class OrderResource(Resource):
+    model = Order
+    icon = "shopping-cart"
+    active_icon = "shopping-bag"
+```
+
 ## Sort order
 
 Items are sorted by `navigation_sort` (lowest first), then by label:
@@ -118,6 +127,23 @@ You can also add a group with a method, which is handy in [plugins](plugins-and-
 
 ```python
 panel.navigation_group("Blog", icon="newspaper")
+```
+
+### Folded and fixed groups
+
+A group can start folded with `collapsed=True`. It still opens by itself when it holds the current page. With `collapsible=False`, the heading is plain text and the group always stays open:
+
+```python
+panel = Panel(
+    ...,
+    navigation_groups=[
+        "Shop",
+        NavigationGroup("Reports", collapsed=True),
+        NavigationGroup("Settings", collapsible=False),
+    ],
+)
+
+panel.navigation_group("Blog", icon="newspaper", collapsed=True)
 ```
 
 ## Badges
@@ -203,6 +229,8 @@ panel.navigation_items([
 | `badge_color` | `"primary"` | The badge color. |
 | `parent` | `None` | The label of an item to nest it under. |
 | `active_prefix` | the `url` | Highlight the item when the current path starts with this. |
+| `active_icon` | `None` | An icon shown instead of `icon` while the item is highlighted. |
+| `children` | `[]` | Items to nest under this one (other items can also join with `parent`). |
 | `new_tab` | `False` | Open the link in a new browser tab. |
 | `visible` | `True` | `True`, `False`, or a function that gets `user` or `ctx` and returns whether to show it. |
 
@@ -277,7 +305,7 @@ class ProductResource(Resource):
 panel = Panel(..., global_search=False)
 ```
 
-This removes the search box from the top bar.
+This removes the search box from the top bar, the **Search menu...** button in the sidebar and the **Ctrl+K** shortcut.
 
 ## User menu
 

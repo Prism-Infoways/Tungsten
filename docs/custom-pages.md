@@ -125,6 +125,22 @@ class Reports(Page):
 
 Widgets the user may not see (their own `can_view()` check) are left out. A page can show widgets, content and a form together.
 
+A page can also have filters in its header, like the dashboard. Its widgets get the page's own values as `filters`:
+
+```python
+from tungsten.forms import Select
+
+
+class Reports(Page):
+    widgets = [RevenueChart, SalesByCategory]
+
+    @classmethod
+    def filters_form(cls, form):
+        return form.schema([Select("region").options({"north": "North", "south": "South"}).default("north")])
+```
+
+Changing a filter reloads the page with the new value in the URL (`?region=south`). See [Dashboard filters](widgets#dashboard-filters).
+
 ## Forms on a page
 
 A page can have one form, for example for store settings. Give it three class methods:

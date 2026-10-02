@@ -51,6 +51,8 @@ All options are keyword-only and have defaults, so you only pass what you want t
 | --- | --- | --- |
 | `brand_name` | `"Tungsten"` | The name in the sidebar, on the login page and in the browser tab title. |
 | `brand_logo` | `None` | URL of a logo image. It replaces the default icon and brand name. |
+| `brand_logo_dark` | `None` | URL of a logo shown in dark mode instead of `brand_logo`. |
+| `brand_tagline` | `None` | A short line shown under the brand on the sign-in pages. |
 | `favicon` | Tungsten icon | URL of the browser tab icon. |
 | `colors` | orange primary | Brand colors as palette names, hex values or shade maps, e.g. `{"primary": "indigo"}`. |
 | `font` | `"Inter"` | A Google Fonts family name. `None` turns off the web font. |
@@ -69,7 +71,7 @@ All of these are explained with examples in [Theming](theming).
 | `spa` | `False` | Move between pages without full page reloads. |
 | `unsaved_changes_alerts` | `True` | Warn before leaving a form with unsaved changes. |
 | `sidebar_collapsible` | `True` | Desktop users can shrink the sidebar to icons. |
-| `global_search` | `True` | Shows the search box in the top bar. See [Navigation](navigation#global-search). |
+| `global_search` | `True` | Shows the search box in the top bar, the sidebar search button and the Ctrl+K shortcut. See [Navigation](navigation#global-search). |
 | `navigation_groups` | `None` | The order of sidebar groups, as names or `NavigationGroup` objects. See [Navigation](navigation#groups). |
 | `database_notifications` | `True` | Shows the notification bell. See [Notifications](notifications). |
 | `notifications_polling` | `"30s"` | How often the bell checks for new notifications. `None` checks only when a page loads. |
@@ -157,15 +159,15 @@ Registering the same resource, page or widget twice has no effect.
 ```python
 @panel.routes
 def shop_api(router, panel):
-    @router.get("/api/v1/stats")
+    @router.get("/api/stats")
     def stats():
         return {"ok": True}
 ```
 
-This route is served at `/admin/api/v1/stats`.
+This route is served at `/admin/api/stats`. Any path works, even a short one like `/ping`.
 
 > [!WARNING]
-> Your routes are added after Tungsten's own. Short paths such as `/ping` or `/api/stats` are caught by the panel's page routes first, so use a path with at least three parts. These routes also do not check who is signed in; add your own checks if needed.
+> Your routes come before the panel's page and resource routes. A route with the same path as a page or resource (like `/products`) replaces it, so pick paths that don't clash. These routes also do not check who is signed in; add your own checks if needed.
 
 ## Setting up the database tables
 

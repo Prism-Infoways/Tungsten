@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="{{ (current_locale() or panel.locale) | replace('_', '-') }}"{% if is_rtl(current_locale()) %} dir="rtl"{% endif %} class="h-full antialiased">
+<html lang="{{ (current_locale() or panel.locale) | replace('_', '-') }}"{% if is_rtl(current_locale()) %} dir="rtl"{% endif %} class="h-full antialiased"
+      data-default-theme="{{ panel.default_theme }}" data-dark-mode="{{ 'true' if panel.dark_mode else 'false' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -13,11 +13,11 @@
   <li class="flex gap-3 px-4 py-3 {{ 'bg-primary-50/40 dark:bg-primary-500/5' if not n.read_at }}">
     <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full {{ colors.pick(colors.SOFT_ICON, d.color or 'gray') }}">{{ icon(d.icon or 'bell', 'h-4 w-4') }}</span>
     <div class="min-w-0 flex-1">
-      <p class="text-sm font-medium text-gray-950 dark:text-white">{{ d.title }}</p>
-      {% if d.body %}<p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ d.body }}</p>{% endif %}
+      <p class="text-sm font-medium text-gray-950 dark:text-white">{{ __(d.title) }}</p>
+      {% if d.body %}<p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ __(d.body) }}</p>{% endif %}
       <div class="mt-1 flex flex-wrap items-center gap-3 text-xs">
         <span class="text-gray-400">{{ n.created_at.strftime('%d %b, %H:%M') }}</span>
-        {% for a in d.actions or [] %}<a href="{{ a.url }}" class="font-medium {{ colors.pick(colors.LINK, a.color) }}">{{ a.label }}</a>{% endfor %}
+        {% for a in d.actions or [] %}<a href="{{ a.url }}" class="font-medium {{ colors.pick(colors.LINK, a.color) }}">{{ __(a.label) }}</a>{% endfor %}
         {% if not n.read_at %}<button type="button" class="{{ colors.LINK.gray }}" hx-post="{{ panel.url('_tw', 'notifications') }}" hx-vals='{"id": "{{ n.id }}"}' hx-target="#tw-notifications">{{ __('Mark read') }}</button>{% endif %}
       </div>
     </div>

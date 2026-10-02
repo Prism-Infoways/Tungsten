@@ -108,10 +108,30 @@ class Notification:
 
         db = getattr(ctx_or_db, "db", ctx_or_db)
         for user in _as_list(users):
-            user_id = str(getattr(user, "id", user))
-            db.add(DatabaseNotification(user_id=user_id, data=self.to_dict()))
+            db.add(DatabaseNotification(user_id=_user_key(user), data=self.to_dict()))
         db.commit()
         return self
+
+
+def with_icon_svg(data: dict[str, Any]) -> dict[str, Any]:
+    """Toast data plus its icon drawn as ``<svg>``, so any icon of the panel's set shows in the browser."""
+    from .support.icons import icon
+
+    if not data.get("icon") or data.get("icon_svg"):
+        return data
+    return {**data, "icon_svg": str(icon(data["icon"], "h-4 w-4"))}
+
+
+def _user_key(user: Any) -> str:
+    """The user's primary key as text (the bell looks users up the same way), or the id given as is."""
+    from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy.exc import NoInspectionAvailable
+
+    try:
+        mapper = sa_inspect(type(user))
+    except NoInspectionAvailable:
+        return str(getattr(user, "id", user))
+    return str(getattr(user, mapper.primary_key[0].key))
 
 
 def _as_list(value: Any) -> Iterable:

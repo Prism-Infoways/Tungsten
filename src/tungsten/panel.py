@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Iterable
 from urllib.parse import urlencode
@@ -13,6 +14,7 @@ from .auth import Auth
 from .i18n import LANGUAGE_NAMES, Translator
 from .i18n import translate as __
 from .navigation import NavigationGroup, NavigationItem
+from .notifications import with_icon_svg
 from .pages import Dashboard, Page
 from .rendering import Renderer
 from .resources.resource import Resource
@@ -177,8 +179,9 @@ class Panel:
         self._nav_items.extend(items)
         return self
 
-    def navigation_group(self, label: str, icon: str | None = None, collapsed: bool = False) -> "Panel":
-        self._nav_groups.append(NavigationGroup(label, icon=icon, collapsed=collapsed))
+    def navigation_group(self, label: str, icon: str | None = None, collapsed: bool = False,
+                         collapsible: bool = True) -> "Panel":
+        self._nav_groups.append(NavigationGroup(label, icon=icon, collapsible=collapsible, collapsed=collapsed))
         return self
 
     def user_menu_item(self, label: str, url: str, icon: str | None = None) -> "Panel":
@@ -320,7 +323,8 @@ class Panel:
             badge = call(r.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user)
             items.append(NavigationItem(r.get_navigation_label(), url, r.icon, r.navigation_group, r.navigation_sort,
                                         badge=badge, badge_color=r.navigation_badge_color, parent=r.navigation_parent,
-                                        active=current == url or current.startswith(url + "/")))
+                                        active=current == url or current.startswith(url + "/"),
+                                        active_icon=r.active_icon))
         for p in self._pages:
             if not p.show_in_navigation or not p.can_access(ctx):
                 continue
@@ -328,19 +332,15 @@ class Panel:
             badge = call(p.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user)
             items.append(NavigationItem(p.get_navigation_label(), url, p.icon, p.navigation_group, p.navigation_sort,
                                         badge=badge, badge_color=p.navigation_badge_color, parent=p.navigation_parent,
-                                        active=current == url or current.startswith(url + "/")))
+                                        active=current == url or current.startswith(url + "/"),
+                                        active_icon=getattr(p, "active_icon", None)))
         for item in self._nav_items:
-            if not evaluate(item.visible, ctx=ctx, user=ctx.user):
-                continue
-            prefix = item.active_prefix or item.url
-            item.active = bool(prefix) and prefix != "#" and (current == prefix or current.startswith(prefix.rstrip("/") + "/"))
-            items.append(item)
+            if evaluate(item.visible, ctx=ctx, user=ctx.user):
+                items.append(self._custom_nav_item(ctx, item, current))
 
         # nest children under their parent (matched by label)
         by_label = {i.label: i for i in items}
         top: list[NavigationItem] = []
-        for item in items:
-            item.children = [c for c in item.children if c not in items]
         for item in items:
             # parents are named in English in code; labels may be translated
             parent = (by_label.get(__(item.parent)) or by_label.get(item.parent)) if item.parent else None
@@ -357,6 +357,14 @@ class Panel:
                 groups[item.group] = NavigationGroup(item.group or "")
             groups[item.group].items.append(item)
         return [g for g in groups.values() if g.items]
+
+    def _custom_nav_item(self, ctx: "Context", item: NavigationItem, current: str) -> NavigationItem:
+        """A per-request copy of a custom item: the registered one is shared between requests, so never changed."""
+        prefix = item.active_prefix or item.url
+        active = bool(prefix) and prefix != "#" and (current == prefix or current.startswith(prefix.rstrip("/") + "/"))
+        children = [self._custom_nav_item(ctx, c, current) for c in item.children
+                    if evaluate(c.visible, ctx=ctx, user=ctx.user)]
+        return replace(item, active=active, children=children)
 
     # ------------------------------------------------------------------ rendering
     def hooks(self, name: str, ctx: "Context") -> Markup:
@@ -385,7 +393,7 @@ class Panel:
             "user_avatar": self.auth.avatar_url(ctx.user),
             "user_role": self._user_role_label(ctx),
             "navigation": self.build_navigation(ctx) if ctx.user is not None or not self.auth.enabled else [],
-            "flash": ctx.pop_flash(),
+            "flash": [with_icon_svg(n) for n in ctx.pop_flash()],
             "csrf_token": self.csrf_token(ctx),
             "tenant": ctx.tenant,
             "tenants": tenants,

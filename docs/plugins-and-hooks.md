@@ -57,7 +57,7 @@ A plugin can call any public `Panel` method on the panel it receives:
 | `panel.pages([...])` | [Custom pages](custom-pages) |
 | `panel.widgets([...])` | Dashboard [widgets](widgets) |
 | `panel.navigation_items([...])` | Extra sidebar links (`NavigationItem`) |
-| `panel.navigation_group(label, icon=None, collapsed=False)` | A sidebar group |
+| `panel.navigation_group(label, icon=None, collapsed=False, collapsible=True)` | A sidebar group |
 | `panel.user_menu_item(label, url, icon=None)` | A link in the user menu |
 | `panel.render_hook(name, fn)` | HTML at a named spot (see below) |
 | `panel.routes` | Your own routes (see below) |
@@ -213,7 +213,7 @@ The route is served under the panel path, here `/admin/blog/api/stats`.
 > [!WARNING]
 > These are plain FastAPI routes. They don't check login, permissions or the CSRF token, so protect them yourself.
 >
-> They are added after Tungsten's own routes, and Tungsten's page routes catch paths with one or two parts (like `/admin/feed` or `/admin/blog/feed`). Use paths with at least three parts, or add the routes to your main FastAPI app instead.
+> Any path works, even short ones like `/admin/feed`. Your routes come before the panel's page and resource routes, so a route with the same path as a page or resource (like `/admin/products`) replaces it. Pick paths that don't clash.
 
 ## Overriding templates
 
