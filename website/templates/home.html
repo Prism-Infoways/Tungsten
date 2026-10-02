@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+{% set active = 'home' %}
+{% block title %}Tungsten · Admin panels for FastAPI{% endblock %}
+{% block body_class %}home{% endblock %}
+{% block content %}
+<main id="main">
+
+  <!-- hero -->
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Open source · MIT · Python 3.10+</p>
+        <h1>Admin panels for FastAPI, <span class="lit">written in Python.</span></h1>
+        <p class="lede">Describe your forms and tables in a few Python classes. Tungsten gives you a complete, good-looking admin panel with search, filters, actions, charts, logins and roles. No HTML, no JavaScript, no build step.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="docs/installation.html">Get started
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <button class="install" type="button" data-copy="pip install tungsten-admin" aria-label="Copy install command">
+            <span class="prompt">$</span><code>pip install tungsten-admin</code>
+            <svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+            <span class="copied" aria-live="polite"></span>
+          </button>
+        </div>
+        <ul class="hero-facts">
+          <li><b>20+</b> form fields</li>
+          <li><b>6</b> layout blocks</li>
+          <li><b>91</b> tests, sync &amp; async</li>
+        </ul>
+      </div>
+
+      <div class="element" aria-label="Tungsten, element 74">
+        <span class="el-num">74</span>
+        <span class="el-sym">W</span>
+        <span class="el-name">Tungsten</span>
+        <span class="el-mass">183.84</span>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <figure class="window hero-shot">
+        <div class="window-bar"><i></i><i></i><i></i><span>localhost:8000/admin</span></div>
+        <picture>
+          <img class="only-light" src="static/img/dashboard.webp" alt="Tungsten dashboard with stats cards, a revenue chart and recent orders" width="1800" height="1125">
+          <img class="only-dark" src="static/img/dark_dashboard.webp" alt="" width="1800" height="1125">
+        </picture>
+      </figure>
+    </div>
+  </section>
+
+  <!-- code to result -->
+  <section class="section showcase" id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">How it works</p>
+        <h2>Write a class. Get a screen.</h2>
+        <p>Every screen in the panel comes from plain Python. Pick a part to see the code next to what it builds.</p>
+      </div>
+
+      <div class="tabs" data-tabs>
+        <div class="tab-list" role="tablist" aria-label="Examples">
+          <button role="tab" id="tab-forms" aria-controls="panel-forms" aria-selected="true">Forms</button>
+          <button role="tab" id="tab-tables" aria-controls="panel-tables" aria-selected="false" tabindex="-1">Tables</button>
+          <button role="tab" id="tab-filters" aria-controls="panel-filters" aria-selected="false" tabindex="-1">Query builder</button>
+          <button role="tab" id="tab-widgets" aria-controls="panel-widgets" aria-selected="false" tabindex="-1">Widgets</button>
+        </div>
+
+        <div class="tab-panel" role="tabpanel" id="panel-forms" aria-labelledby="tab-forms">
+          <div class="pair">
+            <div class="code-card">
+              <div class="code-title">app/admin.py</div>
+{% filter code %}
+@classmethod
+def form(cls, form):
+    return form.columns(3).schema([
+        Tabs().column_span(2).tabs([
+            Tab("General").schema([
+                TextInput("name").required(),
+                RichEditor("description"),
+                Select("tags").relationship("tags", "name").multiple(),
+            ]),
+            Tab("Media").icon("image").schema([
+                FileUpload("images").image().multiple(),
+            ]),
+        ]),
+        Section("Status").schema([
+            Radio("status").options({"draft": "Draft", "published": "Published"}),
+            Toggle("is_featured"),
+        ]),
+    ])
+{% endfilter %}
+            </div>
+            <figure class="window">
+              <div class="window-bar"><i></i><i></i><i></i><span>/admin/products/1/edit</span></div>
+              <img src="static/img/form.webp" alt="Edit product form with tabs, rich text editor and a status section" loading="lazy" width="1800" height="1125">
+            </figure>
+          </div>
+        </div>
+
+        <div class="tab-panel" role="tabpanel" id="panel-tables" aria-labelledby="tab-tables" hidden>
+          <div class="pair">
+            <div class="code-card">
+              <div class="code-title">app/admin.py</div>
+{% filter code %}
+@classmethod
+def table(cls, table):
+    return (
+        table.columns([
+            TextColumn("name").searchable().sortable(),
+            TextColumn("category.name").badge(),
+            TextColumn("price").money("INR").sortable(),
+            TextColumn("status").badge(),
+        ])
+        .filters([SelectFilter("status").options(Status)])
+        .actions([EditAction(), DeleteAction()])
+        .bulk_actions([DeleteBulkAction()])
+        .header_actions([ExportAction()])
+        .default_sort("created_at", "desc")
+    )
+{% endfilter %}
+            </div>
+            <figure class="window">
+              <div class="window-bar"><i></i><i></i><i></i><span>/admin/products</span></div>
+              <img src="static/img/products.webp" alt="Products table with stats, list tabs, filters and row actions" loading="lazy" width="1800" height="1125">
+            </figure>
+          </div>
+        </div>
+
+        <div class="tab-panel" role="tabpanel" id="panel-filters" aria-labelledby="tab-filters" hidden>
+          <div class="pair">
+            <div class="code-card">
+              <div class="code-title">app/admin.py</div>
+{% filter code %}
+table.filters([
+    QueryBuilder().constraints([
+        TextConstraint("name"),
+        NumberConstraint("price"),
+        DateConstraint("created_at"),
+        BooleanConstraint("is_featured"),
+        SelectConstraint("status").options(Status),
+        RelationshipConstraint("tags").selectable("name"),
+    ]),
+])
+# Users build rules like:
+# "Price is greater than 3000 AND Featured is true"
+{% endfilter %}
+            </div>
+            <figure class="window">
+              <div class="window-bar"><i></i><i></i><i></i><span>/admin/products</span></div>
+              <img src="static/img/query_builder.webp" alt="Query builder panel with two rules joined by AND" loading="lazy" width="1800" height="1125">
+            </figure>
+          </div>
+        </div>
+
+        <div class="tab-panel" role="tabpanel" id="panel-widgets" aria-labelledby="tab-widgets" hidden>
+          <div class="pair">
+            <div class="code-card">
+              <div class="code-title">app/widgets.py</div>
+{% filter code %}
+class Stats(StatsOverviewWidget):
+    @classmethod
+    def stats(cls, db):
+        return [
+            Stat("Users", "1,248").icon("users")
+                .trend("12%", "up").chart([3, 5, 4, 8, 9]),
+        ]
+
+class Revenue(ChartWidget):
+    heading = "Revenue"
+    type = "bar"
+
+    @classmethod
+    def data(cls, db, filter):
+        return {"labels": months, "datasets": [
+            {"label": "Revenue", "data": totals, "color": "primary"},
+        ]}
+{% endfilter %}
+            </div>
+            <figure class="window">
+              <div class="window-bar"><i></i><i></i><i></i><span>/admin</span></div>
+              <img src="static/img/dashboard.webp" alt="Dashboard with stats cards and a revenue chart" loading="lazy" width="1800" height="1125">
+            </figure>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- feature grid -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Batteries included</p>
+        <h2>Everything an admin panel needs</h2>
+      </div>
+      <div class="features">
+        {% set features = [
+          ("Resources", "List, create, edit and view pages for a model from one class. Soft deletes with restore.", "resources", '<path d="M4 6h16M4 12h16M4 18h10"/>'),
+          ("Forms", "Text, selects, uploads, rich text, repeaters, wizards and live fields that react to each other.", "forms", '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h5"/>'),
+          ("Tables", "Search, sort, filters, list tabs, grouping, totals, inline editing and drag to reorder.", "tables", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/>'),
+          ("Actions", "Buttons, confirm boxes and popup forms for single rows, bulk selections and page headers.", "actions", '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>'),
+          ("Widgets", "Stat cards with trends, line, bar and pie charts, table widgets and dashboard filters.", "widgets", '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>'),
+          ("Auth & roles", "Login, sign-up, password reset, two-factor login, email verification and a roles screen.", "authentication", '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>'),
+          ("Translations", "Every screen can be translated. Hindi ships built in, add more with a JSON file.", "translations", '<path d="M4 5h8M8 3v2c0 4-2 7-5 9M6 9c1 2 3 4 6 5"/><path d="m13 21 4-9 4 9M14.5 18h5"/>'),
+          ("Async ready", "Works with normal or async SQLAlchemy engines. Hooks can be async def.", "async-database", '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>'),
+          ("Import & export", "CSV and Excel import with column mapping, and export from any table.", "import-export", '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>'),
+        ] %}
+        {% for title, text, slug, icon in features %}
+        <a class="feature" href="docs/{{ slug }}.html">
+          <span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true">{{ icon | safe }}</svg></span>
+          <h3>{{ title }}</h3>
+          <p>{{ text }}</p>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- themes / languages -->
+  <section class="section split">
+    <div class="wrap split-grid">
+      <div class="split-copy">
+        <p class="eyebrow">Looks like your product</p>
+        <h2>Your colors. Dark mode. Your users’ language.</h2>
+        <p>Set a brand color with a palette name or a hex value, add your logo and pick a font. Dark mode is built in, and users can switch the language from their menu.</p>
+{% filter code %}
+Panel(
+    brand_name="Acme",
+    colors={"primary": "orange"},  # or "#ec5b1d"
+    locales=["en", "hi"],
+)
+{% endfilter %}
+        <a class="text-link" href="docs/theming.html">Theming guide <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="stack" aria-hidden="true">
+        <img src="static/img/dark_products.webp" alt="" loading="lazy" width="1800" height="1125">
+        <img src="static/img/hindi_dashboard.webp" alt="" loading="lazy" width="1800" height="1125">
+      </div>
+    </div>
+  </section>
+
+  <!-- video -->
+  <section class="section video-section" id="video">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">One minute tour</p>
+        <h2>See it in action</h2>
+      </div>
+      <figure class="video">
+        <video controls preload="none" poster="static/img/promo-poster.webp" playsinline>
+          <source src="static/img/promo.mp4" type="video/mp4">
+        </video>
+      </figure>
+    </div>
+  </section>
+
+  <!-- stack -->
+  <section class="section">
+    <div class="wrap stack-row">
+      <div>
+        <p class="eyebrow">Built on tools you know</p>
+        <h2>Fits into the app you already have</h2>
+        <p>Tungsten mounts inside your FastAPI app and works with your SQLAlchemy models. Pages are rendered on the server with Jinja, made interactive with HTMX and Alpine.js, and styled with Tailwind. The CSS comes prebuilt, so you never run npm.</p>
+      </div>
+      <ol class="steps">
+        <li><span>Install</span><code>pip install tungsten-admin</code></li>
+        <li><span>Describe</span><code>class ProductResource(Resource): ...</code></li>
+        <li><span>Mount</span><code>panel.mount(app)</code></li>
+        <li><span>Sign in</span><code>tungsten make:user</code></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- cta -->
+  <section class="cta">
+    <div class="wrap cta-inner">
+      <h2>Ship your admin panel this afternoon.</h2>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="docs/quick-start.html">Read the quick start</a>
+        <a class="btn btn-ghost" href="{{ repo }}" rel="noopener">Star on GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-grid">
+    <div>
+      <a class="brand" href="index.html"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 5h22a3 3 0 0 1 3 3v2.5a3 3 0 0 1-3 3h-6.5V27a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3V13.5H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z"/></svg><span>Tungsten</span></a>
+      <p>Admin panels for FastAPI. MIT licensed. Made by Prism Infoways.</p>
+    </div>
+    <nav aria-label="Docs">
+      <h3>Docs</h3>
+      <a href="docs/installation.html">Installation</a>
+      <a href="docs/quick-start.html">Quick start</a>
+      <a href="docs/resources.html">Resources</a>
+      <a href="docs/forms.html">Forms</a>
+      <a href="docs/tables.html">Tables</a>
+    </nav>
+    <nav aria-label="Project">
+      <h3>Project</h3>
+      <a href="{{ repo }}" rel="noopener">GitHub</a>
+      <a href="{{ repo }}/issues" rel="noopener">Report an issue</a>
+      <a href="https://pypi.org/project/tungsten-admin/" rel="noopener">PyPI</a>
+      <a href="{{ repo }}/blob/HEAD/LICENSE" rel="noopener">License</a>
+    </nav>
+  </div>
+</footer>
+{% endblock %}

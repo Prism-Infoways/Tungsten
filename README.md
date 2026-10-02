@@ -2,6 +2,8 @@
 
 **A Filament-style admin panel for FastAPI.** Describe a model once in Python and get list, create, edit and view pages, with search, filters, bulk actions, modals, dashboards, login and roles.
 
+**[Website & docs](https://prism-infoways.github.io/Tungsten/)** · [PyPI](https://pypi.org/project/tungsten-admin/) · [1-minute video](promo/promo.mp4)
+
 Tungsten renders HTML on the server (Jinja2) and uses HTMX + Alpine.js in the browser. You write no JavaScript. It works with SQLAlchemy 2.0 models (SQLModel models work too).
 
 ```python
@@ -537,6 +539,17 @@ cd frontend && npm install && npm run build
 ```
 
 The built assets (Tailwind CSS, HTMX, Alpine.js, Chart.js, Trix, Tom Select, SortableJS, a QR code generator and Lucide icons) ship inside the package. Nothing loads from a CDN, except the optional Google font (`Panel(font=None)` turns it off).
+
+**Website and docs** live in `website/` and `docs/` (Markdown). Build them with:
+
+```bash
+pip install -r website/requirements.txt
+python website/build.py --serve     # http://127.0.0.1:8080
+```
+
+They are published to GitHub Pages by `.github/workflows/website.yml`.
+
+**Releasing to PyPI:** bump `version` in `pyproject.toml`, then publish a GitHub Release with the tag `v<version>`. `.github/workflows/publish.yml` runs the tests and uploads the package (one-time setup: add this repo as a *trusted publisher* on pypi.org, workflow `publish.yml`, environment `pypi`).
 
 ## Roadmap
 
