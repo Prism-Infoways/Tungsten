@@ -208,6 +208,8 @@ def make_resource(
     """Create a Resource class (list/create/edit/view pages for a model)."""
     cls = studly(name.removesuffix("Resource"))
     model_path = model or f"app.models:{cls}"
+    if ":" not in model_path:
+        raise BadParameter(f"--model: use the form module:Class (got {model_path!r})")
     module_name, model_attr = model_path.split(":", 1)
     fields = ['TextInput("name").required().max_length(255)']
     columns = ['TextColumn("name").searchable().sortable()']

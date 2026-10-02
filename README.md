@@ -531,7 +531,7 @@ tungsten lang:extract hi --path app                      # collect text to trans
 
 ```bash
 pip install -e ".[dev]"
-pytest                       # 153 tests
+pytest                       # 156 tests
 TUNGSTEN_TEST_ASYNC=1 pytest  # the same tests on an async engine (aiosqlite)
 
 # rebuild CSS/JS assets after changing templates or classes
