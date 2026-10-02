@@ -133,6 +133,18 @@ CheckboxList("sizes").label("Available sizes").options(["S", "M", "L", "XL"]).co
 | `bulk_toggleable()` | Add "Select all" and "Deselect all" links. |
 | `descriptions({value: text})` | A line of help text under each option. |
 | `disable_option_when(fn)` | Grey out some options. |
+| `grouped(fn)` | Show the options under group headings. `fn` gets `value` and `label` and returns the group name. |
+
+To show options in groups, you can also give them as a dict of dicts. Each key is a group heading:
+
+```python
+CheckboxList("sizes").options({
+    "Shirts": {"s": "Small", "m": "Medium", "l": "Large"},
+    "Shoes": {"uk8": "UK 8", "uk9": "UK 9"},
+})
+
+CheckboxList("permissions").options(PERMISSIONS).grouped(lambda value: value.split(".")[0].title())
+```
 
 ## Radio
 
@@ -201,7 +213,9 @@ Toggle("is_featured").on_color("success").on_icon("star")
 | --- | --- |
 | `state_labels(on, off)` | Text next to the switch that changes with it. |
 | `on_color(color)` | Color when on: `primary` (default), `success`, `danger`, `warning`, `info` or `gray`. |
+| `off_color(color)` | Color when off. Same colors; the default is a light `gray`. |
 | `on_icon(icon)` | An icon shown on the switch when it is on. |
+| `off_icon(icon)` | An icon shown on the switch when it is off. |
 
 ## DatePicker
 
@@ -210,7 +224,7 @@ A date input. The value is saved as a `datetime.date`.
 ```python
 DatePicker("available_from")
 DatePicker("date_of_birth").max_date(dt.date.today())
-DatePicker("ends_on").min_date(lambda get: get("starts_on") or None)
+DatePicker("ends_on").min_date(lambda get: get("starts_on"))
 ```
 
 | Method | What it does |
@@ -218,9 +232,11 @@ DatePicker("ends_on").min_date(lambda get: get("starts_on") or None)
 | `min_date(value)` | Earliest allowed date: a `date`, an ISO string (`"2024-01-01"`) or a closure. |
 | `max_date(value)` | Latest allowed date. |
 
+When the value is `None` or an empty string (for example, a closure that reads a field the user has not filled yet), there is no limit.
+
 ## DateTimePicker
 
-A date and time input, saved as a `datetime.datetime`. It has `min_date()` and `max_date()` (pass `datetime` values), plus:
+A date and time input, saved as a `datetime.datetime`. It has `min_date()` and `max_date()`. Pass `datetime` values, or plain `date` values: a date as `min_date` means the start of that day, and as `max_date` the end of that day. It also has:
 
 ```python
 DateTimePicker("published_at").seconds()
@@ -267,7 +283,12 @@ A rich text editor (bold, lists, links...). The HTML is cleaned on save, so scri
 
 ```python
 RichEditor("description").column_span("full")
+RichEditor("summary").max_length(500)
 ```
+
+| Method | What it does |
+| --- | --- |
+| `max_length(n)` | Most characters allowed. Only the text counts, not the HTML tags. A counter under the editor shows how many are used. |
 
 ## ColorPicker
 

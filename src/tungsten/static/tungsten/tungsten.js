@@ -195,12 +195,21 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
     if (!liveId || editor._twLive) return;
     editor._twLive = true;
     var timer;
+    var changed = false;
+    function send() {
+      var input = document.getElementById(liveId);
+      if (input) input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (editor.hasAttribute("data-tw-live-blur")) {
+      // live(on_blur=True): refresh when the user leaves the editor
+      editor.addEventListener("trix-change", function () { changed = true; });
+      editor.addEventListener("trix-blur", function () { if (changed) { changed = false; send(); } });
+      return;
+    }
+    var delay = parseInt(editor.getAttribute("data-tw-live-delay"), 10) || 600;
     editor.addEventListener("trix-change", function () {
       clearTimeout(timer);
-      timer = setTimeout(function () {
-        var input = document.getElementById(liveId);
-        if (input) input.dispatchEvent(new Event("change", { bubbles: true }));
-      }, 600);
+      timer = setTimeout(send, delay);
     });
   }
 

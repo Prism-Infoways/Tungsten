@@ -1,14 +1,7 @@
 {% from "tungsten/forms/macros.html" import wrapper, mirror %}
-{% call wrapper(field, v) %}
-<div x-data="{ toggleAll(on) { $root.querySelectorAll('input[type=checkbox]:not(:disabled)').forEach(c => c.checked = on); } }">
-  {% if v.bulk and not v.disabled %}
-  <div class="mb-2 flex gap-x-3 text-sm">
-    <button type="button" class="{{ colors.LINK.primary }} font-medium" @click="toggleAll(true)">{{ __('Select all') }}</button>
-    <button type="button" class="{{ colors.LINK.gray }} font-medium" @click="toggleAll(false)">{{ __('Deselect all') }}</button>
-  </div>
-  {% endif %}
+{% macro checkboxes(v, options) %}
   <div class="grid gap-x-6 gap-y-3 {{ v.grid }}">
-    {% for o in v.options %}
+    {% for o in options %}
     <label class="flex items-start gap-x-3">
       <input type="checkbox" name="{{ v.path }}" value="{{ o.value }}" class="tw-checkbox mt-1"
              {% if o.selected %}checked{% endif %} {% if v.disabled or o.disabled %}disabled{% endif %} {{ v.live }}>
@@ -21,6 +14,27 @@
     <p class="text-sm text-gray-500">{{ __('No options available.') }}</p>
     {% endfor %}
   </div>
+{% endmacro %}
+{% call wrapper(field, v) %}
+<div x-data="{ toggleAll(on) { $root.querySelectorAll('input[type=checkbox]:not(:disabled)').forEach(c => c.checked = on); } }">
+  {% if v.bulk and not v.disabled %}
+  <div class="mb-2 flex gap-x-3 text-sm">
+    <button type="button" class="{{ colors.LINK.primary }} font-medium" @click="toggleAll(true)">{{ __('Select all') }}</button>
+    <button type="button" class="{{ colors.LINK.gray }} font-medium" @click="toggleAll(false)">{{ __('Deselect all') }}</button>
+  </div>
+  {% endif %}
+  {% if v.groups %}
+  <div class="grid gap-4">
+    {% for g in v.groups %}
+    <fieldset data-group>
+      {% if g.label %}<legend class="mb-2 text-sm font-semibold text-gray-950 dark:text-white">{{ g.label }}</legend>{% endif %}
+      {{ checkboxes(v, g.options) }}
+    </fieldset>
+    {% endfor %}
+  </div>
+  {% else %}
+  {{ checkboxes(v, v.options) }}
+  {% endif %}
 </div>
 {{ mirror(v) }}
 {% endcall %}
