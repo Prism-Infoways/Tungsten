@@ -31,6 +31,14 @@ class Context:
 
     # ------------------------------------------------------------------ helpers
     @property
+    def filters(self) -> dict[str, Any]:
+        """Dashboard filter values (from the dashboard's ``filters_form``)."""
+        if not hasattr(self, "_filters"):
+            dashboard = self.panel.dashboard
+            self._filters = dashboard.get_filters(self) if dashboard is not None else {}
+        return self._filters
+
+    @property
     def session(self) -> dict:
         return self.request.session
 

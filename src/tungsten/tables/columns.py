@@ -48,6 +48,8 @@ def read_path(record: Any, path: str) -> Any:
 
 class Column(Component):
     template = "tungsten/tables/columns/text.html"
+    #: inline-editable cells are not wrapped in the row link
+    editable = False
 
     def __init__(self, name: str) -> None:
         super().__init__()
@@ -615,44 +617,181 @@ class ImageColumn(Column):
         return v
 
 
-class ToggleColumn(Column):
-    """An on/off switch that saves straight away."""
+class EditableColumn(Column):
+    """Base for columns that save straight from the table (toggle, input, select, checkbox).
 
-    template = "tungsten/tables/columns/toggle.html"
+    Values are cast and validated by a normal form field, so every field rule works.
+    """
+
+    editable = True
 
     def __init__(self, name: str) -> None:
         super().__init__(name)
         self._disabled: Any = False
         self._before_save: Callable | None = None
         self._after_save: Callable | None = None
-        self._alignment = "start"
+        self._configure: list[Callable] = []
 
-    def disabled(self, condition: Any = True) -> "ToggleColumn":
+    def disabled(self, condition: Any = True) -> "EditableColumn":
         self._disabled = condition
         return self
 
-    def before_state_updated(self, fn: Callable) -> "ToggleColumn":
+    def before_state_updated(self, fn: Callable) -> "EditableColumn":
         self._before_save = fn
         return self
 
-    def after_state_updated(self, fn: Callable) -> "ToggleColumn":
+    def after_state_updated(self, fn: Callable) -> "EditableColumn":
         self._after_save = fn
         return self
 
-    def update(self, table: "Table", record: Any, value: bool) -> None:
-        ev = {**self.cell_ev(table, record), "state": value}
-        if evaluate(self._disabled, **ev):
+    def rules(self, rules: list[Callable]) -> "EditableColumn":
+        return self.configure(lambda f: f.rules(rules))
+
+    def required(self, condition: bool = True) -> "EditableColumn":
+        return self.configure(lambda f: f.required(condition))
+
+    def configure(self, fn: Callable) -> "EditableColumn":
+        """Tweak the form field used to validate: ``configure(lambda field: field.max_length(20))``."""
+        self._configure.append(fn)
+        return self
+
+    def make_field(self):
+        raise NotImplementedError
+
+    def build_field(self):
+        field = self.make_field().label(self.get_label())
+        for fn in self._configure:
+            fn(field)
+        return field
+
+    def is_editable(self, table: "Table", record: Any) -> bool:
+        ev = self.cell_ev(table, record)
+        return not evaluate(self._disabled, **ev) and table.can_update(record)
+
+    def update(self, table: "Table", record: Any, raw: Any) -> Any:
+        """Validate ``raw`` (form input) and save it. Raises ``ValueError`` with a message."""
+        from starlette.datastructures import FormData
+
+        from ..forms.form import Form, ValidationError
+
+        if not self.is_editable(table, record):
             raise PermissionError("Column is disabled")
+        form = Form().schema([self.build_field()]).model(table.model)
+        form.bind(table.ctx, operation="edit", record=record, refresh_url="")
+        values = raw if isinstance(raw, list) else [raw]
+        form.load(FormData([(self.name, v) for v in values if v is not None]))
+        try:
+            data = form.validate()
+        except ValidationError as exc:
+            raise ValueError(next(iter(exc.errors.values()))[0]) from None
+        value = data.get(self.name)
+        ev = {**self.cell_ev(table, record), "state": value}
         if self._before_save:
             call(self._before_save, **ev)
         setattr(record, self.name, value)
         if self._after_save:
             call(self._after_save, **ev)
+        return value
 
     def view_data(self, table: "Table", record: Any) -> dict[str, Any]:
         v = super().view_data(table, record)
-        v["disabled"] = bool(evaluate(self._disabled, **v["ev"])) or not table.can_update(record)
+        v["disabled"] = not self.is_editable(table, record)
         v["record_key"] = table.host.record_key(record)
+        v["endpoint"] = table.ctx.url("_tw", "column") if table.ctx else ""
+        v["vals"] = {"host": table.host.key, "record": v["record_key"], "column": self.name}
+        return v
+
+
+class ToggleColumn(EditableColumn):
+    """An on/off switch that saves straight away."""
+
+    template = "tungsten/tables/columns/toggle.html"
+
+    def make_field(self):
+        from ..forms.fields import Toggle
+
+        return Toggle(self.name)
+
+
+class CheckboxColumn(EditableColumn):
+    """A checkbox that saves straight away."""
+
+    template = "tungsten/tables/columns/checkbox.html"
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        self._alignment = "center"
+
+    def make_field(self):
+        from ..forms.fields import Checkbox
+
+        return Checkbox(self.name)
+
+
+class TextInputColumn(EditableColumn):
+    """Edit a value inside the table: ``TextInputColumn("stock").integer().configure(lambda f: f.min_value(0))``."""
+
+    template = "tungsten/tables/columns/text-input.html"
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        self._input_type = "text"
+        self._width_class = "w-28"
+
+    def numeric(self) -> "TextInputColumn":
+        self._input_type = "number"
+        return self.configure(lambda f: f.numeric())
+
+    def integer(self) -> "TextInputColumn":
+        self._input_type = "number"
+        return self.configure(lambda f: f.integer())
+
+    def input_width(self, cls: str) -> "TextInputColumn":
+        self._width_class = cls
+        return self
+
+    def make_field(self):
+        from ..forms.fields import TextInput
+
+        return TextInput(self.name)
+
+    def view_data(self, table: "Table", record: Any) -> dict[str, Any]:
+        v = super().view_data(table, record)
+        state = v["state"]
+        v["value"] = "" if state is None else default_format(state) if not isinstance(state, (int, float, Decimal)) else (
+            format(state.normalize(), "f") if isinstance(state, Decimal) else state)
+        v["input_type"] = self._input_type
+        v["width_class"] = self._width_class
+        return v
+
+
+class SelectColumn(EditableColumn):
+    """Pick a value inside the table: ``SelectColumn("status").options({...})``."""
+
+    template = "tungsten/tables/columns/select.html"
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        self._options: Any = None
+        self._placeholder: Any = "—"
+
+    def options(self, options: Any) -> "SelectColumn":
+        self._options = options
+        return self
+
+    def make_field(self):
+        from ..forms.fields import Select
+
+        return Select(self.name).options(self._options)
+
+    def view_data(self, table: "Table", record: Any) -> dict[str, Any]:
+        from ..forms.fields import normalize_options
+
+        v = super().view_data(table, record)
+        state = v["state"]
+        current = str(state.value if isinstance(state, enum.Enum) else state) if state is not None else ""
+        v["options"] = [{"value": str(k), "label": label, "selected": str(k) == current}
+                        for k, label in normalize_options(evaluate(self._options, **v["ev"]))]
         return v
 
 
@@ -696,6 +835,7 @@ def render_icon(name: str | None, cls: str) -> Markup:
 
 
 __all__ = [
+    "CheckboxColumn", "EditableColumn", "SelectColumn", "TextInputColumn",
     "BadgeColumn", "ColorColumn", "Column", "IconColumn", "ImageColumn", "TextColumn", "ToggleColumn",
     "ViewColumn", "read_path", "escape",
 ]

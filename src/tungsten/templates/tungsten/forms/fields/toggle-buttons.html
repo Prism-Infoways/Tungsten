@@ -1,0 +1,28 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% set on = {
+  'primary': 'peer-checked:bg-primary-600 peer-checked:text-white peer-checked:ring-primary-600',
+  'success': 'peer-checked:bg-success-600 peer-checked:text-white peer-checked:ring-success-600',
+  'danger': 'peer-checked:bg-danger-600 peer-checked:text-white peer-checked:ring-danger-600',
+  'warning': 'peer-checked:bg-warning-500 peer-checked:text-white peer-checked:ring-warning-500',
+  'info': 'peer-checked:bg-info-600 peer-checked:text-white peer-checked:ring-info-600',
+  'gray': 'peer-checked:bg-gray-700 peer-checked:text-white peer-checked:ring-gray-700',
+  'purple': 'peer-checked:bg-purple-600 peer-checked:text-white peer-checked:ring-purple-600',
+} %}
+{% call wrapper(field, v) %}
+<div class="flex flex-wrap {{ '-space-x-px [&>label:first-child>span]:rounded-s-lg [&>label:last-child>span]:rounded-e-lg' if v.grouped else 'gap-2' }}" role="{{ 'group' if v.multiple else 'radiogroup' }}">
+  {% for o in v.options %}
+  <label class="relative {{ 'cursor-not-allowed opacity-60' if v.disabled or o.disabled else 'cursor-pointer' }}">
+    <input type="{{ 'checkbox' if v.multiple else 'radio' }}" name="{{ v.path }}" value="{{ o.value }}" class="peer sr-only"
+           {% if o.selected %}checked{% endif %} {% if v.disabled or o.disabled %}disabled{% endif %} {{ v.live }}>
+    <span class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-950/10 transition
+                 hover:bg-gray-50 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500 dark:text-gray-200 dark:ring-white/20 dark:hover:bg-white/5
+                 {{ on.get(o.color, on.primary) }}
+                 {{ '' if v.grouped else 'rounded-lg' }}
+                 {{ 'bg-white dark:bg-white/5' }}">
+      {{ icon(o.icon, 'h-4 w-4') }}{{ o.label }}
+    </span>
+  </label>
+  {% endfor %}
+</div>
+{{ mirror(v) }}
+{% endcall %}

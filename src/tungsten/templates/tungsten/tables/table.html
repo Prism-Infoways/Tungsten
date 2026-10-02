@@ -13,6 +13,8 @@
     <input type="hidden" name="host" value="{{ host.key }}">
     <input type="hidden" name="_f" value="1">
     <input type="hidden" name="_panel" :value="panel ? '1' : ''">
+    {% if table.param('tab') %}<input type="hidden" name="tab" value="{{ table.param('tab') }}">{% endif %}
+    {% if reordering %}<input type="hidden" name="reordering" value="1">{% endif %}
     {% if table.param('sort') is not none %}<input type="hidden" name="sort" value="{{ table.param('sort') }}"><input type="hidden" name="direction" value="{{ table.param('direction', '') }}">{% endif %}
 
     {% if heading or description %}
@@ -20,6 +22,21 @@
       {% if heading %}<h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ heading }}</h3>{% endif %}
       {% if description %}<p class="text-sm text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
     </div>
+    {% endif %}
+
+    {% if tabs %}
+    {# ------------------------------------------------------------ list tabs #}
+    <nav class="flex gap-1 overflow-x-auto border-b border-gray-100 px-4 dark:border-white/10" aria-label="Tabs">
+      {% for t in tabs %}
+      <button type="button" hx-get="{{ t.url }}" hx-target="#{{ table.id }}" hx-swap="outerHTML"
+              class="-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition
+                     {{ 'border-primary-500 text-primary-600 dark:text-primary-400' if t.active else 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}"
+              {% if t.active %}aria-current="page"{% endif %}>
+        {{ icon(t.icon, 'h-4 w-4') }}{{ t.label }}
+        {% if t.badge is not none %}<span class="rounded-full px-2 py-0.5 text-xs {{ colors.pick(colors.BADGE, 'primary' if t.active else t.color) }}">{{ t.badge }}</span>{% endif %}
+      </button>
+      {% endfor %}
+    </nav>
     {% endif %}
 
     {% if table._toolbar %}
@@ -61,6 +78,12 @@
           {% endif %}
         {% endcall %}
         {% endif %}
+        {% if reorderable %}
+        <button type="button" class="{{ ui.button_classes('primary' if reordering else 'gray') }}"
+                hx-get="{{ table.url(reordering=(None if reordering else '1'), page=None) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML">
+          {{ icon('check' if reordering else 'arrow-up-down', 'h-4 w-4') }}<span>{{ 'Done reordering' if reordering else 'Reorder' }}</span>
+        </button>
+        {% endif %}
         {% for a in header_actions %}{{ a.render(ctx, host, None, table_id=table.id) }}{% endfor %}
       </div>
     </div>
@@ -92,6 +115,7 @@
       <table class="w-full table-auto divide-y divide-gray-100 text-start dark:divide-white/5">
         <thead class="bg-gray-50/80 dark:bg-white/5">
           <tr>
+            {% if reordering %}<th class="w-1 px-4 py-3"></th>{% endif %}
             {% if selectable %}
             <th class="w-1 px-4 py-3"><input type="checkbox" class="tw-checkbox" data-tw-local :checked="allSelected" @click="toggleAll()" aria-label="Select all"></th>
             {% endif %}
@@ -115,21 +139,23 @@
             {% if row_actions %}<th class="px-4 py-3 text-end text-sm font-medium text-gray-600 dark:text-gray-300">Actions</th>{% endif %}
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100 dark:divide-white/5">
-          {% set colspan = columns | length + (1 if selectable else 0) + (1 if table._row_index else 0) + (1 if row_actions else 0) %}
+        <tbody class="divide-y divide-gray-100 dark:divide-white/5"
+               {% if reordering %}data-tw-sortable="{{ ctx.url('_tw', 'reorder') }}" data-host="{{ host.key }}"{% endif %}>
+          {% set colspan = columns | length + (1 if reordering else 0) + (1 if selectable else 0) + (1 if table._row_index else 0) + (1 if row_actions else 0) %}
           {% for row in rows %}
           {% if row.group is defined %}
           <tr class="bg-gray-50 dark:bg-white/5"><td colspan="{{ colspan }}" class="px-4 py-2 text-sm font-semibold text-gray-950 dark:text-white">{{ row.group }}</td></tr>
           {% else %}
           <tr class="transition {{ 'odd:bg-gray-50/50 dark:odd:bg-white/[0.02]' if table._striped }} {{ 'opacity-60' if row.trashed }} {{ row.classes }} hover:bg-gray-50 dark:hover:bg-white/5"
-              :class="selected.includes('{{ row.key }}') && '!bg-primary-50/60 dark:!bg-primary-500/10'">
+              :class="selected.includes('{{ row.key }}') && '!bg-primary-50/60 dark:!bg-primary-500/10'" data-key="{{ row.key }}">
+            {% if reordering %}<td class="w-1 px-4 py-3"><span class="tw-drag-handle cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing">{{ icon('grip-vertical', 'h-5 w-5') }}</span></td>{% endif %}
             {% if selectable %}
             <td class="w-1 px-4 py-3"><input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox" data-tw-local x-model="selected" aria-label="Select row"></td>
             {% endif %}
             {% if table._row_index %}<td class="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">{{ row.index }}</td>{% endif %}
             {% for c in columns %}
             <td class="px-3 py-3 {{ 'whitespace-normal' if c._wrap else 'whitespace-nowrap' }}">
-              {% if row.url and c.__class__.__name__ != 'ToggleColumn' and not c._url %}
+              {% if row.url and not c.editable and not c._url %}
               <a href="{{ row.url }}" class="block">{{ c.render_cell(table, row.record) }}</a>
               {% else %}{{ c.render_cell(table, row.record) }}{% endif %}
             </td>
@@ -164,7 +190,7 @@
     </div>
 
     {# ------------------------------------------------------------ pagination #}
-    {% if table._paginated %}
+    {% if paginated %}
     <nav class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 dark:border-white/10">
       <p class="text-sm text-gray-600 dark:text-gray-400">Showing <span class="font-medium">{{ from }}</span> to <span class="font-medium">{{ to }}</span> of <span class="font-medium">{{ total | number }}</span> results</p>
       <div class="flex flex-wrap items-center gap-3">

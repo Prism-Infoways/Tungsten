@@ -1,0 +1,15 @@
+{% extends "tungsten/layout/auth.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block title %}Two-factor authentication · {{ panel.brand_name }}{% endblock %}
+{% block auth %}
+<span class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl {{ colors.SOFT_ICON.primary }}">{{ icon('shield-check', 'h-6 w-6') }}</span>
+<h1 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">Two-factor authentication</h1>
+<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Enter the 6-digit code from your authenticator app.</p>
+{% if error %}<div class="mt-6 rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 ring-1 ring-danger-600/20 dark:bg-danger-500/10 dark:text-danger-300">{{ error }}</div>{% endif %}
+<form method="post" class="mt-8 grid gap-6" novalidate>
+  <input type="hidden" name="_token" value="{{ csrf_token }}">
+  {{ form.render() }}
+  <button type="submit" class="{{ ui.button_classes('primary', size='lg') }} w-full">Verify</button>
+</form>
+<p class="mt-8 text-center text-sm"><a href="{{ panel.url('login') }}" class="inline-flex items-center gap-1 font-medium {{ colors.LINK.gray }}">{{ icon('arrow-left', 'h-4 w-4') }}Back to sign in</a></p>
+{% endblock %}

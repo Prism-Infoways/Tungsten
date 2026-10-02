@@ -1,0 +1,6 @@
+{# Page filters (dashboard "Last 30 days" etc). Changing one reloads the page with the new values. #}
+<form method="get" class="flex flex-wrap items-end gap-3 [&_.tw-label]:sr-only [&_[data-field]]:gap-y-0" onchange="this.requestSubmit()">
+  {% for field, path, base in filters_form.walk_fields() %}
+  <div class="min-w-[10rem]">{{ field.render(filters_form, base) }}</div>
+  {% endfor %}
+</form>

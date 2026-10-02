@@ -1,0 +1,5 @@
+<div class="flex {{ v.justify }}" data-tw-local>
+  <input type="checkbox" class="tw-checkbox" data-tw-local {% if v.state %}checked{% endif %} {% if v.disabled %}disabled{% endif %}
+         hx-post="{{ v.endpoint }}" hx-swap="none" hx-trigger="change"
+         hx-vals='js:{...{{ v.vals | tojson }}, value: this.checked ? "1" : ""}'>
+</div>

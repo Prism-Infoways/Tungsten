@@ -14,6 +14,7 @@
       var theme = stored || '{{ panel.default_theme }}';
       var dark = allowed && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
       document.documentElement.classList.toggle('dark', dark);
+      try { if (localStorage.getItem('tw-sidebar') === 'collapsed') document.documentElement.classList.add('tw-sidebar-collapsed'); } catch (e) {}
     })();
   </script>
   {% if panel.font %}
@@ -29,13 +30,17 @@
   <script defer src="{{ panel.asset('vendor/trix.umd.min.js') }}"></script>
   <script defer src="{{ panel.asset('vendor/tom-select.complete.min.js') }}"></script>
   <script defer src="{{ panel.asset('vendor/chart.umd.min.js') }}"></script>
+  <script defer src="{{ panel.asset('vendor/sortable.min.js') }}"></script>
+  <script defer src="{{ panel.asset('vendor/qrcode.js') }}"></script>
   <script defer src="{{ panel.asset('tungsten.js') }}"></script>
   <script defer src="{{ panel.asset('vendor/alpine.min.js') }}"></script>
   {{ panel.hooks('head.end', ctx) }}
 </head>
 <body class="h-full bg-gray-50 font-sans text-gray-950 dark:bg-gray-950 dark:text-white"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
-      x-data x-init="$store.toasts.init({{ tojson_attr(flash) }})">
+      {% if panel.spa %}hx-boost="true"{% endif %}
+      data-tw-unsaved-alerts="{{ 'true' if panel.unsaved_changes_alerts else 'false' }}">
+  <div hidden x-data x-init="$store.toasts.init({{ tojson_attr(flash) }})"></div>
   {{ panel.hooks('body.start', ctx) }}
   {% block body %}{% endblock %}
   <div id="tw-modal"></div>

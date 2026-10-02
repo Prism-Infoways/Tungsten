@@ -953,6 +953,70 @@ class Radio(HasOptions):
         return v
 
 
+class ToggleButtons(HasOptions):
+    """Options shown as a row of buttons (one or many can be picked)::
+
+        ToggleButtons("status").options({"draft": "Draft", "published": "Published"})
+            .icons({"draft": "pencil", "published": "circle-check"})
+            .colors({"draft": "warning", "published": "success"})
+    """
+
+    template = "tungsten/forms/fields/toggle-buttons.html"
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        self._icons: Any = None
+        self._colors: Any = None
+        self._grouped = True
+        self._boolean = False
+
+    def icons(self, icons: Any) -> "ToggleButtons":
+        self._icons = icons
+        return self
+
+    def colors(self, colors: Any) -> "ToggleButtons":
+        self._colors = colors
+        return self
+
+    def multiple(self, condition: bool = True) -> "ToggleButtons":
+        self._multiple = condition
+        return self
+
+    def grouped(self, condition: bool = True) -> "ToggleButtons":
+        """Join the buttons into one bar (default) or space them apart."""
+        self._grouped = condition
+        return self
+
+    def boolean(self, true_label: str = "Yes", false_label: str = "No") -> "ToggleButtons":
+        self._boolean = True
+        self._options = {"1": true_label, "0": false_label}
+        self._icons = self._icons or {"1": "check", "0": "x"}
+        self._colors = self._colors or {"1": "success", "0": "danger"}
+        return self
+
+    def to_state(self, value: Any) -> Any:
+        if self._boolean and isinstance(value, bool):
+            return "1" if value else "0"
+        return super().to_state(value)
+
+    def process(self, form: "Form", base: str, data: dict, errors: dict) -> None:
+        super().process(form, base, data, errors)
+        if self._boolean and data.get(self.name) is not None:
+            data[self.name] = str(data[self.name]) == "1"
+
+    def view_data(self, form: "Form", base: str) -> dict[str, Any]:
+        v = super().view_data(form, base)
+        ev = form.ev(base)
+        icons = evaluate(self._icons, **ev) or {}
+        colors_ = evaluate(self._colors, **ev) or {}
+        for o in v["options"]:
+            key = next((k for k in list(icons) + list(colors_) if str(k) == o["value"]), o["value"])
+            o["icon"] = icons.get(key) if isinstance(icons, dict) else None
+            o["color"] = (colors_.get(key) if isinstance(colors_, dict) else None) or "primary"
+        v["grouped"] = self._grouped
+        return v
+
+
 # ---------------------------------------------------------------------- booleans
 class Checkbox(Field):
     template = "tungsten/forms/fields/checkbox.html"
@@ -1469,11 +1533,23 @@ class Repeater(Field):
 
         return list(flatten(self._schema))
 
-    def _blank_row(self, form: "Form", path: str, index: int) -> dict:
-        row: dict[str, Any] = {}
-        tmp_state = form.state
-        set_path(tmp_state, join(path, index), row)
-        for comp in self._schema:
+    # ---- hooks (overridden by Builder)
+    def _schema_for(self, row: Any) -> list[Component]:
+        """The schema used for one row."""
+        return self._schema
+
+    def _split_value(self, row: Any) -> tuple[dict, dict]:
+        """A stored row -> (row meta such as ``__type``, field data)."""
+        return {}, (row if isinstance(row, dict) else {})
+
+    def _join_value(self, row_state: dict, row_data: dict) -> Any:
+        """Clean row data -> the value stored for that row."""
+        return row_data
+
+    def _blank_row(self, form: "Form", path: str, index: int, block: str | None = None) -> dict:
+        row: dict[str, Any] = {"__type": block} if block else {}
+        set_path(form.state, join(path, index), row)
+        for comp in self._schema_for(row):
             comp.fill_state(form, join(path, index), None)
         return get_path(form.state, join(path, index))
 
@@ -1520,9 +1596,10 @@ class Repeater(Field):
             rows = getattr(record, self.name, None) or []
             for i, row in enumerate(rows):
                 row_base = join(path, i)
-                set_path(form.state, row_base, {})
-                obj = DataRecord(row if isinstance(row, dict) else {})
-                for comp in self._schema:
+                meta, data = self._split_value(row)
+                set_path(form.state, row_base, dict(meta))
+                obj = DataRecord(data)
+                for comp in self._schema_for(meta):
                     comp.fill_state(form, row_base, obj)
 
     def load_state(self, form: "Form", formdata: Any, base: str) -> None:
@@ -1538,9 +1615,10 @@ class Repeater(Field):
         set_path(form.state, path, [])
         for new_i, old_i in enumerate(sorted(indexes)):
             row_base = join(path, new_i)
-            set_path(form.state, row_base, {})
+            row_type = formdata.get(join(path, old_i, "__type"))
+            set_path(form.state, row_base, {"__type": row_type} if row_type else {})
             src = _ReindexedForm(formdata, join(path, old_i), row_base) if old_i != new_i else formdata
-            for comp in self._schema:
+            for comp in self._schema_for(get_path(form.state, row_base)):
                 comp.load_state(form, src, row_base)
             key = formdata.get(join(path, old_i, "__key"))
             if key:
@@ -1552,8 +1630,8 @@ class Repeater(Field):
     def walk(self, form: "Form", base: str) -> Iterator[tuple["Field", str, str]]:
         self._prepare(form)
         yield self, self.path(base), base
-        for i, _ in enumerate(self.rows(form, base)):
-            for comp in self._schema:
+        for i, row in enumerate(self.rows(form, base)):
+            for comp in self._schema_for(row):
                 yield from comp.walk(form, join(self.path(base), i))
 
     def process(self, form: "Form", base: str, data: dict, errors: dict) -> None:
@@ -1565,11 +1643,11 @@ class Repeater(Field):
         out = []
         for i, row in enumerate(rows):
             row_data: dict[str, Any] = {}
-            for comp in self._schema:
+            for comp in self._schema_for(row):
                 comp.process(form, join(path, i), row_data, errors)
             if isinstance(row, dict) and row.get("__key"):
                 row_data["__key"] = row["__key"]
-            out.append(row_data)
+            out.append(self._join_value(row if isinstance(row, dict) else {}, row_data))
         if self.is_required(form, base) and not out:
             errors.setdefault(path, []).append(f"The {label} field is required.")
         if self._min_items is not None and len(out) < self._min_items:
@@ -1585,7 +1663,7 @@ class Repeater(Field):
     def fill_record(self, form: "Form", record: Any, data: dict) -> None:
         if self._rel or self.name not in data:
             return
-        setattr(record, self.name, [{k: _jsonable(v) for k, v in row.items() if k != "__key"} for row in data[self.name]])
+        setattr(record, self.name, [_jsonable({k: v for k, v in row.items() if k != "__key"}) for row in data[self.name]])
 
     def save_relationships(self, form: "Form", record: Any, data: dict) -> None:
         if not self._rel or self.name not in data:
@@ -1616,7 +1694,7 @@ class Repeater(Field):
         rows = list(get_path(form.state, path) or [])
         if kind == "add":
             if self._max_items is None or len(rows) < self._max_items:
-                self._blank_row(form, path, len(rows))
+                self._blank_row(form, path, len(rows), arg or None)
             return
         if not arg.isdigit() or int(arg) >= len(rows):
             return
@@ -1645,7 +1723,9 @@ class Repeater(Field):
         for i, row in enumerate(self.rows(form, base)):
             row_base = join(path, i)
             label = call(self._item_label, **{**form.ev(row_base), "state": row}) if self._item_label else None
-            rows.append({"index": i, "base": row_base, "label": label, "key": (row or {}).get("__key")})
+            rows.append({"index": i, "base": row_base, "label": label, "key": (row or {}).get("__key"),
+                         "schema": self._schema_for(row), "type": (row or {}).get("__type"),
+                         **self._row_extra(row)})
         count = len(rows)
         v.update(
             rows=rows,
@@ -1658,7 +1738,101 @@ class Repeater(Field):
             collapsible=self._collapsible,
             table=self._table,
             row_fields=self._row_fields() if self._table else [],
+            blocks=[],
         )
+        return v
+
+    def _row_extra(self, row: Any) -> dict:
+        return {}
+
+
+class Block(Component):
+    """One block type of a :class:`Builder`: ``Block("heading").icon("heading").schema([...])``."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__()
+        self.name = name
+        self._label: Any = None
+        self._icon: str | None = None
+        self._schema: list[Component] = []
+        self._columns = 1
+
+    def label(self, label: Any) -> "Block":
+        self._label = label
+        return self
+
+    def icon(self, icon: str) -> "Block":
+        self._icon = icon
+        return self
+
+    def schema(self, components: list) -> "Block":
+        self._schema = list(components)
+        return self
+
+    def columns(self, n: int) -> "Block":
+        self._columns = n
+        return self
+
+    def get_label(self) -> str:
+        return str(self._label) if self._label is not None else headline(self.name)
+
+
+class Builder(Repeater):
+    """Rows of different block types (a page builder). Saved as
+    ``[{"type": "heading", "data": {...}}, ...]``::
+
+        Builder("content").blocks([
+            Block("heading").icon("heading").schema([TextInput("text").required()]),
+            Block("paragraph").icon("pilcrow").schema([RichEditor("body")]),
+        ])
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        self._blocks: list[Block] = []
+        self._default_items = 0
+        self._add_label = None
+
+    def blocks(self, blocks: list[Block]) -> "Builder":
+        self._blocks = list(blocks)
+        return self
+
+    def relationship(self, *args: Any, **kwargs: Any) -> "Builder":
+        raise NotImplementedError("Builder stores JSON; use Repeater for related records.")
+
+    def block(self, name: str | None) -> Block | None:
+        return next((b for b in self._blocks if b.name == name), None)
+
+    def _schema_for(self, row: Any) -> list[Component]:
+        block = self.block((row or {}).get("__type") if isinstance(row, dict) else None)
+        return block._schema if block else []
+
+    def _split_value(self, row: Any) -> tuple[dict, dict]:
+        if isinstance(row, dict) and "type" in row:
+            return {"__type": row["type"]}, dict(row.get("data") or {})
+        return {}, {}
+
+    def _join_value(self, row_state: dict, row_data: dict) -> Any:
+        return {"type": row_state.get("__type"), "data": {k: v for k, v in row_data.items() if k != "__key"}}
+
+    def _row_extra(self, row: Any) -> dict:
+        block = self.block((row or {}).get("__type")) if isinstance(row, dict) else None
+        return {"block_label": block.get_label() if block else "Unknown block",
+                "block_icon": block._icon if block else None, "columns": block._columns if block else 1}
+
+    def _blank_row(self, form: "Form", path: str, index: int, block: str | None = None) -> dict:
+        if self.block(block) is None:
+            block = self._blocks[0].name if self._blocks else None
+        return super()._blank_row(form, path, index, block)
+
+    def to_state(self, value: Any) -> Any:
+        return []
+
+    def view_data(self, form: "Form", base: str) -> dict[str, Any]:
+        v = super().view_data(form, base)
+        v["blocks"] = [{"name": b.name, "label": b.get_label(), "icon": b._icon} for b in self._blocks]
+        v["add_label"] = evaluate(self._add_label, **form.ev(base)) or "Add block"
+        v["table"] = False
         return v
 
 

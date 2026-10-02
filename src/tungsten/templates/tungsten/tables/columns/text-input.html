@@ -1,0 +1,6 @@
+<div class="flex {{ v.justify }}" data-tw-local>
+  <input type="{{ v.input_type }}" name="value" value="{{ v.value }}" data-tw-local {% if v.input_type == 'number' %}step="any"{% endif %}
+         class="tw-input {{ v.width_class }} py-1.5" {% if v.disabled %}disabled{% endif %}
+         hx-post="{{ v.endpoint }}" hx-swap="none" hx-trigger="change" hx-include="this"
+         hx-vals='{{ v.vals | tojson }}' onclick="event.stopPropagation()">
+</div>

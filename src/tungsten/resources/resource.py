@@ -88,6 +88,11 @@ class Resource:
         return table
 
     @classmethod
+    def infolist(cls, infolist: Any) -> Any:
+        """Read-only layout for the view page. Return ``None`` to show the form disabled."""
+        return None
+
+    @classmethod
     def query(cls, ctx: "Context"):
         """The base query for every page (override to scope records)."""
         return select(cls.model)

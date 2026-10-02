@@ -109,6 +109,42 @@ class Page:
         return []
 
     @classmethod
+    def filters_form(cls, form: "Form") -> "Form | None":
+        """Filters shown in the page header and passed to every widget as ``filters``::
+
+            return form.schema([Select("period").options({"7": "Last 7 days"}).default("7")])
+        """
+        return None
+
+    @classmethod
+    def build_filters_form(cls, ctx: "Context") -> "Form | None":
+        from .forms.form import Form
+
+        form = cls.filters_form(Form())
+        if form is None:
+            return None
+        form.bind(ctx, operation="filter", refresh_url="", id="tw-page-filters")
+        params = ctx.request.query_params
+        if any(f.name in params for f, _, _ in form.walk_fields()):
+            form.load(params)
+        else:
+            form.fill()
+        return form
+
+    @classmethod
+    def get_filters(cls, ctx: "Context") -> dict[str, Any]:
+        from .forms.form import ValidationError
+
+        form = cls.build_filters_form(ctx)
+        if form is None:
+            return {}
+        try:
+            return form.validate()
+        except ValidationError:
+            form.fill()
+            return form.validate()
+
+    @classmethod
     def get_widgets(cls, ctx: "Context") -> list:
         return [w for w in cls.widgets if w.can_view(ctx)]
 

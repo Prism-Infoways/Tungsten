@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 import secrets
+import time
 from typing import TYPE_CHECKING, Any, Callable
 
 from fastapi import FastAPI, Request
@@ -22,7 +23,7 @@ from .hosts import Host, RelationHost
 from .notifications import Notification
 from .panel import STATIC_DIR
 from .support.evaluate import call, evaluate
-from .tables.columns import ToggleColumn
+from .tables.columns import EditableColumn
 
 if TYPE_CHECKING:  # pragma: no cover
     from .panel import Panel
@@ -84,6 +85,14 @@ class Routes:
                     panel.auth.logout(ctx)
                 if not public and ctx.user is None:
                     return ctx.go(panel.url("login", next=request.url.path if request.method == "GET" else None))
+                if (not public and panel.auth.two_factor_required and request.url.path.rstrip("/") != panel.url("two-factor")
+                        and not request.url.path.startswith(panel.url("assets"))):
+                    from .auth.two_factor import TwoFactor
+
+                    if not TwoFactor(ctx, ctx.user).enabled:
+                        Notification("Two-factor authentication required").body(
+                            "Please set up two-factor authentication to continue.").warning().send(ctx)
+                        return ctx.go(panel.url("two-factor"))
             ctx.tenant = panel.tenancy.resolve(ctx)
             if request.method == "POST" and not self._csrf_ok(ctx, formdata):
                 return HTMLResponse("Page expired. Please refresh and try again.", status_code=419)
@@ -228,6 +237,14 @@ class Routes:
         async def logout(request: Request):
             return await r.run(request, r.logout, public=True, read_form=True)
 
+        @g("/register")
+        async def register(request: Request):
+            return await r.run(request, r.sign_up, public=True)
+
+        @p("/register")
+        async def register_post(request: Request):
+            return await r.run(request, r.sign_up, public=True, read_form=True)
+
         @g("/forgot-password")
         async def forgot(request: Request):
             return await r.run(request, r.forgot_password, public=True)
@@ -244,6 +261,22 @@ class Routes:
         async def reset_post(request: Request, token: str):
             return await r.run(request, r.reset_password, public=True, read_form=True, token=token)
 
+        @g("/two-factor/challenge")
+        async def two_factor_challenge(request: Request):
+            return await r.run(request, r.two_factor_challenge, public=True)
+
+        @p("/two-factor/challenge")
+        async def two_factor_challenge_post(request: Request):
+            return await r.run(request, r.two_factor_challenge, public=True, read_form=True)
+
+        @g("/two-factor")
+        async def two_factor(request: Request):
+            return await r.run(request, r.two_factor_setup)
+
+        @p("/two-factor")
+        async def two_factor_post(request: Request):
+            return await r.run(request, r.two_factor_setup, read_form=True)
+
         @g("/profile")
         async def profile(request: Request):
             return await r.run(request, r.profile)
@@ -259,7 +292,15 @@ class Routes:
 
         @p("/_tw/toggle")
         async def toggle(request: Request):
-            return await r.run(request, r.toggle, read_form=True)
+            return await r.run(request, r.column_update, read_form=True)
+
+        @p("/_tw/reorder")
+        async def reorder(request: Request):
+            return await r.run(request, r.reorder, read_form=True)
+
+        @p("/_tw/column")
+        async def column_update(request: Request):
+            return await r.run(request, r.column_update, read_form=True)
 
         @g("/_tw/action")
         async def action_get(request: Request):
@@ -371,10 +412,17 @@ class Routes:
                 if user is None:
                     form.add_error("email", "These credentials do not match our records.")
                 else:
-                    panel.auth.login(ctx, user)
                     nxt = ctx.request.query_params.get("next") or fd.get("next") or ""
                     if not nxt.startswith(panel.path or "/") or nxt.startswith("//"):
                         nxt = panel.url()
+                    if panel.auth.two_factor:
+                        from .auth.two_factor import TwoFactor
+
+                        if TwoFactor(ctx, user).enabled:
+                            ctx.session["tw_2fa_pending"] = {"id": panel.auth.user_id(user), "next": nxt,
+                                                             "at": time.time()}
+                            return RedirectResponse(panel.url("two-factor", "challenge"), status_code=303)
+                    panel.auth.login(ctx, user)
                     return RedirectResponse(nxt, status_code=303)
             except ValidationError:
                 pass
@@ -388,6 +436,139 @@ class Routes:
     def logout(self, ctx: Context, fd: Any) -> Response:
         self.panel.auth.logout(ctx)
         return RedirectResponse(self.panel.url("login"), status_code=303)
+
+    def two_factor_challenge(self, ctx: Context, fd: Any) -> Response:
+        from .auth.two_factor import TwoFactor
+        from .forms import TextInput
+
+        panel = self.panel
+        pending = ctx.session.get("tw_2fa_pending")
+        if not panel.auth.two_factor or not pending or time.time() - pending.get("at", 0) > 600:
+            ctx.session.pop("tw_2fa_pending", None)
+            return RedirectResponse(panel.url("login"), status_code=303)
+        from sqlalchemy import inspect as sa_inspect
+
+        model = panel.auth.user_model
+        pk = sa_inspect(model).primary_key[0]
+        try:
+            user = ctx.db.get(model, pk.type.python_type(pending["id"]))
+        except (TypeError, ValueError, NotImplementedError):
+            user = ctx.db.get(model, pending["id"])
+        if user is None:
+            ctx.session.pop("tw_2fa_pending", None)
+            return RedirectResponse(panel.url("login"), status_code=303)
+        form = self._auth_form(ctx, [
+            TextInput("code").label("Authentication code").required().autofocus().autocomplete("one-time-code")
+            .placeholder("123 456").helper_text("Open your authenticator app, or enter one of your recovery codes."),
+        ])
+        error = None
+        if fd is not None:
+            form.load(fd)
+            try:
+                data = form.validate()
+                key = f"2fa|{pending['id']}"
+                if panel.auth.throttled(key):
+                    raise PermissionError("Too many attempts. Please try again in a minute.")
+                if TwoFactor(ctx, user).verify(data["code"]):
+                    ctx.session.pop("tw_2fa_pending", None)
+                    panel.auth.login(ctx, user)
+                    return RedirectResponse(pending.get("next") or panel.url(), status_code=303)
+                panel.auth._attempts[key].append(time.monotonic())
+                form.add_error("code", "That code is not valid.")
+            except ValidationError:
+                pass
+            except PermissionError as exc:
+                error = str(exc)
+        else:
+            form.fill()
+        return ctx.render("tungsten/auth/two-factor-challenge.html", form=form, error=error)
+
+    def two_factor_setup(self, ctx: Context, fd: Any) -> Response:
+        from .auth.two_factor import TwoFactor, otpauth_uri
+
+        panel = self.panel
+        if not panel.auth.two_factor:
+            raise NotFound()
+        tf = TwoFactor(ctx, ctx.user)
+        auth = panel.auth
+        step, codes, error = ("enabled" if tf.enabled else "off"), None, None
+        if fd is not None:
+            do = fd.get("_do")
+            if do == "enable" and not tf.enabled:
+                tf.start()
+                step = "confirm"
+            elif do == "confirm" and not tf.enabled:
+                codes = tf.confirm(fd.get("code") or "")
+                if codes is None:
+                    step, error = "confirm", "That code is not valid. Check your phone's clock and try again."
+                else:
+                    step = "codes"
+                    Notification("Two-factor authentication is on").success().send(ctx)
+            elif do in ("disable", "codes") and tf.enabled:
+                if not auth.verify(fd.get("password") or "", getattr(ctx.user, auth.password_field, None)):
+                    error = "Your password is incorrect."
+                elif do == "disable":
+                    if auth.two_factor_required:
+                        error = "Two-factor authentication is required for this panel."
+                    else:
+                        tf.disable()
+                        step = "off"
+                        Notification("Two-factor authentication is off").warning().send(ctx)
+                else:
+                    codes = tf.regenerate_codes()
+                    step = "codes"
+        secret = tf.credential.secret if step == "confirm" and tf.credential else None
+        account = str(getattr(ctx.user, auth.email_field, ""))
+        return ctx.render(
+            "tungsten/auth/two-factor-setup.html",
+            title="Two-factor authentication",
+            step=step, codes=codes, error=error, secret=secret,
+            uri=otpauth_uri(secret, account, panel.brand_name) if secret else None,
+            remaining=len(tf.credential.recovery_codes or []) if tf.enabled and tf.credential else 0,
+            required=auth.two_factor_required,
+        )
+
+    def sign_up(self, ctx: Context, fd: Any) -> Response:
+        from .forms import TextInput
+
+        panel = self.panel
+        auth = panel.auth
+        if not auth.enabled or not auth.registration:
+            raise NotFound()
+        if ctx.user is not None:
+            return ctx.go(panel.url())
+        form = self._auth_form(ctx, [
+            TextInput(auth.name_field).label("Full name").required().max_length(255).autofocus(),
+            TextInput(auth.email_field).label("Email").email().required().max_length(255).unique(),
+            TextInput("password").label("Password").password().revealable().required().min_length(8),
+            TextInput("password_confirmation").label("Confirm password").password().revealable().required()
+            .same("password"),
+        ])
+        form.model(auth.user_model)
+        created = False
+        if fd is not None:
+            form.load(fd)
+            try:
+                data = form.validate()
+                user = auth.user_model()
+                setattr(user, auth.name_field, data[auth.name_field])
+                setattr(user, auth.email_field, data[auth.email_field])
+                setattr(user, auth.password_field, auth.hash(form.get("password")))
+                if auth.on_register is not None:
+                    call(auth.on_register, user=user, db=ctx.db, ctx=ctx)
+                ctx.db.add(user)
+                ctx.db.commit()
+                if auth.is_active(user) and auth.allowed(ctx, user):
+                    auth.login(ctx, user)
+                    Notification("Welcome!").body("Your account was created.").success().send(ctx)
+                    ctx.flash()
+                    return RedirectResponse(panel.url(), status_code=303)
+                created = True
+            except ValidationError:
+                pass
+        else:
+            form.fill()
+        return ctx.render("tungsten/auth/register.html", form=form, created=created)
 
     def forgot_password(self, ctx: Context, fd: Any) -> Response:
         from .forms import TextInput
@@ -456,7 +637,12 @@ class Routes:
         form = host.form(ctx)
         if fd is None:
             form.fill(ctx.user)
-            return ctx.render("tungsten/pages/profile.html", form=form, title="My profile")
+            two_factor = None
+            if self.panel.auth.two_factor:
+                from .auth.two_factor import TwoFactor
+
+                two_factor = TwoFactor(ctx, ctx.user).enabled
+            return ctx.render("tungsten/pages/profile.html", form=form, title="My profile", two_factor=two_factor)
         form.load(fd)
         try:
             data = form.validate()
@@ -602,8 +788,8 @@ class Routes:
             raise Forbidden()
         if operation == "edit" and host.is_trashed(record) and fd is not None:
             raise Forbidden()
-        form = host.form(ctx, operation, record)
-        form.id = "tw-record-form"
+        form = (host.infolist(ctx, record) if operation == "view" else None) or host.form(ctx, operation, record)
+        form.id = form.id if form.id == "tw-infolist" else "tw-record-form"
         if fd is not None:
             form.load(fd)
             try:
@@ -664,7 +850,8 @@ class Routes:
             response.headers["HX-Replace-Url"] = push
         return response
 
-    def toggle(self, ctx: Context, fd: Any) -> Response:
+    def column_update(self, ctx: Context, fd: Any) -> Response:
+        """Save one inline-edited table cell (toggle, checkbox, text input, select)."""
         host = self.resolve_host(ctx, fd.get("host"))
         record = host.find_record(ctx, fd.get("record"))
         if record is None:
@@ -672,12 +859,39 @@ class Routes:
         if not host.can(ctx, "update", record):
             raise Forbidden()
         table = host.get_table(ctx).bind(ctx, host, params=QueryParams(""))
-        column = next((c for c in table._columns if isinstance(c, ToggleColumn) and c.name == fd.get("column")), None)
+        column = next((c for c in table._columns if isinstance(c, EditableColumn) and c.name == fd.get("column")), None)
         if column is None:
             raise NotFound()
-        column.update(table, record, not bool(getattr(record, column.name)))
+        if "value" in fd:
+            raw = fd.get("value")
+        else:  # a bare toggle click flips the value
+            raw = "" if getattr(record, column.name) else "1"
+        try:
+            column.update(table, record, raw)
+        except ValueError as exc:
+            ctx.db.rollback()
+            Notification("Not saved").body(str(exc)).danger().send(ctx)
+            return ctx.finalize(Response(status_code=204))
         ctx.db.commit()
         Notification("Saved").success().duration(2000).send(ctx)
+        return ctx.finalize(Response(status_code=204))
+
+    def reorder(self, ctx: Context, fd: Any) -> Response:
+        """Save a new row order after drag & drop."""
+        host = self.resolve_host(ctx, fd.get("host"))
+        if not host.can(ctx, "update"):
+            raise Forbidden()
+        table = host.get_table(ctx).bind(ctx, host, params=QueryParams(""))
+        column = table._reorder_column
+        if not column:
+            raise NotFound()
+        keys = list(dict.fromkeys(fd.getlist("keys")))
+        by_key = {host.record_key(r): r for r in host.find_records(ctx, keys)}
+        for position, key in enumerate(keys, start=1):
+            if key in by_key:
+                setattr(by_key[key], column, position)
+        ctx.db.commit()
+        Notification("Order saved").success().duration(2000).send(ctx)
         return ctx.finalize(Response(status_code=204))
 
     # ------------------------------------------------------------------ actions

@@ -1,0 +1,8 @@
+<div class="flex {{ v.justify }}" data-tw-local>
+  <select name="value" data-tw-local class="tw-input w-auto py-1.5 pe-9" {% if v.disabled %}disabled{% endif %}
+          hx-post="{{ v.endpoint }}" hx-swap="none" hx-trigger="change" hx-include="this"
+          hx-vals='{{ v.vals | tojson }}'>
+    {% if not v.options | selectattr('selected') | list %}<option value="">—</option>{% endif %}
+    {% for o in v.options %}<option value="{{ o.value }}" {% if o.selected %}selected{% endif %}>{{ o.label }}</option>{% endfor %}
+  </select>
+</div>

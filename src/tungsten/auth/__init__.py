@@ -72,6 +72,10 @@ class Auth:
         hasher: Any = None,
         password_reset: bool = True,
         profile: bool = True,
+        registration: bool = False,
+        on_register: Callable | None = None,
+        two_factor: bool = False,
+        two_factor_required: bool = False,
         reset_token_minutes: int = 60,
         max_login_attempts: int = 5,
     ) -> None:
@@ -89,6 +93,10 @@ class Auth:
         self.hasher = hasher
         self.password_reset = password_reset
         self.profile = profile
+        self.registration = registration
+        self.on_register = on_register
+        self.two_factor = two_factor or two_factor_required
+        self.two_factor_required = two_factor_required
         self.reset_token_minutes = reset_token_minutes
         self.max_login_attempts = max_login_attempts
         self.panel: Panel | None = None

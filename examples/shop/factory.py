@@ -13,7 +13,7 @@ from tungsten import Auth, LocalStorage, NavigationItem, Panel, Plugin
 from .models import Base, User, make_engine
 from .pages import Reports, SystemSettings
 from .resources import ALL_RESOURCES
-from .widgets import DASHBOARD_WIDGETS
+from .widgets import DASHBOARD_WIDGETS, ShopDashboard
 
 
 class DocsPlugin(Plugin):
@@ -38,10 +38,13 @@ def create_panel(session_factory, storage_dir: str = "storage/tungsten", mailer=
         session_factory=session_factory,
         secret_key=os.environ.get("SECRET_KEY", "dev-secret-change-me"),
         auth=Auth(User, avatar_field="avatar", active_field="is_active",
-                  can_access=lambda user: user.is_admin, mailer=mailer),
+                  can_access=lambda user: user.is_admin, mailer=mailer,
+                  registration=True, two_factor=True),
+        dashboard=ShopDashboard,
+        spa=True,
         brand_name="Tungsten",
         colors={"primary": "orange"},
-        navigation_groups=["Shop", "Catalog", "Settings"],
+        navigation_groups=["Shop", "Catalog", "Marketing", "Settings"],
         storage=LocalStorage(storage_dir),
         activity_log=True,
     )

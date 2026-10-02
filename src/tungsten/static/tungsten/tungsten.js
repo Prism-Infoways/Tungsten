@@ -202,7 +202,32 @@
     });
   }
 
+  function initSortable(tbody) {
+    if (!window.Sortable || tbody._twSortable) return;
+    tbody._twSortable = window.Sortable.create(tbody, {
+      handle: ".tw-drag-handle",
+      animation: 150,
+      ghostClass: "opacity-40",
+      onEnd: function () {
+        var keys = Array.prototype.map.call(tbody.querySelectorAll("tr[data-key]"), function (tr) { return tr.dataset.key; });
+        window.htmx.ajax("POST", tbody.dataset.twSortable, { values: { host: tbody.dataset.host, keys: keys }, swap: "none", source: tbody });
+      },
+    });
+  }
+
+  function initQr(el) {
+    if (!window.qrcode || el._twQr) return;
+    el._twQr = true;
+    var qr = window.qrcode(0, "M");
+    qr.addData(el.getAttribute("data-tw-qr"));
+    qr.make();
+    el.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+    el.firstChild.setAttribute("class", "h-44 w-44");
+  }
+
   function init(root) {
+    root.querySelectorAll("[data-tw-qr]").forEach(initQr);
+    root.querySelectorAll("tbody[data-tw-sortable]").forEach(initSortable);
     root.querySelectorAll("canvas[data-tw-chart]").forEach(initChart);
     root.querySelectorAll("select[data-tw-select]").forEach(initSelect);
     root.querySelectorAll("trix-editor[data-tw-live]").forEach(initRichEditor);
@@ -225,6 +250,77 @@
       if (c._twChart) { c._twChart.destroy(); c._twChart = null; }
       initChart(c);
     });
+  });
+
+  // ------------------------------------------------------------------ sidebar collapse (desktop)
+  window.twToggleSidebar = function () {
+    var collapsed = document.documentElement.classList.toggle("tw-sidebar-collapsed");
+    try { localStorage.setItem("tw-sidebar", collapsed ? "collapsed" : "open"); } catch (e) {}
+  };
+
+  // ------------------------------------------------------------------ keyboard shortcuts
+  // Any element with data-tw-keys="mod+s" (mod = Ctrl on Windows/Linux, Cmd on Mac) is clicked.
+  function comboOf(e) {
+    var parts = [];
+    if (e.ctrlKey || e.metaKey) parts.push("mod");
+    if (e.altKey) parts.push("alt");
+    if (e.shiftKey) parts.push("shift");
+    parts.push((e.key || "").toLowerCase());
+    return parts.join("+");
+  }
+  document.addEventListener("keydown", function (e) {
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) return;
+    var combo = comboOf(e);
+    var target = Array.prototype.find.call(document.querySelectorAll("[data-tw-keys]"), function (el) {
+      return el.getAttribute("data-tw-keys").toLowerCase().split(",").map(function (k) { return k.trim(); })
+        .indexOf(combo) !== -1 && el.offsetParent !== null;
+    });
+    if (target) { e.preventDefault(); target.click(); }
+  });
+
+  // ------------------------------------------------------------------ global search: arrow keys
+  document.addEventListener("keydown", function (e) {
+    var results = document.getElementById("tw-search-results");
+    if (!results || (e.key !== "ArrowDown" && e.key !== "ArrowUp")) return;
+    var input = document.querySelector("input[name=q]");
+    var links = Array.prototype.slice.call(results.querySelectorAll("a"));
+    if (!links.length) return;
+    var i = links.indexOf(document.activeElement);
+    if (document.activeElement !== input && i === -1) return;
+    e.preventDefault();
+    if (e.key === "ArrowDown") (links[i + 1] || links[0]).focus();
+    else if (i <= 0) input.focus();
+    else links[i - 1].focus();
+  });
+
+  // ------------------------------------------------------------------ unsaved changes
+  var dirty = false;
+  function alertsOn() { return document.body && document.body.getAttribute("data-tw-unsaved-alerts") === "true"; }
+  document.addEventListener("input", function (e) {
+    if (e.target.closest && e.target.closest("form[data-tw-unsaved]") && !e.target.closest("[data-tw-local]")) dirty = true;
+  });
+  document.addEventListener("change", function (e) {
+    if (e.target.closest && e.target.closest("form[data-tw-unsaved]") && !e.target.closest("[data-tw-local]")) dirty = true;
+  });
+  document.addEventListener("submit", function (e) {
+    if (e.target.matches && e.target.matches("form[data-tw-unsaved]")) dirty = false;
+  }, true);
+  document.addEventListener("htmx:afterRequest", function (e) {
+    var form = e.detail.elt && e.detail.elt.closest && e.detail.elt.closest("form[data-tw-unsaved]");
+    if (form && e.detail.requestConfig && e.detail.requestConfig.verb === "post" && e.detail.elt === form && e.detail.successful) dirty = false;
+  });
+  window.addEventListener("beforeunload", function (e) {
+    if (dirty && alertsOn()) { e.preventDefault(); e.returnValue = ""; }
+  });
+  document.addEventListener("htmx:beforeRequest", function (e) {
+    // boosted navigation away from a changed form (SPA mode)
+    if (dirty && alertsOn() && e.detail.boosted && !(e.detail.elt.closest && e.detail.elt.closest("form[data-tw-unsaved]"))) {
+      if (!window.confirm("You have unsaved changes. Leave this page?")) e.preventDefault();
+      else dirty = false;
+    }
+  });
+  document.addEventListener("htmx:afterSettle", function (e) {
+    if (e.detail.boosted) dirty = false;
   });
 
   // Trix: block file attachments (uploads go through FileUpload fields)

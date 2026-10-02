@@ -60,3 +60,14 @@
   .ts-dropdown .active { @apply bg-gray-50 text-gray-950 dark:bg-white/5 dark:text-white !important; }
   .ts-dropdown .option { @apply px-3 py-2; }
 }
+
+/* Desktop sidebar collapsed to icons (toggled with twToggleSidebar()). */
+@media (min-width: 1024px) {
+  .tw-sidebar-collapsed .tw-sb-aside { width: 5rem; }
+  .tw-sidebar-collapsed .tw-sb-main { padding-inline-start: 5rem; }
+  .tw-sidebar-collapsed .tw-sb-label { display: none !important; }
+  .tw-sidebar-collapsed .tw-sb-brand span { display: none; }
+  .tw-sidebar-collapsed .tw-nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
+  .tw-sidebar-collapsed .tw-sb-aside nav > div { margin-top: 0.5rem; }
+}
+.tw-sb-aside, .tw-sb-main { transition: width .2s ease, padding .2s ease; }

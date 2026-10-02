@@ -91,6 +91,9 @@ class Host:
     def form(self, ctx: "Context", operation: str, record: Any = None) -> "Form | None":
         return None
 
+    def infolist(self, ctx: "Context", record: Any) -> "Form | None":
+        return None
+
     def create_url(self, ctx: "Context") -> str | None:
         return None
 
@@ -222,6 +225,9 @@ class ResourceHost(Host):
                   source={"kind": "host", "host": self.key, "op": operation, "record": key})
         return form
 
+    def infolist(self, ctx: "Context", record: Any) -> "Form | None":
+        return _build_infolist(self.resource, ctx, self.model, record)
+
     def create_url(self, ctx: "Context") -> str | None:
         return self.resource.get_url(ctx, "create") if self.resource.has_page("create") else None
 
@@ -289,6 +295,9 @@ class RelationHost(Host):
         form.model(self.model)
         return form
 
+    def infolist(self, ctx: "Context", record: Any) -> "Form | None":
+        return _build_infolist(self.manager, ctx, self.model, record)
+
     def attach_new(self, ctx: "Context", record: Any) -> None:
         getattr(self.owner, self.manager.relationship).append(record)
         ctx.db.add(record)
@@ -319,3 +328,16 @@ class RelationHost(Host):
             ctx.db.commit()
             return
         super().delete(ctx, record)
+
+
+def _build_infolist(owner: Any, ctx: "Context", model: Any, record: Any) -> "Form | None":
+    from .infolists import Infolist
+
+    blank = Infolist().model(model)
+    blank.operation, blank.record = "view", record
+    infolist = owner.infolist(blank)
+    if infolist is None:
+        return None
+    infolist.model(model)
+    infolist.bind(ctx, record=record, id="tw-infolist")
+    return infolist

@@ -68,6 +68,20 @@ class PasswordReset(TungstenBase):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
 
 
+class TwoFactorCredential(TungstenBase):
+    """A user's TOTP secret and hashed recovery codes."""
+
+    __tablename__ = "tungsten_two_factor"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    secret: Mapped[str] = mapped_column(String(64))
+    recovery_codes: Mapped[list[str]] = mapped_column(JSON, default=list)
+    confirmed_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_step: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
+
+
 class ActivityLog(TungstenBase):
     """Simple audit trail written by resources (create/update/delete)."""
 

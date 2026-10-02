@@ -65,6 +65,8 @@ class Panel:
         dark_mode: bool = True,
         default_theme: str = "system",
         sidebar_collapsible: bool = True,
+        spa: bool = False,
+        unsaved_changes_alerts: bool = True,
         tenancy: Tenancy | None = None,
         storage: Storage | None = None,
         global_search: bool = True,
@@ -99,6 +101,8 @@ class Panel:
         self.dark_mode = dark_mode
         self.default_theme = default_theme
         self.sidebar_collapsible = sidebar_collapsible
+        self.spa = spa
+        self.unsaved_changes_alerts = unsaved_changes_alerts
         self.tenancy = tenancy or NoTenancy()
         self.storage = storage or LocalStorage()
         if getattr(self.storage, "panel", "missing") is None:

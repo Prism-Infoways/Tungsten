@@ -4,10 +4,10 @@
 <div class="min-h-full" x-data="{ sidebar: false }" @keydown.window.prevent.ctrl.k="$dispatch('tw-open-search')" @keydown.window.prevent.meta.k="$dispatch('tw-open-search')">
   {# ------------------------------------------------------------ sidebar #}
   <div x-show="sidebar" x-cloak class="fixed inset-0 z-40 bg-gray-950/50 lg:hidden" @click="sidebar = false"></div>
-  <aside class="fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full flex-col bg-sidebar-950 text-sidebar-300 transition-transform duration-200 lg:translate-x-0"
+  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full flex-col bg-sidebar-950 text-sidebar-300 transition-transform duration-200 lg:translate-x-0"
          :class="sidebar && '!translate-x-0'">
     <div class="flex h-16 shrink-0 items-center justify-between px-5">
-      <a href="{{ panel.url() }}" class="flex items-center gap-2.5">{% include "tungsten/components/brand.html" %}</a>
+      <a href="{{ panel.url() }}" class="tw-sb-brand flex items-center gap-2.5">{% include "tungsten/components/brand.html" %}</a>
       <button type="button" class="tw-icon-btn text-sidebar-400 hover:text-white lg:hidden" @click="sidebar = false" aria-label="Close menu">{{ icon('x', 'h-5 w-5') }}</button>
     </div>
     {% if tenants %}
@@ -29,7 +29,7 @@
       {% endcall %}
     </div>
     {% endif %}
-    <div class="px-3 pb-3">
+    <div class="tw-sb-label px-3 pb-3">
       <button type="button" @click="$dispatch('tw-open-search')" class="flex w-full items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-sidebar-400 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-sidebar-200">
         {{ icon('search', 'h-4 w-4') }}<span class="flex-1 text-start">Search menu...</span><kbd class="rounded border border-white/10 px-1.5 text-xs">⌘K</kbd>
       </button>
@@ -39,7 +39,7 @@
       {% for group in navigation %}
       <div x-data="{ open: true }">
         {% if group.label %}
-        <button type="button" class="mb-1 flex w-full items-center justify-between px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-500 hover:text-sidebar-300" @click="open = !open">
+        <button type="button" class="tw-sb-label mb-1 flex w-full items-center justify-between px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-500 hover:text-sidebar-300" @click="open = !open">
           <span class="flex items-center gap-2">{{ icon(group.icon, 'h-4 w-4') }}{{ group.label }}</span>
           <span class="transition" :class="open ? '' : '-rotate-90'">{{ icon('chevron-down', 'h-3.5 w-3.5') }}</span>
         </button>
@@ -50,18 +50,18 @@
             <div class="relative flex items-center">
               {% if item.active %}<span class="absolute inset-y-1 start-0 w-0.5 rounded-full bg-primary-500"></span>{% endif %}
               <a href="{{ item.url }}" {% if item.new_tab %}target="_blank"{% endif %}
-                 class="tw-nav-item flex-1 {{ 'tw-nav-item-active' if item.active }}" {% if item.active %}aria-current="page"{% endif %}>
-                {{ icon(item.icon, 'h-5 w-5 shrink-0') }}<span class="flex-1 truncate">{{ item.label }}</span>
-                {% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
+                 class="tw-nav-item flex-1 {{ 'tw-nav-item-active' if item.active }}" {% if item.active %}aria-current="page"{% endif %} title="{{ item.label }}">
+                {{ icon(item.icon, 'h-5 w-5 shrink-0') }}<span class="tw-sb-label flex-1 truncate">{{ item.label }}</span>
+                {% if item.badge is not none and item.badge != '' %}<span class="tw-sb-label contents">{{ ui.count_pill(item.badge, item.badge_color) }}</span>{% endif %}
               </a>
               {% if item.children %}
-              <button type="button" class="absolute end-1 tw-icon-btn h-7 w-7 text-sidebar-400 hover:text-white" @click="expanded = !expanded" aria-label="Toggle">
+              <button type="button" class="tw-sb-label absolute end-1 tw-icon-btn h-7 w-7 text-sidebar-400 hover:text-white" @click="expanded = !expanded" aria-label="Toggle">
                 <span class="transition" :class="expanded ? 'rotate-180' : ''">{{ icon('chevron-down', 'h-4 w-4') }}</span>
               </button>
               {% endif %}
             </div>
             {% if item.children %}
-            <ul class="ms-5 mt-0.5 space-y-0.5 border-s border-white/10 ps-3" x-show="expanded" {% if not item.expanded %}x-cloak{% endif %}>
+            <ul class="tw-sb-label ms-5 mt-0.5 space-y-0.5 border-s border-white/10 ps-3" x-show="expanded" {% if not item.expanded %}x-cloak{% endif %}>
               {% for child in item.children %}
               <li><a href="{{ child.url }}" class="tw-nav-item py-1.5 {{ 'tw-nav-item-active' if child.active }}">
                 <span class="flex-1 truncate">{{ child.label }}</span>{% if child.badge is not none and child.badge != '' %}{{ ui.count_pill(child.badge, child.badge_color) }}{% endif %}
@@ -76,7 +76,7 @@
       {% endfor %}
       {{ panel.hooks('sidebar.nav.end', ctx) }}
     </nav>
-    <div class="p-3">
+    <div class="tw-sb-label p-3">
       {% if panel.sidebar_footer is not none %}{{ panel.sidebar_footer }}{% else %}
       <div class="flex items-center gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
         <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500/20 text-primary-400">{{ icon('crown', 'h-5 w-5') }}</span>
@@ -91,9 +91,12 @@
   </aside>
 
   {# ------------------------------------------------------------ main #}
-  <div class="lg:ps-64">
+  <div class="tw-sb-main lg:ps-64">
     <header class="sticky top-0 z-30 flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white/90 px-4 backdrop-blur sm:px-6 lg:px-8 dark:border-white/10 dark:bg-gray-900/90">
       <button type="button" class="tw-icon-btn text-gray-500 lg:hidden" @click="sidebar = true" aria-label="Open menu">{{ icon('menu', 'h-5 w-5') }}</button>
+      {% if panel.sidebar_collapsible %}
+      <button type="button" class="tw-icon-btn hidden text-gray-500 lg:inline-flex" onclick="twToggleSidebar()" aria-label="Collapse sidebar" title="Collapse sidebar">{{ icon('panel-left', 'h-5 w-5') }}</button>
+      {% endif %}
       {{ panel.hooks('topbar.start', ctx) }}
       {% if panel.global_search_enabled %}
       {% include "tungsten/components/global-search.html" %}

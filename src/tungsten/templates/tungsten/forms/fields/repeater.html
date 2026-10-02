@@ -32,8 +32,13 @@
   <li class="tw-card overflow-hidden" x-data="{ open: true }">
     <input type="hidden" name="{{ row.base }}.__row" value="1">
     {% if row.key %}<input type="hidden" name="{{ row.base }}.__key" value="{{ row.key }}">{% endif %}
+    {% if row.type %}<input type="hidden" name="{{ row.base }}.__type" value="{{ row.type }}">{% endif %}
     <div class="flex items-center gap-x-2 border-b border-gray-100 bg-gray-50/60 px-4 py-2 dark:border-white/5 dark:bg-white/5">
+      {% if row.block_label %}
+      <span class="flex flex-1 items-center gap-2 truncate text-sm font-medium text-gray-950 dark:text-white">{{ icon(row.block_icon, 'h-4 w-4 text-gray-400') }}{{ row.label or row.block_label }}</span>
+      {% else %}
       <span class="flex-1 truncate text-sm font-medium text-gray-950 dark:text-white">{{ row.label or ('#' ~ (row.index + 1)) }}</span>
+      {% endif %}
       {% if not v.disabled %}
         {% if v.reorderable %}
           {% if not loop.first %}{{ ui_action(form, 'repeater.up:' ~ v.path ~ ':' ~ row.index, 'Move up', btn, 'arrow-up') }}{% endif %}
@@ -46,12 +51,25 @@
       <button type="button" class="{{ btn }}" @click="open = !open"><span :class="open ? '' : '-rotate-90'" class="transition">{{ icon('chevron-down', 'h-4 w-4') }}</span></button>
       {% endif %}
     </div>
-    <div class="p-4" x-show="open">{{ form.render_schema(v.schema, row.base, v.columns) }}</div>
+    <div class="p-4" x-show="open">{{ form.render_schema(row.schema, row.base, row.columns or v.columns) }}</div>
   </li>
   {% endfor %}
 </ul>
 {% endif %}
 {% if not v.disabled and v.can_add %}
+{% if v.blocks %}
+<div class="relative" x-data="{ open: false }" @click.outside="open = false">
+  <button type="button" class="tw-btn tw-btn-sm {{ colors.BUTTON.gray }}" @click="open = !open">{{ icon('plus', 'h-4 w-4') }}{{ v.add_label }}{{ icon('chevron-down', 'h-4 w-4') }}</button>
+  <div x-show="open" x-cloak class="absolute z-20 mt-2 w-56 rounded-xl bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+    {% for b in v.blocks %}
+    <button type="button" class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-start text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+            hx-post="{{ form.refresh_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form"
+            hx-vals='{"_tw_ui_action": "repeater.add:{{ v.path }}:{{ b.name }}"}'>{{ icon(b.icon, 'h-4 w-4 text-gray-400') }}{{ b.label }}</button>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
 <div>{{ ui_action(form, 'repeater.add:' ~ v.path, v.add_label, 'tw-btn tw-btn-sm ' ~ colors.BUTTON.gray) }}</div>
+{% endif %}
 {% endif %}
 {% endcall %}

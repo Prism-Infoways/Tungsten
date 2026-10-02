@@ -30,10 +30,13 @@ from tungsten.actions import (
 from tungsten.auth import hash_password
 from tungsten.auth.rbac import RolesField
 from tungsten.forms import (
+    Block,
+    Builder,
     Checkbox,
     CheckboxList,
     ColorPicker,
     DatePicker,
+    DateTimePicker,
     FileUpload,
     Grid,
     Group,
@@ -51,8 +54,10 @@ from tungsten.forms import (
     Textarea,
     TextInput,
     Toggle,
+    ToggleButtons,
     Wizard,
 )
+from tungsten.infolists import IconEntry, ImageEntry, KeyValueEntry, RepeatableEntry, TextEntry
 from tungsten.importexport import ExportAction, ExportBulkAction, ImportAction, ImportColumn, Importer
 from tungsten.models import Role, RoleAssignment
 from tungsten.tables import (
@@ -60,15 +65,18 @@ from tungsten.tables import (
     Filter,
     Group as TableGroup,
     IconColumn,
+    ListTab,
+    SelectColumn,
     SelectFilter,
     Sum,
     TernaryFilter,
     TextColumn,
+    TextInputColumn,
     ToggleColumn,
     TrashedFilter,
 )
 
-from .models import Brand, Category, Customer, Order, OrderItem, OrderStatus, Product, Tag, User
+from .models import Brand, Category, Customer, Order, OrderItem, OrderStatus, Post, Product, Tag, User
 from .widgets import ProductStats, UserStats
 
 INR = "₹"
@@ -201,6 +209,13 @@ class UserResource(Resource):
                 BulkActionGroup([ExportBulkAction()]).label("More actions"),
             ])
             .header_actions([ExportAction()])
+            .tabs([
+                ListTab("all").label("All users").badge(),
+                ListTab("active").icon("user-check").badge(color="success")
+                .query(lambda query, model: query.where(model.is_active.is_(True))),
+                ListTab("inactive").icon("user-x").badge(color="danger")
+                .query(lambda query, model: query.where(model.is_active.is_(False))),
+            ])
             .default_sort("created_at", "desc")
         )
 
@@ -271,7 +286,8 @@ class CategoryResource(Resource):
             ])
             .actions([EditAction(), DeleteAction()])
             .bulk_actions([DeleteBulkAction()])
-            .default_sort("name")
+            .reorderable("sort")
+            .default_sort("sort")
         )
 
 
@@ -289,8 +305,8 @@ class BrandResource(Resource):
     @classmethod
     def table(cls, table):
         return table.columns([
-            TextColumn("name").searchable().sortable(),
-            TextColumn("website").url(lambda record: record.website, open_in_new_tab=True).color("primary"),
+            TextInputColumn("name").required().input_width("w-48").searchable().sortable(),
+            TextInputColumn("website").configure(lambda field: field.url()).input_width("w-64"),
             TextColumn("products").label("Products").state(lambda record: len(record.products)),
         ]).actions([EditAction(), DeleteAction()])
 
@@ -461,8 +477,48 @@ class ProductResource(Resource):
                 BulkActionGroup([RestoreBulkAction(), ForceDeleteBulkAction(), ExportBulkAction()]).label("More actions"),
             ])
             .header_actions([ImportAction(ProductImporter), ExportAction()])
+            .tabs([
+                ListTab("all").label("All products").badge(),
+                ListTab("published").badge(color="success").query(lambda query, model: query.where(model.status == "published")),
+                ListTab("draft").label("Drafts").badge(color="warning").query(lambda query, model: query.where(model.status == "draft")),
+                ListTab("low").label("Low stock").icon("triangle-alert").badge(color="danger")
+                .query(lambda query, model: query.where(model.stock < 10)),
+            ])
             .default_sort("created_at", "desc")
         )
+
+    @classmethod
+    def infolist(cls, infolist):
+        return infolist.columns(3).schema([
+            Section("Product").column_span(2).schema([
+                TextEntry("name").weight("semibold").size("lg").column_span("full"),
+                TextEntry("short_description").color("gray").column_span("full"),
+                TextEntry("description").html().column_span("full"),
+                TextEntry("category.name").label("Category").badge().color("info"),
+                TextEntry("brand.name").label("Brand"),
+                TextEntry("tags.name").label("Tags").badge(),
+                TextEntry("keywords").badge().color("gray"),
+                ImageEntry("images").label("Images").stacked().column_span("full"),
+            ]),
+            Group([
+                Section("Pricing & stock").schema([
+                    TextEntry("price").money("INR", 0).weight("bold").size("lg"),
+                    TextEntry("compare_price").label("Compare-at").money("INR", 0),
+                    TextEntry("stock").icon("circle-dot").color(lambda record: stock_color(record.stock)),
+                    TextEntry("state").label("Status").state(product_state).badge().colors({
+                        "success": "Published", "warning": ["Low stock", "Draft"], "danger": "Out of stock"}),
+                    IconEntry("is_featured").label("Featured").boolean(),
+                    TextEntry("color").placeholder("No color"),
+                ]),
+                Section("Attributes").schema([
+                    KeyValueEntry("attributes").hidden_label().column_span("full"),
+                ]).collapsible(),
+                Section("History").schema([
+                    TextEntry("created_at").label("Created").datetime().inline_label().column_span("full"),
+                    TextEntry("available_from").date().inline_label().column_span("full"),
+                ]),
+            ]).columns(1),
+        ])
 
     @classmethod
     def global_search_details(cls, record):
@@ -648,9 +704,74 @@ class OrderResource(Resource):
                 BulkActionGroup([ExportBulkAction()]),
             ])
             .header_actions([ExportAction()])
+            .tabs([ListTab("all").label("All orders").badge()] + [
+                ListTab(s.value).badge(color=s.color).query(lambda query, model, s=s: query.where(model.status == s))
+                for s in (OrderStatus.PENDING, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.PAID)
+            ])
             .default_sort("created_at", "desc")
             .striped()
         )
 
 
-ALL_RESOURCES = [UserResource, ProductResource, CategoryResource, BrandResource, OrderResource, CustomerResource]
+# ---------------------------------------------------------------------- blog
+class PostResource(Resource):
+    """Blog posts: a Builder field for the body and ToggleButtons for status."""
+
+    model = Post
+    icon = "newspaper"
+    navigation_group = "Marketing"
+    navigation_label = "Blog"
+    global_search_attributes = ["title"]
+
+    @classmethod
+    def form(cls, form):
+        return form.columns(3).schema([
+            Section("Post").column_span(2).schema([
+                TextInput("title").required().max_length(200).live(on_blur=True)
+                .after_state_updated(lambda state, set, operation: set("slug", slugify(state)) if operation == "create" else None),
+                TextInput("slug").required().unique().prefix("/blog/"),
+                Builder("content").blocks([
+                    Block("heading").icon("heading").columns(3).schema([
+                        TextInput("text").required().column_span(2),
+                        Select("level").options({"h2": "Heading 2", "h3": "Heading 3"}).default("h2"),
+                    ]),
+                    Block("paragraph").icon("pilcrow").schema([RichEditor("body").required()]),
+                    Block("image").icon("image").schema([
+                        FileUpload("image").image().directory("blog").required(), TextInput("alt").label("Alt text"),
+                    ]),
+                    Block("quote").icon("quote").columns(2).schema([Textarea("text").required(), TextInput("author")]),
+                ]).add_action_label("Add block").collapsible().column_span("full"),
+            ]),
+            Section("Publishing").column_span(1).schema([
+                ToggleButtons("status").options({"draft": "Draft", "review": "In review", "published": "Published"})
+                .icons({"draft": "pencil", "review": "eye", "published": "circle-check"})
+                .colors({"draft": "gray", "review": "warning", "published": "success"})
+                .default("draft").required().column_span("full"),
+                Select("author_id").label("Author").relationship("author", "name").searchable().column_span("full"),
+                DateTimePicker("published_at").column_span("full"),
+            ]).columns(1),
+        ])
+
+    @classmethod
+    def table(cls, table):
+        return (
+            table.columns([
+                TextColumn("title").searchable().sortable().weight("medium").description(lambda record: f"/blog/{record.slug}"),
+                SelectColumn("status").options({"draft": "Draft", "review": "In review", "published": "Published"}),
+                TextColumn("author.name").label("Author"),
+                TextColumn("blocks").label("Blocks").state(lambda record: len(record.content or [])),
+                TextColumn("published_at").date().sortable().placeholder("Not published"),
+            ])
+            .tabs([
+                ListTab("all").badge(),
+                ListTab("published").badge(color="success").query(lambda query, model: query.where(model.status == "published")),
+                ListTab("review").label("In review").badge(color="warning").query(lambda query, model: query.where(model.status == "review")),
+            ])
+            .actions([EditAction(), DeleteAction()])
+            .bulk_actions([DeleteBulkAction()])
+            .default_sort("created_at", "desc")
+        )
+
+
+ALL_RESOURCES = [UserResource, ProductResource, CategoryResource, BrandResource, OrderResource, CustomerResource,
+                 PostResource]

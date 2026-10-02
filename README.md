@@ -39,18 +39,19 @@ class ProductResource(Resource):
 | Area | What you get |
 | --- | --- |
 | **Resources** | List / create / edit / view pages from one class. Soft delete with restore and force delete. "Simple" resources that work fully in popups. |
-| **Forms** | TextInput, Textarea, Select (searchable, multiple, relationship), CheckboxList, Checkbox, Toggle, Radio, DatePicker, DateTimePicker, TimePicker, FileUpload (images, multiple), RichEditor, ColorPicker, TagsInput, Repeater (JSON or related rows), KeyValue, Hidden, Placeholder. |
+| **Infolists** | Read-only view pages with entries (text, badge, icon, image, color, key-value, repeatable) in the same layouts as forms. |
+| **Forms** | TextInput, Textarea, Select (searchable, multiple, relationship), CheckboxList, Checkbox, Toggle, ToggleButtons, Radio, DatePicker, DateTimePicker, TimePicker, FileUpload (images, multiple), RichEditor, ColorPicker, TagsInput, Repeater (JSON or related rows), Builder (content blocks), KeyValue, Hidden, Placeholder. |
 | **Layouts** | Section (cards, collapsible, aside), Grid, Fieldset, Group, Tabs, Wizard (step-by-step, validates each step). |
 | **Validation** | Required, length, min/max, email, URL, regex, unique, "same as", custom rules. Clear messages under each field. |
 | **Dependent fields** | `.live()` fields re-render the form on the server: show/hide fields, change options, fill other fields. |
-| **Tables** | Text, badge, image, icon, toggle and color columns. Search (also through relations), sort, filters, pagination, row and bulk actions, show/hide columns, grouping, totals. |
+| **Tables** | Text, badge, image, icon, color columns, plus inline-editable toggle, checkbox, text input and select columns. Search (also through relations), sort, filters, list tabs with counts, pagination, row and bulk actions, show/hide columns, grouping, totals, drag-to-reorder rows. |
 | **Actions** | Buttons, confirm boxes and modal forms. Ready-made create, edit, view, delete, restore, replicate, attach and detach actions. |
 | **Relations** | Relation managers: manage a customer's orders, or attach tags to a product, on the record page. |
-| **Widgets** | Stats cards with trends and sparklines, charts (line, bar, pie, doughnut...), table widgets, progress lists. Loaded lazily, optional polling. |
-| **Auth & roles** | Login, forgot/reset password, profile page, role-based permissions with a Roles screen, policies or a custom gate. |
+| **Widgets** | Stats cards with trends and sparklines, charts (line, bar, pie, doughnut...), table widgets, progress lists. Loaded lazily, optional polling. Dashboard filters (e.g. "Last 30 days") passed to every widget. |
+| **Auth & roles** | Login, sign-up, forgot/reset password, profile page, two-factor login (TOTP + recovery codes), role-based permissions with a Roles screen, policies or a custom gate. |
 | **Notifications** | Toast messages and an in-app notification bell (stored in the database). |
 | **Navigation** | Sidebar groups, icons, badge counts, nested items, ⌘K global search across records and pages. |
-| **Theming** | Brand colors (any Tailwind palette or a hex color), logo, dark mode, Inter font. |
+| **Theming & UX** | Brand colors (any Tailwind palette or a hex color), logo, dark mode, SPA mode (no full page reloads), unsaved-changes warning, collapsible sidebar, keyboard shortcuts (Ctrl/⌘+S saves). |
 | **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins, render hooks, CLI generators. |
 
 ---
@@ -228,6 +229,60 @@ Action("email").form([TextInput("subject").required(), Textarea("body")])
 
 Use them in table rows, bulk (`BulkAction`, gets `records`), table headers, or page headers. Raise `Halt` to keep the popup open.
 
+### Infolists (view pages)
+
+Give a resource an `infolist()` and its view page shows formatted values instead of a disabled form. Entries take every `TextColumn` option:
+
+```python
+@classmethod
+def infolist(cls, infolist):
+    return infolist.columns(3).schema([
+        Section("Product").column_span(2).schema([
+            TextEntry("name").weight("semibold"),
+            TextEntry("category.name").badge(),
+            TextEntry("description").html().column_span("full"),
+            ImageEntry("images").stacked(),
+        ]),
+        Section("Pricing").schema([
+            TextEntry("price").money("INR"),
+            IconEntry("is_featured").boolean(),
+            KeyValueEntry("attributes"),
+            TextEntry("created_at").datetime().inline_label(),
+        ]),
+    ])
+```
+
+`RepeatableEntry("items").schema([...])` shows each related row (or JSON list item) with its own entries. Relation managers can have an `infolist()` too, used by their View popup.
+
+### More table features
+
+```python
+table.tabs([                                   # tabs above the table, with counts
+    ListTab("all").badge(),
+    ListTab("active").badge(color="success").query(lambda query, model: query.where(model.is_active)),
+])
+table.reorderable("sort")                      # a "Reorder" button: drag rows, order saved to `sort`
+TextInputColumn("stock").integer().configure(lambda field: field.min_value(0))   # edit in the table
+SelectColumn("status").options({"draft": "Draft", "published": "Published"})
+CheckboxColumn("is_featured")
+```
+
+Inline-edited values are checked with the same rules as form fields; a bad value shows an error toast and isn't saved.
+
+### Builder and ToggleButtons
+
+```python
+Builder("content").blocks([
+    Block("heading").icon("heading").schema([TextInput("text").required()]),
+    Block("paragraph").icon("pilcrow").schema([RichEditor("body")]),
+    Block("image").icon("image").schema([FileUpload("image").image()]),
+])   # saved as [{"type": "heading", "data": {...}}, ...]
+
+ToggleButtons("status").options({"draft": "Draft", "published": "Published"})
+    .icons({"draft": "pencil", "published": "circle-check"})
+    .colors({"draft": "gray", "published": "success"})
+```
+
 ### Relation managers
 
 ```python
@@ -263,11 +318,40 @@ class Revenue(ChartWidget):
 
 Also `TableWidget` (with `model`, `query()`, `table()`), `ProgressListWidget` and `AccountWidget`. Set `column_span`, `sort`, `lazy` and `polling_interval` on any widget.
 
+**Dashboard filters.** Give your dashboard a `filters_form`; the values show in the header and reach every widget as `filters`:
+
+```python
+class MyDashboard(Dashboard):
+    @classmethod
+    def filters_form(cls, form):
+        return form.schema([Select("period").options({"7": "Last 7 days", "30": "Last 30 days"}).default("30")])
+
+class Stats(StatsOverviewWidget):
+    @classmethod
+    def stats(cls, db, filters):
+        days = int(filters["period"])
+        ...
+
+Panel(..., dashboard=MyDashboard)
+```
+
 ### Roles & permissions
 
 `panel.rbac()` adds a **Roles & Permissions** screen. Permissions are named `<resource-slug>.<ability>`: `view_any`, `view`, `create`, `update`, `delete`, `delete_any`, `restore`, `force_delete`… Wildcards work (`products.*`, `*`). Give users roles with `RolesField()` in your user form, `auth.assign_role(db, user, "Admin")`, or the CLI.
 
 You can also use a `policy` on a resource, `Auth(gate=lambda user, permission, record: ...)`, or `Auth(can_access=lambda user: user.is_staff)` to decide who can sign in.
+
+### Sign-up and two-factor login
+
+```python
+Auth(User,
+     registration=True,              # adds a "Create an account" page
+     on_register=lambda user, db: ...,
+     two_factor=True,                # users can turn on 2FA from their profile
+     two_factor_required=False)      # True forces everyone to set it up
+```
+
+Two-factor uses 6-digit codes from any authenticator app (Google Authenticator, Microsoft Authenticator, 1Password…). Users scan a QR code, confirm one code, and get 8 one-time recovery codes. Each code works only once.
 
 ### Notifications
 
@@ -332,6 +416,17 @@ panel.plugin(BlogPlugin())
 
 Hook names: `head.end`, `body.start`, `body.end`, `sidebar.nav.start`, `sidebar.nav.end`, `sidebar.footer`, `topbar.start`, `topbar.end`, `content.start`, `content.end`, `user-menu.items`, `auth.login.form.after`, `resource.list.before-table`.
 
+### Layout & UX options
+
+```python
+Panel(...,
+      spa=True,                     # move between pages without full reloads
+      unsaved_changes_alerts=True,  # warn before leaving a changed form (default on)
+      sidebar_collapsible=True)     # desktop sidebar can collapse to icons (default on)
+```
+
+Save buttons on record pages respond to **Ctrl/⌘+S**. Give any action a shortcut with `.keyboard_shortcut("mod+e")`. In global search, use the arrow keys to move through results.
+
 Override any template by passing `template_dirs=[...]` and putting your own file at the same path (for example `tungsten/components/brand.html`).
 
 ### CLI
@@ -360,19 +455,19 @@ tungsten make:user --panel app.admin:panel --role "Super Admin"
 
 ```bash
 pip install -e ".[dev]"
-pytest                       # 61 tests
+pytest                       # 75 tests
 
 # rebuild CSS/JS assets after changing templates or classes
 cd frontend && npm install && npm run build
 ```
 
-The built assets (Tailwind CSS, HTMX, Alpine.js, Chart.js, Trix, Tom Select and Lucide icons) ship inside the package. Nothing loads from a CDN, except the optional Google font (`Panel(font=None)` turns it off).
+The built assets (Tailwind CSS, HTMX, Alpine.js, Chart.js, Trix, Tom Select, SortableJS, a QR code generator and Lucide icons) ship inside the package. Nothing loads from a CDN, except the optional Google font (`Panel(font=None)` turns it off).
 
 ## Roadmap
 
-- Two-factor authentication
 - Async SQLAlchemy sessions
-- Infolists (read-only layouts for view pages)
+- Advanced query-builder filter
+- Email verification and impersonation
 - More languages (translations)
 
 ## License

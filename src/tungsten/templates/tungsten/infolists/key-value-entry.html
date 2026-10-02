@@ -1,0 +1,15 @@
+<div class="grid gap-y-1.5">
+  {% if v.show_label %}<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ v.label }}</dt>{% endif %}
+  <dd class="overflow-hidden rounded-lg ring-1 ring-gray-950/10 dark:ring-white/10">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 dark:bg-white/5"><tr>
+        <th class="px-3 py-2 text-start font-medium text-gray-600 dark:text-gray-300">{{ v.key_label }}</th>
+        <th class="px-3 py-2 text-start font-medium text-gray-600 dark:text-gray-300">{{ v.value_label }}</th>
+      </tr></thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+        {% for k, val in rows %}<tr><td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ k }}</td><td class="px-3 py-2 text-gray-950 dark:text-white">{{ val }}</td></tr>
+        {% else %}<tr><td colspan="2" class="px-3 py-3 text-center text-gray-500">No entries.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </dd>
+</div>

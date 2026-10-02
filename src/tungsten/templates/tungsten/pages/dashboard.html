@@ -1,6 +1,8 @@
 {% extends "tungsten/layout/app.html" %}
 {% block content %}
 {% set title = page.greeting(ctx) %}
+{% set filters_form = page.build_filters_form(ctx) %}
+{% set extra_actions %}{% if filters_form %}{% include "tungsten/components/page-filters.html" %}{% endif %}{% endset %}
 {% include "tungsten/components/page-header.html" %}
 {% with columns = page.widget_columns %}{% include "tungsten/components/widgets.html" %}{% endwith %}
 {% if content %}{{ content }}{% endif %}

@@ -119,6 +119,13 @@ class EditAction(RecordFormAction):
 class ViewAction(RecordFormAction):
     operation = "view"
 
+    def build_form(self, ctx, host, record=None, records=None):  # type: ignore[override]
+        if self._form is True and host is not None and record is not None:
+            infolist = host.infolist(ctx, record)
+            if infolist is not None:
+                return infolist
+        return super().build_form(ctx, host, record, records)
+
     def __init__(self, name: str = "view") -> None:
         super().__init__(name)
         self._icon = "eye"

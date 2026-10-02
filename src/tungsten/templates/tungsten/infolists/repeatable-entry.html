@@ -1,0 +1,8 @@
+<div class="grid gap-y-2">
+  {% if v.show_label %}<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ v.label }}</dt>{% endif %}
+  <dd class="grid gap-3 {{ v.grid }}">
+    {% for html in items %}
+    <div class="rounded-xl p-4 ring-1 ring-gray-950/5 dark:ring-white/10">{{ html }}</div>
+    {% else %}<p class="text-sm text-gray-500">Nothing here yet.</p>{% endfor %}
+  </dd>
+</div>

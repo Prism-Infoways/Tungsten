@@ -57,6 +57,46 @@ class Group(Component):
         return str(default_format(value)) if value not in (None, "") else "—"
 
 
+class ListTab(Component):
+    """A tab above the table that narrows the records: ``ListTab("active").query(lambda query, model: ...)``."""
+
+    def __init__(self, name: str, label: str | None = None) -> None:
+        super().__init__()
+        self.name = name
+        self._label = label
+        self._icon: str | None = None
+        self._query: Callable | None = None
+        self._badge: Any = None
+        self._badge_color = "gray"
+
+    def label(self, label: str) -> "ListTab":
+        self._label = label
+        return self
+
+    def icon(self, icon: str) -> "ListTab":
+        self._icon = icon
+        return self
+
+    def query(self, fn: Callable) -> "ListTab":
+        """``fn(query, model)`` returns the narrowed query."""
+        self._query = fn
+        return self
+
+    def badge(self, value: Any = True, color: str = "gray") -> "ListTab":
+        """``True`` shows the record count, or pass a value / closure."""
+        self._badge = value
+        self._badge_color = color
+        return self
+
+    def get_label(self) -> str:
+        return self._label or headline(self.name)
+
+    def apply(self, query: Any, table: "Table") -> Any:
+        if self._query is None:
+            return query
+        return call(self._query, **{**table.ev(), "query": query})
+
+
 class Table(Component):
     def __init__(self) -> None:
         super().__init__()
@@ -91,6 +131,8 @@ class Table(Component):
         self._toolbar = True
         self._export: Any = None
         self._limit: int | None = None
+        self._reorder_column: str | None = None
+        self._tabs: list = []
         # runtime
         self.ctx: Context | None = None
         self.host: Host | None = None
@@ -150,6 +192,40 @@ class Table(Component):
         """Show only the first ``n`` rows, without pagination (good for widgets)."""
         self._paginated = False
         self._limit = n
+        return self
+
+    def tabs(self, tabs: list[ListTab]) -> "Table":
+        """Tabs above the table (e.g. All / Active / Inactive). The first one is the default."""
+        self._tabs = list(tabs)
+        return self
+
+    @property
+    def active_tab(self) -> ListTab | None:
+        if not self._tabs:
+            return None
+        wanted = self.param("tab")
+        return next((t for t in self._tabs if t.name == wanted), self._tabs[0])
+
+    def tab_data(self) -> list[dict]:
+        out = []
+        active = self.active_tab
+        base = None
+        for tab in self._tabs:
+            badge = None
+            if tab._badge is True:
+                if base is None:
+                    base = self._scoped_base_query()
+                badge = self.get_total(tab.apply(base, self))
+            elif tab._badge is not None:
+                badge = evaluate(tab._badge, **self.ev())
+            out.append({"name": tab.name, "label": tab.get_label(), "icon": tab._icon, "badge": badge,
+                        "color": tab._badge_color, "active": tab is active,
+                        "url": self.url(tab=tab.name, page=None)})
+        return out
+
+    def reorderable(self, column: str = "sort") -> "Table":
+        """Let users drag rows to change their order (saved to ``column``)."""
+        self._reorder_column = column
         return self
 
     def default_per_page(self, n: int) -> "Table":
@@ -308,7 +384,14 @@ class Table(Component):
             return self._searchable
         return any(c._searchable for c in self._columns)
 
+    @property
+    def is_reordering(self) -> bool:
+        return bool(self._reorder_column) and self.param("reordering") == "1" and self.host is not None \
+            and self.host.can(self.ctx, "update")
+
     def is_selectable(self) -> bool:
+        if self.is_reordering:
+            return False
         if self._selectable is not None:
             return self._selectable
         return bool(self.visible_bulk_actions())
@@ -455,8 +538,20 @@ class Table(Component):
                 query = query.options(loader)
         return query
 
+    def _scoped_base_query(self):
+        query = self.host.base_query(self.ctx)
+        sd = self.host.soft_delete_column
+        if sd and self.trashed_mode() == "without":
+            query = query.where(getattr(self.model, sd).is_(None))
+        if self._modify_query is not None:
+            query = call(self._modify_query, **{**self.ev(), "query": query})
+        return query
+
     def filtered_query(self):
         query = self.host.base_query(self.ctx)
+        tab = self.active_tab
+        if tab is not None:
+            query = tab.apply(query, self)
         sd = self.host.soft_delete_column
         if sd:
             mode = self.trashed_mode()
@@ -476,6 +571,8 @@ class Table(Component):
         return query
 
     def sorted_query(self, query):
+        if self.is_reordering:
+            return query.order_by(getattr(self.model, self._reorder_column), self.host.primary_key())
         group = self.group
         if group is not None:
             query, expr = self._sort_expression(query, group.attribute)
@@ -521,6 +618,8 @@ class Table(Component):
     # ---- urls
     def state_params(self, **overrides: Any) -> list[tuple[str, Any]]:
         params: dict[str, Any] = {
+            "tab": self.param("tab"),
+            "reordering": self.param("reordering"),
             "search": self.search or None,
             "sort": self.param("sort"),
             "direction": self.param("direction"),
@@ -616,9 +715,10 @@ class Table(Component):
         total = self.get_total(query)
         sorted_q = self._eager_loads(self.sorted_query(query))
         per_page = self.per_page
-        pages = max(1, math.ceil(total / per_page)) if self._paginated else 1
+        paginated = self._paginated and not self.is_reordering
+        pages = max(1, math.ceil(total / per_page)) if paginated else 1
         page = min(self.page, pages)
-        if self._paginated:
+        if paginated:
             sorted_q = sorted_q.limit(per_page).offset((page - 1) * per_page)
         elif self._limit:
             sorted_q = sorted_q.limit(self._limit)
@@ -628,10 +728,10 @@ class Table(Component):
         self._scoped(self._bulk_actions, "bulk")
         self._scoped(self._header_actions, "table")
         self._scoped(self._empty_actions, "empty")
-        group = self.group
+        group = None if self.is_reordering else self.group
         rows = []
         last_group = object()
-        start = (page - 1) * per_page if self._paginated else 0
+        start = (page - 1) * per_page if paginated else 0
         for i, record in enumerate(records):
             if group is not None:
                 title = group.get_title(record)
@@ -662,6 +762,10 @@ class Table(Component):
             "page_links": _page_links(page, pages),
             "summaries": self.summaries(query) if any(c._summarizers for c in columns) else {},
             "selectable": self.is_selectable(),
+            "paginated": paginated,
+            "reordering": self.is_reordering,
+            "reorderable": bool(self._reorder_column) and self.host.can(ctx, "update"),
+            "tabs": self.tab_data() if self._tabs else [],
             "bulk_actions": self.visible_bulk_actions(),
             "header_actions": self._header_actions,
             "row_actions": self._actions if has_row_actions else [],

@@ -7,7 +7,8 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
-from tungsten import ChartWidget, ProgressItem, ProgressListWidget, Stat, StatsOverviewWidget, TableWidget
+from tungsten import ChartWidget, Dashboard, ProgressItem, ProgressListWidget, Stat, StatsOverviewWidget, TableWidget
+from tungsten.forms import Select
 from tungsten.models import Role, RoleAssignment
 from tungsten.tables import TextColumn
 
@@ -51,14 +52,34 @@ def change(points: list[float]) -> tuple[str, str]:
     return f"{abs(pct):.0f}%", "up" if pct >= 0 else "down"
 
 
+def period_counts(db, model, column, days: int, value=None) -> tuple[float, float]:
+    """(this period, previous period) totals for the last ``days`` days."""
+    now = dt.datetime.now()
+    expr = func.count() if value is None else func.coalesce(func.sum(value), 0)
+    this = db.scalar(select(expr).select_from(model).where(column >= now - dt.timedelta(days=days))) or 0
+    prev = db.scalar(select(expr).select_from(model).where(column >= now - dt.timedelta(days=2 * days),
+                                                           column < now - dt.timedelta(days=days))) or 0
+    return float(this), float(prev)
+
+
+def compare(this: float, prev: float) -> tuple[str, str]:
+    if not prev:
+        return ("new" if this else "0%"), "up"
+    pct = (this - prev) / prev * 100
+    return f"{abs(pct):.0f}%", "up" if pct >= 0 else "down"
+
+
 class ShopStats(StatsOverviewWidget):
     sort = 1
 
     @classmethod
-    def stats(cls, db, ctx):
+    def stats(cls, db, ctx, filters):
+        days = int(filters.get("period") or 30)
+        label = {7: "vs previous week", 30: "vs previous 30 days", 90: "vs previous 90 days"}.get(days, "vs previous year")
         users = db.scalar(select(func.count()).select_from(User))
-        orders = db.scalar(select(func.count()).select_from(Order))
-        revenue = db.scalar(select(func.coalesce(func.sum(Order.total), 0)))
+        new_users = period_counts(db, User, User.created_at, days)
+        orders = period_counts(db, Order, Order.created_at, days)
+        revenue = period_counts(db, Order, Order.created_at, days, value=Order.total)
         active = db.scalar(select(func.count()).select_from(Product).where(Product.status == "published",
                                                                           Product.deleted_at.is_(None)))
         u = monthly_counts(db, User, User.created_at)
@@ -66,14 +87,25 @@ class ShopStats(StatsOverviewWidget):
         r = monthly_counts(db, Order, Order.created_at, value=Order.total)
         p = monthly_counts(db, Product, Product.created_at)
         return [
-            Stat("Total users", f"{users:,}").icon("users").color("primary").trend(*change(u)).chart(u)
-            .url(ctx.url("users")),
-            Stat("Total orders", f"{orders:,}").icon("shopping-cart").color("success").trend(*change(o)).chart(o)
-            .url(ctx.url("orders")),
-            Stat("Total revenue", inr(revenue)).icon("indian-rupee").color("info").trend(*change(r)).chart(r),
-            Stat("Active products", f"{active:,}").icon("package").color("purple").trend(*change(p)).chart(p)
-            .url(ctx.url("products")),
+            Stat("Total users", f"{users:,}").icon("users").color("primary").trend(*compare(*new_users))
+            .describe(label).chart(u).url(ctx.url("users")),
+            Stat("Orders", f"{int(orders[0]):,}").icon("shopping-cart").color("success").trend(*compare(*orders))
+            .describe(label).chart(o).url(ctx.url("orders")),
+            Stat("Revenue", inr(revenue[0])).icon("indian-rupee").color("info").trend(*compare(*revenue))
+            .describe(label).chart(r),
+            Stat("Active products", f"{active:,}").icon("package").color("purple").chart(p).url(ctx.url("products")),
         ]
+
+
+class ShopDashboard(Dashboard):
+    """The dashboard with a period picker that every widget can read as ``filters["period"]``."""
+
+    @classmethod
+    def filters_form(cls, form):
+        return form.schema([
+            Select("period").options({"7": "Last 7 days", "30": "Last 30 days", "90": "Last 90 days", "365": "Last 12 months"})
+            .default("30").native().placeholder("Period"),
+        ])
 
 
 class RevenueChart(ChartWidget):

@@ -1,11 +1,13 @@
 {% extends "tungsten/layout/app.html" %}
 {% import "tungsten/components/ui.html" as ui %}
 {% block content %}
+{% set filters_form = page.build_filters_form(ctx) %}
+{% set extra_actions %}{% if filters_form %}{% include "tungsten/components/page-filters.html" %}{% endif %}{% endset %}
 {% include "tungsten/components/page-header.html" %}
 {% with columns = page.widget_columns %}{% include "tungsten/components/widgets.html" %}{% endwith %}
 {% if content %}<div class="mb-6">{{ content }}</div>{% endif %}
 {% if form %}
-<form hx-post="{{ page.get_url(ctx) }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" class="grid gap-6">
+<form data-tw-unsaved hx-post="{{ page.get_url(ctx) }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" class="grid gap-6">
   {{ form.render() }}
   {% if not form.has_wizard %}
   <div class="flex justify-end gap-3">

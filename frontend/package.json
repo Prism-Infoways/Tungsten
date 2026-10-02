@@ -5,14 +5,16 @@
     "build": "node build.mjs"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.17",
     "@tailwindcss/forms": "^0.5.9",
     "@tailwindcss/typography": "^0.5.15",
-    "htmx.org": "^2.0.4",
     "alpinejs": "^3.14.8",
     "chart.js": "^4.4.7",
-    "trix": "^2.1.12",
+    "htmx.org": "^2.0.4",
+    "lucide-static": "^0.468.0",
+    "qrcode-generator": "^1.5.2",
+    "sortablejs": "^1.15.7",
+    "tailwindcss": "^3.4.17",
     "tom-select": "^2.4.1",
-    "lucide-static": "^0.468.0"
+    "trix": "^2.1.12"
   }
 }

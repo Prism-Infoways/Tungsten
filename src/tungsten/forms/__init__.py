@@ -2,6 +2,9 @@
 
 from .form import Form, ValidationError
 from .fields import (
+    Block,
+    Builder,
+    ToggleButtons,
     Checkbox,
     CheckboxList,
     ColorPicker,
@@ -25,6 +28,7 @@ from .fields import (
 from .layout import Fieldset, Grid, Group, Layout, Section, Step, Tab, Tabs, Wizard
 
 __all__ = [
+    "Block", "Builder", "ToggleButtons",
     "Checkbox", "CheckboxList", "ColorPicker", "DatePicker", "DateTimePicker", "Field", "Fieldset",
     "FileUpload", "Form", "Grid", "Group", "Hidden", "KeyValue", "Layout", "Placeholder", "Radio",
     "Repeater", "RichEditor", "Section", "Select", "Step", "Tab", "Tabs", "TagsInput", "Textarea",

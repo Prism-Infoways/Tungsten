@@ -15,4 +15,7 @@
   <button type="submit" class="{{ ui.button_classes('primary', size='lg') }} w-full">Sign in</button>
   {{ panel.hooks('auth.login.form.after', ctx) }}
 </form>
+{% if panel.auth.registration %}
+<p class="mt-8 text-center text-sm text-gray-500">New here? <a href="{{ panel.url('register') }}" class="font-medium {{ colors.LINK.primary }}">Create an account</a></p>
+{% endif %}
 {% endblock %}

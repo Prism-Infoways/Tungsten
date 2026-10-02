@@ -1,0 +1,69 @@
+{% extends "tungsten/layout/app.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block content %}
+{% set subheading = 'Protect your account with a code from your phone each time you sign in.' %}
+{% set breadcrumbs = [('Profile', panel.url('profile')), ('Two-factor authentication', None)] %}
+{% include "tungsten/components/page-header.html" %}
+<div class="grid max-w-3xl gap-6">
+  {% if error %}<div class="rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 ring-1 ring-danger-600/20 dark:bg-danger-500/10 dark:text-danger-300">{{ error }}</div>{% endif %}
+
+  {% call ui.card() %}
+  <div class="flex items-start gap-4">
+    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl {{ colors.pick(colors.SOFT_ICON, 'success' if step in ('enabled', 'codes') else 'warning') }}">{{ icon('shield-check' if step in ('enabled', 'codes') else 'shield-alert', 'h-6 w-6') }}</span>
+    <div class="flex-1">
+      <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+        {% if step in ('enabled', 'codes') %}Two-factor authentication is on{% else %}Two-factor authentication is off{% endif %}
+      </h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        {% if step in ('enabled', 'codes') %}You'll be asked for a code from your authenticator app when you sign in.{% if remaining %} You have {{ remaining }} recovery codes left.{% endif %}
+        {% else %}Use an app like Google Authenticator, Microsoft Authenticator or 1Password.{% endif %}
+      </p>
+    </div>
+  </div>
+
+  {% if step == 'off' %}
+  <form method="post" class="mt-6">
+    <input type="hidden" name="_token" value="{{ csrf_token }}"><input type="hidden" name="_do" value="enable">
+    <button class="{{ ui.button_classes('primary') }}">{{ icon('shield-plus', 'h-4 w-4') }}<span>Turn on two-factor authentication</span></button>
+  </form>
+  {% elif step == 'confirm' %}
+  <div class="mt-6 grid gap-6 sm:grid-cols-[auto,1fr]">
+    <div class="rounded-xl bg-white p-3 ring-1 ring-gray-950/10" data-tw-qr="{{ uri }}" aria-label="QR code"></div>
+    <div class="grid content-start gap-4 text-sm">
+      <ol class="list-decimal space-y-1 ps-5 text-gray-600 dark:text-gray-300">
+        <li>Scan the QR code with your authenticator app.</li>
+        <li>Or type this key: <code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-gray-950 dark:bg-white/10 dark:text-white">{{ secret }}</code></li>
+        <li>Enter the 6-digit code the app shows.</li>
+      </ol>
+      <form method="post" class="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="_token" value="{{ csrf_token }}"><input type="hidden" name="_do" value="confirm">
+        <label class="grid gap-1.5"><span class="tw-label">Code</span>
+          <input name="code" inputmode="numeric" autocomplete="one-time-code" autofocus class="tw-input w-40 font-mono tracking-widest" placeholder="123456"></label>
+        <button class="{{ ui.button_classes('primary') }}">Confirm</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if step == 'codes' and codes %}
+  <div class="mt-6 rounded-xl bg-warning-50 p-4 ring-1 ring-warning-600/20 dark:bg-warning-500/10">
+    <p class="text-sm font-semibold text-warning-800 dark:text-warning-300">Save these recovery codes</p>
+    <p class="mt-1 text-sm text-warning-700 dark:text-warning-300/80">Each code works once if you lose your phone. They won't be shown again.</p>
+    <ul class="mt-3 grid grid-cols-2 gap-2 font-mono text-sm text-gray-950 sm:grid-cols-4 dark:text-white">
+      {% for c in codes %}<li class="rounded-md bg-white px-2 py-1 text-center ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">{{ c }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if step in ('enabled', 'codes') %}
+  <form method="post" class="mt-6 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-6 dark:border-white/10">
+    <input type="hidden" name="_token" value="{{ csrf_token }}">
+    <label class="grid gap-1.5"><span class="tw-label">Current password</span>
+      <input type="password" name="password" required autocomplete="current-password" class="tw-input w-64"></label>
+    <button name="_do" value="codes" class="{{ ui.button_classes('gray') }}">{{ icon('refresh-cw', 'h-4 w-4') }}<span>New recovery codes</span></button>
+    {% if not required %}<button name="_do" value="disable" class="{{ ui.button_classes('danger', outlined=true) }}">Turn off</button>{% endif %}
+  </form>
+  {% endif %}
+  {% endcall %}
+</div>
+{% endblock %}

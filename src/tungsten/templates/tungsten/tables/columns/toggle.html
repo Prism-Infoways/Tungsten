@@ -1,8 +1,8 @@
 <div class="flex {{ v.justify }}" x-data="{ on: {{ 'true' if v.state else 'false' }} }" data-tw-local>
   <button type="button" role="switch" :aria-checked="on.toString()" data-tw-local
           {% if v.disabled %}disabled{% endif %}
-          hx-post="{{ table.ctx.url('_tw', 'toggle') }}" hx-swap="none" hx-trigger="click"
-          hx-vals='{{ {"host": table.host.key, "record": v.record_key, "column": column.name} | tojson }}'
+          hx-post="{{ v.endpoint }}" hx-swap="none" hx-trigger="click"
+          hx-vals='{{ v.vals | tojson }}'
           @click="on = !on"
           class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60"
           :class="on ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'">

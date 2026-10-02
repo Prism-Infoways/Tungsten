@@ -6,7 +6,7 @@
 {% set extra_actions %}
   {% if editable and not form.has_wizard %}
   <a href="{{ resource.get_url(ctx) }}" class="{{ ui.button_classes('gray') }}">Cancel</a>
-  <button type="submit" form="tw-record-form-el" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ 'Create' if operation == 'create' else 'Save changes' }}</span></button>
+  <button type="submit" form="tw-record-form-el" data-tw-keys="mod+s" title="Save (Ctrl+S)" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ 'Create' if operation == 'create' else 'Save changes' }}</span></button>
   {% endif %}
 {% endset %}
 {% include "tungsten/components/page-header.html" %}
@@ -17,7 +17,7 @@
 </div>
 {% endif %}
 
-<form id="tw-record-form-el" {% if editable %}hx-post="{{ ctx.request.url.path }}" hx-target="#{{ form.id }}" hx-swap="outerHTML"{% else %}onsubmit="return false"{% endif %} class="grid gap-6">
+<form id="tw-record-form-el" {% if editable %}data-tw-unsaved hx-post="{{ ctx.request.url.path }}" hx-target="#{{ form.id }}" hx-swap="outerHTML"{% else %}onsubmit="return false"{% endif %} class="grid gap-6">
   {{ form.render() }}
   {% if editable and not form.has_wizard %}
   <div class="flex flex-wrap items-center gap-3">

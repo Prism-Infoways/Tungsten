@@ -11,7 +11,7 @@ from sqlalchemy import delete
 from tungsten.auth import hash_password
 from tungsten.models import Role, RoleAssignment, TungstenBase
 
-from .models import Base, Brand, Category, Customer, Order, OrderItem, OrderStatus, Product, Tag, User, make_engine
+from .models import Base, Brand, Category, Customer, Order, OrderItem, OrderStatus, Post, Product, Tag, User, make_engine
 
 FIRST = ["Amit", "Neha", "Rahul", "Priya", "Vikram", "Sneha", "Arjun", "Karan", "Ananya", "Rohan", "Isha", "Kabir",
          "Meera", "Aditya", "Pooja", "Siddharth", "Kavya", "Nikhil", "Riya", "Varun"]
@@ -80,8 +80,8 @@ def seed(url: str = "sqlite:///shop.db", seed_value: int = 7) -> None:
             db.add(RoleAssignment(role_id=roles[rnd.choice(["Admin", "Manager", "Editor", "Viewer", "Viewer"])].id,
                                   user_id=str(u.id)))
 
-        cats = {name: Category(name=name, slug=name.lower().replace(" & ", "-").replace(" ", "-"), icon=icon)
-                for name, icon in CATEGORIES}
+        cats = {name: Category(name=name, slug=name.lower().replace(" & ", "-").replace(" ", "-"), icon=icon, sort=i)
+                for i, (name, icon) in enumerate(CATEGORIES, start=1)}
         db.add_all(cats.values())
         brands = [Brand(name=b) for b in ["Urban Co", "Stride", "Nomad", "Pixel", "Casa"]]
         db.add_all(brands)
@@ -126,6 +126,15 @@ def seed(url: str = "sqlite:///shop.db", seed_value: int = 7) -> None:
                 total += product.price * qty
             order.total = total
             db.add(order)
+        db.add_all([
+            Post(title="Welcome to our store", slug="welcome", status="published", author=admin,
+                 published_at=now - dt.timedelta(days=20),
+                 content=[{"type": "heading", "data": {"text": "Hello!", "level": "h2"}},
+                          {"type": "paragraph", "data": {"body": "<p>We just opened. Have a look around.</p>"}}]),
+            Post(title="Summer sale is coming", slug="summer-sale", status="review", author=admin,
+                 content=[{"type": "heading", "data": {"text": "Up to 50% off", "level": "h2"}},
+                          {"type": "quote", "data": {"text": "Best prices of the year.", "author": "The team"}}]),
+        ])
         db.commit()
     print("Seeded demo data. Sign in with admin@example.com / password")  # noqa: T201
 

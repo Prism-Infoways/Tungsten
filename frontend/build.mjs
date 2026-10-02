@@ -21,6 +21,8 @@ const copies = {
   "trix.css": "trix/dist/trix.css",
   "tom-select.complete.min.js": "tom-select/dist/js/tom-select.complete.min.js",
   "tom-select.css": "tom-select/dist/css/tom-select.css",
+  "sortable.min.js": "sortablejs/Sortable.min.js",
+  "qrcode.js": "qrcode-generator/qrcode.js",
 };
 for (const [dest, src] of Object.entries(copies)) {
   fs.copyFileSync(nm(src), path.join(vendor, dest));

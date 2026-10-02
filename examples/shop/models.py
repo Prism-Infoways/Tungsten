@@ -84,6 +84,7 @@ class Category(Base):
     icon: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_visible: Mapped[bool] = mapped_column(Boolean, default=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sort: Mapped[int] = mapped_column(Integer, default=0)
 
     products: Mapped[list["Product"]] = relationship(back_populates="category")
 
@@ -201,6 +202,26 @@ class OrderItem(Base):
 
     order: Mapped[Order] = relationship(back_populates="items")
     product: Mapped[Product] = relationship()
+
+
+class Post(Base):
+    """A blog post whose body is built from blocks (Builder field)."""
+
+    __tablename__ = "posts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    slug: Mapped[str] = mapped_column(String(220), unique=True)
+    status: Mapped[str] = mapped_column(String(20), default="draft")
+    content: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    author_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    published_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+    author: Mapped[User | None] = relationship()
+
+    def __str__(self) -> str:
+        return self.title
 
 
 def make_engine(url: str = "sqlite:///shop.db"):

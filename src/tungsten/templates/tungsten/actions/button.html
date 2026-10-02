@@ -4,17 +4,18 @@
 {% else %}{% set include = None %}{% endif %}
 {% set label_html %}{{ icon(a.icon, 'h-4 w-4') }}{% if a.style != 'icon' and not a.hidden_label %}<span>{{ a.label }}</span>{% endif %}{% if a.badge %}<span class="rounded-full bg-white/20 px-1.5 text-xs">{{ a.badge }}</span>{% endif %}{% endset %}
 {% set cls = ui.button_classes(a.color, a.style, a.size, a.outlined) %}
+{% set keys = ('data-tw-keys="' ~ a.keyboard ~ '"') | safe if a.keyboard else '' %}
 {% if a.disabled %}
 <button type="button" class="{{ cls }} cursor-not-allowed opacity-50" disabled {% if a.tooltip %}title="{{ a.tooltip }}"{% endif %}>{{ label_html }}</button>
 {% elif a.url %}
-<a href="{{ a.url }}" class="{{ cls }}" {% if a.new_tab %}target="_blank" rel="noopener"{% endif %}
+<a href="{{ a.url }}" class="{{ cls }}" {{ keys }} {% if a.new_tab %}target="_blank" rel="noopener"{% endif %}
    {% if a.tooltip %}title="{{ a.tooltip }}" aria-label="{{ a.tooltip }}"{% endif %}>{{ label_html }}</a>
 {% elif a.modal %}
-<button type="button" class="{{ cls }}" {% if a.tooltip %}title="{{ a.tooltip }}" aria-label="{{ a.tooltip }}"{% endif %}
+<button type="button" class="{{ cls }}" {{ keys }} {% if a.tooltip %}title="{{ a.tooltip }}" aria-label="{{ a.tooltip }}"{% endif %}
         hx-get="{{ a.endpoint }}" hx-vals='{{ a.vals | tojson }}' hx-target="#tw-modal" hx-swap="innerHTML"
         {% if include %}hx-include="{{ include }}"{% endif %}>{{ label_html }}</button>
 {% else %}
-<button type="button" class="{{ cls }}" {% if a.tooltip %}title="{{ a.tooltip }}" aria-label="{{ a.tooltip }}"{% endif %}
+<button type="button" class="{{ cls }}" {{ keys }} {% if a.tooltip %}title="{{ a.tooltip }}" aria-label="{{ a.tooltip }}"{% endif %}
         hx-post="{{ a.endpoint }}" hx-vals='{{ a.vals | tojson }}' hx-swap="none"
         {% if include %}hx-include="{{ include }}"{% endif %}>{{ label_html }}</button>
 {% endif %}

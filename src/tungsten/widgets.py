@@ -113,7 +113,7 @@ class StatsOverviewWidget(Widget):
 
     @classmethod
     def view_data(cls, ctx: "Context") -> dict[str, Any]:
-        return {"stats": call(cls.stats, ctx=ctx, db=ctx.db, user=ctx.user)}
+        return {"stats": call(cls.stats, ctx=ctx, db=ctx.db, user=ctx.user, filters=ctx.filters)}
 
 
 class ChartWidget(Widget):
@@ -142,7 +142,7 @@ class ChartWidget(Widget):
     def view_data(cls, ctx: "Context") -> dict[str, Any]:
         active = ctx.request.query_params.get("filter") or cls.default_filter or (
             next(iter(cls.filters)) if cls.filters else None)
-        data = call(cls.data, ctx=ctx, db=ctx.db, user=ctx.user, filter=active)
+        data = call(cls.data, ctx=ctx, db=ctx.db, user=ctx.user, filter=active, filters=ctx.filters)
         palette = ["primary", "info", "success", "purple", "warning", "teal", "pink", "danger", "gray"]
         for i, ds in enumerate(data.get("datasets", [])):
             if "color" not in ds and "colors" not in ds:
@@ -183,7 +183,7 @@ class ProgressListWidget(Widget):
 
     @classmethod
     def view_data(cls, ctx: "Context") -> dict[str, Any]:
-        return {"entries": call(cls.items, ctx=ctx, db=ctx.db, user=ctx.user), "link": cls.link}
+        return {"entries": call(cls.items, ctx=ctx, db=ctx.db, user=ctx.user, filters=ctx.filters), "link": cls.link}
 
 
 class TableWidget(Widget):
@@ -234,7 +234,7 @@ class WidgetHost(Host):
         self.key = f"widget:{widget.get_id()}"
 
     def base_query(self, ctx: "Context"):
-        query = call(self.widget.query, ctx=ctx, db=ctx.db, user=ctx.user)
+        query = call(self.widget.query, ctx=ctx, db=ctx.db, user=ctx.user, filters=ctx.filters)
         return ctx.panel.tenancy.scope(ctx, self.model, query)
 
     def get_table(self, ctx: "Context") -> "Table":

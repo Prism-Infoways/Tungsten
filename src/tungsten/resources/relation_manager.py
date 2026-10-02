@@ -41,6 +41,11 @@ class RelationManager:
         return table
 
     @classmethod
+    def infolist(cls, infolist: Any) -> Any:
+        """Read-only layout for the View modal. ``None`` shows the form disabled."""
+        return None
+
+    @classmethod
     def get_name(cls) -> str:
         return cls.relationship
 
