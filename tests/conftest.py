@@ -17,6 +17,16 @@ from examples.shop.factory import create_app  # noqa: E402
 from examples.shop.seed import seed  # noqa: E402
 
 
+def run_cli(*args: str) -> int:
+    """Run ``tungsten <args>`` in-process and return its exit code (output goes to capsys)."""
+    from tungsten.cli import main
+
+    try:
+        return main(list(args))
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 1
+
+
 class PanelClient:
     """TestClient wrapper that knows the CSRF token and sends HTMX headers."""
 

@@ -202,15 +202,13 @@ def test_notifications_are_translated(admin):
     assert json.loads(r.headers["HX-Trigger"])["tw-notify"][0]["title"] == "सेव हो गया"
 
 
-def test_lang_extract_cli(tmp_path):
+def test_lang_extract_cli(tmp_path, capsys):
     import json
 
-    from typer.testing import CliRunner
+    from .conftest import run_cli
 
-    from tungsten.cli import app
-
-    result = CliRunner().invoke(app, ["lang:extract", "hi", "--path", "examples/shop", "--out", str(tmp_path)])
-    assert result.exit_code == 0, result.output
+    code = run_cli("lang:extract", "hi", "--path", "examples/shop", "--out", str(tmp_path))
+    assert code == 0, capsys.readouterr()
     data = json.loads((tmp_path / "hi.json").read_text(encoding="utf-8"))
     assert "Low stock only" in data and data["Low stock only"] == ""
     assert "Filters" not in data  # Tungsten already ships this one

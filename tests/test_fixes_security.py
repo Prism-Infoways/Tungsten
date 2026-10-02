@@ -14,7 +14,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Table, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 from sqlalchemy.pool import StaticPool
-from typer.testing import CliRunner
 
 from examples.shop.models import Product
 from examples.shop.resources import ProductResource
@@ -416,18 +415,17 @@ cli_engine = create_engine("sqlite://", connect_args={"check_same_thread": False
 cli_panel = Panel(engine=cli_engine, secret_key="c", auth=Auth(Member, email_verification=True))
 
 
-def test_make_user_marks_verified_and_parses_values():
-    from tungsten.cli import app as cli
+def test_make_user_marks_verified_and_parses_values(capsys):
+    from .conftest import run_cli
 
     Base.metadata.create_all(cli_engine)
-    runner = CliRunner()
     base = ["make:user", "--panel", "tests.test_fixes_security:cli_panel", "--name", "Asha", "--password", "secret123"]
-    r = runner.invoke(cli, base + ["--email", "asha@x.com", "--set", "joined_on=2024-01-02", "--set", "score=7"])
-    assert r.exit_code == 0, r.output
-    r = runner.invoke(cli, base + ["--email", "raj@x.com", "--unverified", "--set", "email_verified_at=null"])
-    assert r.exit_code == 0, r.output
-    r = runner.invoke(cli, base + ["--email", "dev@x.com", "--unverified", "--set", "email_verified_at=2024-05-06T07:08"])
-    assert r.exit_code == 0, r.output
+    code = run_cli(*base, "--email", "asha@x.com", "--set", "joined_on=2024-01-02", "--set", "score=7")
+    assert code == 0, capsys.readouterr()
+    code = run_cli(*base, "--email", "raj@x.com", "--unverified", "--set", "email_verified_at=null")
+    assert code == 0, capsys.readouterr()
+    code = run_cli(*base, "--email", "dev@x.com", "--unverified", "--set", "email_verified_at=2024-05-06T07:08")
+    assert code == 0, capsys.readouterr()
     with sessionmaker(cli_engine)() as db:
         asha = db.scalars(select(Member).where(Member.email == "asha@x.com")).one()
         assert isinstance(asha.email_verified_at, dt.datetime)
@@ -438,12 +436,10 @@ def test_make_user_marks_verified_and_parses_values():
 
 
 def test_make_user_role_help_matches_code():
-    import typer
+    from tungsten.cli import build_parser
 
-    from tungsten.cli import app as cli
-
-    command = typer.main.get_command(cli).commands["make:user"]
-    help_text = next(p.help for p in command.params if p.name == "role")
+    command = build_parser().commands["make:user"]
+    help_text = next(a.help for a in command._actions if a.dest == "role")
     assert "contains 'admin'" in help_text and "created with * if missing" not in help_text
 
 

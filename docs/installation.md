@@ -12,7 +12,7 @@ Tungsten is a normal Python package. Install it, create a `Panel`, and mount it 
 - **SQLAlchemy 2.0** models. SQLModel models work too, because they are SQLAlchemy models underneath.
 - Any database SQLAlchemy supports: SQLite, PostgreSQL, MySQL and others.
 
-These are installed for you as dependencies: `fastapi`, `starlette`, `sqlalchemy`, `jinja2`, `python-multipart`, `itsdangerous` and `typer` (for the `tungsten` command).
+These are installed for you as dependencies: `fastapi` (which brings `starlette`), `sqlalchemy`, `jinja2`, `python-multipart` and `itsdangerous`. The `tungsten` command uses only the standard library.
 
 ## Install the package
 
