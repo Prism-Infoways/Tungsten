@@ -203,6 +203,8 @@ def test_create_another(admin, panel):
     host = "relation:products:1:tags"
     r = admin.get(f"/admin/_tw/action?_tw_host={host}&_tw_scope=table&_tw_name=create", htmx=True)
     assert "Create &amp; create another" in r.text and 'name="_tw_another"' in r.text
+    # the plain submit comes first, so pressing Enter creates without "another"
+    assert r.text.index('type="submit"') < r.text.index('name="_tw_another"')
     r = admin.post("/admin/_tw/action", {"_tw_host": host, "_tw_scope": "table", "_tw_name": "create",
                                          "name": "another-one", "_tw_another": "1"})
     trig = json.loads(r.headers["HX-Trigger"])
