@@ -106,7 +106,7 @@ Auth(User, active_field="is_active")
 After 5 failed attempts within a minute for the same IP address and email, the login form shows "Too many login attempts. Please try again in a minute." Change the number with `max_login_attempts`.
 
 > [!NOTE]
-> The attempt counter is kept in memory, per server process. With several workers, each one counts on its own.
+> The attempt counter is kept in memory, per server process. With several workers, each one counts on its own, and a restart resets it. See [Security](security#login-protection).
 
 ### Signing out
 
@@ -189,8 +189,8 @@ def send_mail(to, subject, body, url, kind):
     my_mail_service.send(to=to, subject=subject, text=body, html=html)
 ```
 
-> [!TIP]
-> The links in emails use the host name of the current request. Behind a proxy, make sure your server passes the real host and scheme (for example `uvicorn --proxy-headers`), and see the [security checklist](security#production-checklist).
+> [!WARNING]
+> Set the public address of your site with `Panel(app_url="https://admin.acme.example")`. Links in emails are built from it. Without `app_url`, they use the host name of the current request, which a visitor can fake. If you rely on that, make sure your server passes the real host and scheme (for example `uvicorn --proxy-headers`) and add `TrustedHostMiddleware`. See the [security checklist](security#production-checklist).
 
 The mailer can be `async def`. This is a good idea with an [async engine](async-database), so a slow mail server doesn't block other requests.
 

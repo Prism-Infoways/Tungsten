@@ -68,6 +68,31 @@ ExportAction(formats=("xlsx",))      # Excel only
 ExportAction().label("Download").icon("file-down").visible(lambda ctx: ctx.can("products.update"))
 ```
 
+The download only works when the table offers an export action that the user may run. If you hide it with `.visible()` or `.authorize()`, the download address refuses that user too.
+
+### Choosing the columns yourself
+
+By default the file has the table's columns. To export other columns, pass a list of `ExportColumn`s:
+
+```python
+from tungsten.importexport import ExportAction, ExportColumn
+
+ExportAction(columns=[
+    ExportColumn("sku", "SKU"),
+    ExportColumn("name"),
+    ExportColumn("category.name", "Category"),
+    ExportColumn("price", format=lambda state: f"{state:.2f}"),
+])
+```
+
+`ExportColumn(name, label=None, format=None)`:
+
+- `name` is an attribute, and can follow relationships with dots (`category.name`). A list (like tags) is joined with commas.
+- `label` is the header. By default it is made from the name.
+- `format` changes the value. It can ask for `state` (the value) and `record`.
+
+The popup then offers these columns. `ExportBulkAction(columns=[...])` works the same way.
+
 ## Exporting selected rows
 
 `ExportBulkAction()` exports only the rows the user ticked. It downloads straight away, without a popup:
@@ -124,7 +149,7 @@ class ProductResource(Resource):
         ])
 ```
 
-Clicking **Import** opens a popup with a file upload and a list of the expected columns (required ones have a `*`). The user uploads a `.csv` or `.xlsx` file of up to 10 MB and clicks **Import**.
+Clicking **Import** opens a popup with a file upload, a list of the expected columns (required ones have a `*`) and a **Download example CSV** link. The user uploads a `.csv` or `.xlsx` file of up to 10 MB and clicks **Import**.
 
 The first row of the file must hold the column names. For example:
 
@@ -164,7 +189,7 @@ ImportColumn("price").guess(["cost", "amount", "mrp"])
 | `.relationship("category", "name")` | Finds the related record by that attribute (case doesn't matter) and sets the relationship |
 | `.cast_state_using(fn)` | Changes the value yourself. `fn` can ask for `state` (the value) and `row` (the whole row as a dict). |
 | `.rule(fn)` | Checks the value. `fn` gets `value` and `row`, and returns `True` (or `None`) when fine, or an error message. |
-| `.example("TSH-001")` | A sample value, used by `Importer.example_csv()` |
+| `.example("TSH-001")` | A sample value for the example CSV file |
 
 The steps run in this order: empty check, `numeric` / `boolean`, `relationship`, `cast_state_using`, then the rules.
 
@@ -188,6 +213,8 @@ class ProductImporter(Importer):
 
 Without `unique_by`, every row creates a new record.
 
+With [multi-tenancy](multi-tenancy), only the current tenant's records are matched, so an import never changes another tenant's records. Relationship columns also only find the current tenant's related records.
+
 ### Failed rows
 
 Rows with problems are skipped, and the rest are still imported. A row fails when:
@@ -198,7 +225,7 @@ Rows with problems are skipped, and the rest are still imported. A row fails whe
 - a rule returns an error message,
 - the database refuses the row (for example a duplicate unique value).
 
-Each row is saved on its own, so one bad row doesn't undo the others. When some rows failed, the notification stays open and offers **Download failed rows**: a CSV with the original columns plus an **Error** column explaining each problem. Users can fix the file and import it again.
+Each row is saved on its own, so one bad row doesn't undo the others. When some rows failed, the notification stays open and offers **Download failed rows**: a CSV with the original columns plus an **Error** column explaining each problem. Users can fix the file and import it again. Only signed-in users can download this file.
 
 ## Customizing the importer
 
@@ -235,7 +262,16 @@ With [multi-tenancy](multi-tenancy), new records get the current tenant set auto
 
 ### A sample file
 
-`Importer.example_csv()` returns CSV bytes with the column labels and the `.example()` values. You can offer it for download from your own route or action:
+The **Download example CSV** link in the import popup gives a file with the column labels as the header row and the `.example()` values as one sample row:
+
+```text
+Name,SKU,Price,Stock,Status,Category
+Premium T-Shirt,TSH-001,1299,120,published,Clothing
+```
+
+Only signed-in users who may use the import action (the `create` permission by default) can download it.
+
+`Importer.example_csv()` returns the same CSV bytes, if you want to offer it somewhere else:
 
 ```python
 ProductImporter.example_csv()

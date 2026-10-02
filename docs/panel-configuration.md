@@ -78,7 +78,7 @@ All of these are explained with examples in [Theming](theming).
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `storage` | `LocalStorage()` | Where uploaded files go. The default saves under `storage/tungsten` and serves files from `<path>/storage/...`. |
+| `storage` | `LocalStorage()` | Where uploaded files go. The default saves under `storage/tungsten` and serves files from `<path>/storage/...` to signed-in users. `LocalStorage(public=True)` serves them to anyone. See [Security](security#file-uploads). |
 | `tenancy` | none | A `Tenancy(...)` object for teams or companies. See [Multi-tenancy](multi-tenancy). |
 | `activity_log` | `False` | Records a row in the `tungsten_activity_log` table each time a record is created or updated through the panel. |
 
@@ -97,6 +97,7 @@ See [Translations](translations).
 | Option | Default | What it does |
 | --- | --- | --- |
 | `https_only_cookies` | `False` | Sends the session cookie only over HTTPS. Turn it on in production. |
+| `app_url` | `None` | The public address of your site, like `"https://admin.acme.example"` (without the panel path). Password reset and email verification links are built from it. Without it, they use the host of the request, which a visitor can fake, so set it in production. |
 
 See [Security](security).
 

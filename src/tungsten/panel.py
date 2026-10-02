@@ -81,6 +81,7 @@ class Panel:
         login_hero: dict[str, Any] | None = None,
         sidebar_footer: Any = None,
         https_only_cookies: bool = False,
+        app_url: str | None = None,
         activity_log: bool = False,
         locale: str = "en",
         locales: Iterable[str] | None = None,
@@ -130,6 +131,8 @@ class Panel:
         }
         self.sidebar_footer = sidebar_footer
         self.https_only_cookies = https_only_cookies
+        #: public address of the site (``https://admin.acme.example``) for links in emails
+        self.app_url = app_url.rstrip("/") if app_url else None
         self.activity_log = activity_log
         #: default language, and the languages users can pick from (switcher shows when more than one)
         self.locale = locale
@@ -257,6 +260,18 @@ class Panel:
         if query:
             url += "?" + urlencode(query, doseq=True)
         return url
+
+    def absolute_url(self, ctx: "Context", path: str) -> str:
+        """A full link to ``path`` (from :meth:`url`) for emails.
+
+        Uses ``app_url`` when set. Otherwise it falls back to the request's
+        scheme and ``Host`` header, which a client can forge: set ``app_url``
+        in production.
+        """
+        if self.app_url:
+            return f"{self.app_url}{path}"
+        url = ctx.request.url
+        return f"{url.scheme}://{url.netloc}{path}"
 
     def asset(self, name: str) -> str:
         return self.url("assets", name) + f"?v={VERSION}"

@@ -250,18 +250,10 @@ class Routes:
         g, p = app.get, app.post
 
         @g("/storage/{path:path}")
-        async def storage(path: str):
-            storage = r.panel.storage
-            if not hasattr(storage, "path"):
-                return Response(status_code=404)
-            try:
-                full = storage.path(path)
-            except ValueError:
-                return Response(status_code=404)
-            if not full.is_file():
-                return Response(status_code=404)
-            return FileResponse(full, headers={"X-Content-Type-Options": "nosniff",
-                                               "Content-Security-Policy": "sandbox"})
+        async def storage(request: Request, path: str):
+            # uploads need a signed-in user, unless the storage is explicitly public
+            public = bool(getattr(r.panel.storage, "is_public", lambda p: False)(path))
+            return await r.run(request, r.storage_file, public=public, path=path)
 
         # auth
         @g("/login")
@@ -393,6 +385,10 @@ class Routes:
         async def export(request: Request):
             return await r.run(request, r.export)
 
+        @g("/_tw/import-example")
+        async def import_example(request: Request):
+            return await r.run(request, r.import_example)
+
         @p("/_tw/tenant")
         async def tenant(request: Request):
             return await r.run(request, r.switch_tenant, read_form=True)
@@ -437,6 +433,19 @@ class Routes:
         @p("/{slug}/{key}/edit")
         async def edit_post(request: Request, slug: str, key: str):
             return await r.run(request, r.record_page, read_form=True, slug=slug, key=key, operation="edit")
+
+    def storage_file(self, ctx: Context, fd: Any, path: str) -> Response:
+        storage = self.panel.storage
+        if not hasattr(storage, "path"):
+            return Response(status_code=404)
+        try:
+            full = storage.path(path)
+        except ValueError:
+            return Response(status_code=404)
+        if not full.is_file():
+            return Response(status_code=404)
+        return FileResponse(full, headers={"X-Content-Type-Options": "nosniff",
+                                           "Content-Security-Policy": "sandbox"})
 
     # ------------------------------------------------------------------ auth
     def _auth_form(self, ctx: Context, fields: list) -> Form:
@@ -674,7 +683,7 @@ class Routes:
                 user = panel.auth.find_by_email(ctx.db, data["email"])
                 if user is not None:
                     token = panel.auth.create_reset_token(ctx.db, data["email"])
-                    url = f"{ctx.request.url.scheme}://{ctx.request.url.netloc}{panel.url('reset-password', token)}"
+                    url = panel.absolute_url(ctx, panel.url("reset-password", token))
                     call(panel.auth.mailer, to=getattr(user, panel.auth.email_field),
                          subject=__("Reset your :app password", app=panel.brand_name),
                          body=__("Hello,\n\nUse this link to set a new password:\n:url\n\n"
@@ -1275,15 +1284,21 @@ class Routes:
         return ctx.html(widget.render(ctx))
 
     def export(self, ctx: Context, fd: Any) -> Response:
-        from .importexport import export_rows, write_csv, write_xlsx
+        from .importexport import (ExportAction, ExportBulkAction, export_rows, find_offered_action, write_csv,
+                                   write_xlsx)
 
         params = ctx.request.query_params
         host = self.resolve_host(ctx, params.get("host"))
         if host.get_table(ctx) is None:
             raise NotFound()
         keys = params.getlist("keys") or None
-        rows = export_rows(ctx, host, params, keys, params.getlist("columns") or None)
         fmt = params.get("format", "csv")
+        # only export what the table offers: an export action (bulk for selected rows) the user may run
+        action = find_offered_action(ctx, host, ExportBulkAction if keys else ExportAction, params.get("action"),
+                                     bulk=bool(keys))
+        if action is None:
+            raise Forbidden()
+        rows = export_rows(ctx, host, params, keys, params.getlist("columns") or None, action.export_columns)
         name = re.sub(r"[^a-z0-9-]+", "-", (host.title() or "export").lower()).strip("-") or "export"
         if fmt == "xlsx":
             body, media = write_xlsx(rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -1291,6 +1306,19 @@ class Routes:
             body, media, fmt = write_csv(rows), "text/csv; charset=utf-8", "csv"
         return Response(body, media_type=media,
                         headers={"Content-Disposition": f'attachment; filename="{name}.{fmt}"'})
+
+    def import_example(self, ctx: Context, fd: Any) -> Response:
+        """The sample CSV of an import action (the "Download example CSV" link in its popup)."""
+        from .importexport import ImportAction, find_offered_action
+
+        params = ctx.request.query_params
+        host = self.resolve_host(ctx, params.get("host"))
+        action = find_offered_action(ctx, host, ImportAction, params.get("action"))
+        if action is None:
+            raise Forbidden()
+        name = re.sub(r"[^a-z0-9-]+", "-", (host.title() or "import").lower()).strip("-") or "import"
+        return Response(action.importer.example_csv(), media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{name}-example.csv"'})
 
     def switch_locale(self, ctx: Context, fd: Any) -> Response:
         code = (fd.get("locale") if fd is not None else None) or ""

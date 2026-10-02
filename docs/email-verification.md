@@ -73,6 +73,10 @@ Auth(User, email_verification=True, mailer=send_mail)
 
 By default emails are only printed to the console. See [Sending email](authentication#sending-email) to send real ones.
 
+### The link's address
+
+The link starts with `Panel(app_url=...)`, for example `https://admin.acme.example/admin/email-verification/verify/...`. Set `app_url` in production. Without it, the link uses the host name of the request, which a visitor can fake. See the [security checklist](security#production-checklist).
+
 ## Link lifetime
 
 Links work for 60 minutes. Change it with `verification_minutes`:
@@ -128,7 +132,11 @@ class UserResource(Resource):
 
 ## Users you create yourself
 
-Only sign-up sends a verification email. Users you create another way (the CLI, a seed script, or your own user form) start with an empty `email_verified_at`. When they sign in, they see the "Verify your email" page and can press **Resend** to get a link.
+Only sign-up sends a verification email.
+
+Users made with `tungsten make:user` are marked as verified, because an admin created them on purpose. Pass `--unverified` to make them confirm their email instead. See [CLI](cli).
+
+Users you create another way (a seed script, or your own user form) start with an empty `email_verified_at`. When they sign in, they see the "Verify your email" page and can press **Resend** to get a link.
 
 To skip that for trusted users, set the date when you create them:
 

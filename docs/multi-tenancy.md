@@ -104,7 +104,7 @@ When a user belongs to tenants, a switcher appears at the top of the sidebar. It
 
 ## What gets scoped
 
-A model is scoped when it has the `ownership` column (for example `team_id`). Models without it, like `Team` itself or a shared `Country` table, are not touched.
+A model is scoped when it has the `ownership` column (for example `team_id`). Models without it, like `Team` itself or a shared `Country` table, are not touched. A resource can change this, see [Per-resource settings](#per-resource-settings).
 
 For scoped models, Tungsten filters by the current tenant in:
 
@@ -113,7 +113,10 @@ For scoped models, Tungsten filters by the current tenant in:
 - row and bulk actions (they only find records of the current tenant),
 - global search,
 - exports,
-- [table widgets](widgets#table-widgets).
+- [table widgets](widgets#table-widgets),
+- the options of `Select(...).relationship(...)` fields, and the records offered by `AttachAction`,
+- `.unique()` validation: a value only has to be unique inside the current tenant,
+- imports: `Importer.unique_by` only finds the current tenant's records, and `ImportColumn(...).relationship(...)` only finds the current tenant's related records.
 
 And it **sets the tenant** on new records:
 
@@ -124,6 +127,36 @@ And it **sets the tenant** on new records:
 If a new record already has a value in the ownership column, Tungsten leaves it alone.
 
 Relation managers show the records of their owner record. Since the owner is already scoped, they need no extra filter.
+
+### Users without a tenant
+
+When a user has **no** tenants (the `tenants` function returns an empty list), there is no current tenant. That user sees **no** records of scoped models: lists are empty, record pages return "Page not found", and they can't create records there. Models that are not scoped stay visible.
+
+To keep such users out of the panel completely, block them with `Auth(can_access=lambda user: bool(user.teams))`.
+
+## Per-resource settings
+
+Two class attributes on a resource change how it is scoped:
+
+| Attribute | Default | What it does |
+| --- | --- | --- |
+| `tenant_scoped` | `True` | Set it to `False` for records that all tenants share. The resource is then not filtered, and new records don't get a tenant, even if the model has the ownership column. |
+| `tenant_ownership` | `None` | The column or relationship that links this model to its tenant, when it is not the panel's `ownership` column. |
+
+```python
+class AnnouncementResource(Resource):
+    model = Announcement
+    tenant_scoped = False            # every team sees all announcements
+
+
+class InvoiceResource(Resource):
+    model = Invoice
+    tenant_ownership = "company"     # a relationship to the tenant model
+```
+
+`tenant_ownership` can be a column name (like `"owner_team_id"`) or a relationship name. A many-to-one relationship (like `"company"`) is set to the current tenant on new records. A many-to-many relationship (like `"teams"`) shows a record to every tenant in it, and new records get the current tenant added.
+
+These settings are also used when the model shows up somewhere else, for example in select options or imports.
 
 ## Using the current tenant yourself
 
@@ -146,46 +179,27 @@ class ShopStats(StatsOverviewWidget):
 
 ## What is not scoped automatically
 
-Tenancy filters the queries Tungsten builds for resources. It does not change queries you write yourself, and a few built-in lookups don't know about tenants. Take care with these:
+Tenancy filters the queries Tungsten builds. It does not change queries you write yourself. Take care with these:
 
 | Where | What to do |
 | --- | --- |
 | Stats, chart and progress widgets | Filter by `ctx.tenant` in your own queries (see above). |
 | `navigation_badge()` and `Resource.query()` | Your own queries: add the tenant filter if needed. |
-| `Select(...).relationship(...)` options | Options come from the whole table. Filter them with `modify_query` (below). |
-| `.unique()` validation | Checks the whole table. If values only need to be unique per tenant, write a `.rule()` instead. |
-| `Importer.unique_by` | Looks for existing records in the whole table. Override `resolve_record()` (below). |
+| Select options from `.options(...)` | Your own list or query: filter by `tenant` if needed. |
+| Your own `Importer.resolve_record()` | Filter by `ctx.tenant` in your query. |
 | Roles and permissions | Roles are shared by all tenants. |
 
-Scope select options with `modify_query`. The closure can ask for `query` and `tenant`:
+You can still narrow relationship options further with `modify_query`. The closure can ask for `query` and `tenant`:
 
 ```python
 Select("category_id").relationship(
     "category", "name",
-    modify_query=lambda query, tenant: query.where(Category.team_id == tenant.id),
+    modify_query=lambda query: query.where(Category.is_active),
 )
 ```
 
-Scope the importer's lookup of existing records:
-
-```python
-from sqlalchemy import select
-
-
-class ProductImporter(Importer):
-    model = Product
-    unique_by = "sku"
-
-    @classmethod
-    def resolve_record(cls, ctx, data):
-        existing = ctx.db.scalars(
-            select(Product).where(Product.sku == data.get("sku"), Product.team_id == ctx.tenant.id)
-        ).first()
-        return existing or Product()
-```
-
-> [!WARNING]
-> When a user has **no** tenants (the `tenants` function returns an empty list), there is no current tenant and nothing is filtered: the user sees records of every team. Make sure every user who can sign in belongs to at least one tenant, or block the others with `Auth(can_access=lambda user: bool(user.teams))`.
+> [!NOTE]
+> `.unique()` checks only the current tenant's records. If a column must be unique across **all** tenants (for example a login email), keep a unique index in the database as well. The database then refuses a duplicate from another tenant (the user sees an error page instead of a message under the field).
 
 ## Combining with permissions
 

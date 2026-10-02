@@ -28,6 +28,26 @@ def _kebab(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
 
 
+_POLICY_ARGS = {"user", "record", "ctx", "db", "ability", "tenant"}
+
+
+def _call_policy(fn: Any, ctx: "Context", ability: str, record: Any) -> Any:
+    """Call a policy method by parameter name (``user``, ``record``, ``ctx``...), awaiting ``async def``.
+
+    Methods with other parameter names get ``(user, record)`` / ``(user)`` by position, as before.
+    """
+    from ..support.aio import resolve
+    from ..support.evaluate import _signature, call
+
+    try:
+        names, var_kw = _signature(fn)
+    except TypeError:  # unhashable callable
+        names, var_kw = _signature.__wrapped__(fn)
+    if var_kw or set(names) <= _POLICY_ARGS:
+        return call(fn, user=ctx.user, record=record, ctx=ctx, db=ctx.db, ability=ability, tenant=ctx.tenant)
+    return resolve(fn(ctx.user, record) if record is not None else fn(ctx.user))
+
+
 class Resource:
     """Describe how a model is managed. Minimal example::
 
@@ -72,7 +92,9 @@ class Resource:
     relations: ClassVar[list] = []
     widgets: ClassVar[list] = []
 
-    # tenancy: the attribute that links a record to the current tenant
+    # tenancy: the column or relationship that links a record to the current tenant
+    # (default: the panel's ``Tenancy(ownership=...)``); ``tenant_scoped = False`` shares
+    # this resource's records between all tenants
     tenant_ownership: ClassVar[str | None] = None
     tenant_scoped: ClassVar[bool] = True
 
@@ -218,10 +240,14 @@ class Resource:
     @classmethod
     def can(cls, ctx: "Context", ability: str, record: Any = None) -> bool:
         """Policy first (``policy.update(user, record)``), then the panel's RBAC/gate."""
+        tenancy = ctx.panel.tenancy
+        if ability == "create" and tenancy.enabled and ctx.tenant is None \
+                and tenancy.ownership_for(ctx, cls.model, cls) is not None:
+            return False  # without a current tenant there is nobody to own the new record
         if cls.policy is not None:
             fn = getattr(cls.policy, ability, None)
             if fn is not None:
-                return bool(fn(ctx.user, record) if record is not None else fn(ctx.user))
+                return bool(_call_policy(fn, ctx, ability, record))
         return ctx.can(f"{cls.permission_prefix()}.{ability}", record)
 
     @classmethod

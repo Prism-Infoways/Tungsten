@@ -385,14 +385,14 @@ class CustomerResource(Resource):
 
 Each page and action checks an ability, such as `view_any`, `view`, `create`, `update`, `delete` or `delete_any`. By default Tungsten asks the panel for the permission `<slug>.<ability>`, for example `products.update`. See [Roles and permissions](roles-and-permissions).
 
-You can also give a resource a `policy`: any object with methods named after abilities. A method is called with `(user)` when there is no record and `(user, record)` when there is one. Abilities without a method fall back to the permission check.
+You can also give a resource a `policy`: any object with methods named after abilities. A method asks for what it needs by name: `user`, `record` (`None` when there is no record), `ctx`, `db`, `tenant` or `ability`. It can be `async def`. Abilities without a method fall back to the permission check. See [Policies](roles-and-permissions#policies).
 
 ```python
 class OrderPolicy:
-    def update(self, user, record=None):
+    def update(self, user, record):
         return user.is_admin or (record is not None and record.status == "pending")
 
-    def delete(self, user, record=None):
+    def delete(self, user):
         return user.is_admin
 
 
