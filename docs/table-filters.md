@@ -25,10 +25,11 @@ Filter values are kept in the URL, like the search and sort.
 | Method | What it does |
 | --- | --- |
 | `label(text)` | The label. By default it comes from the name. |
-| `default(value)` | A value that is applied when the page first opens. |
+| `default(value)` | A value that is applied when the page first opens. It can be a closure with no arguments, worked out on each page load. |
 | `inline(condition=True)` | Show the filter in the toolbar (`True`) or in the filter panel (`False`). |
 | `query(fn)` | Your own query code. `fn` gets `query`, `data` and `model`, and returns the new query. |
 | `indicate_using(fn)` | Text for the "Active filters" chips. `fn` gets `data` and returns a string or a list of strings. |
+| `columns(n)` | Put the filter's fields side by side in `n` columns in the filter panel. |
 
 Filter closures can also ask for `db`, `user`, `ctx`, `table` and the other [table closure arguments](tables#closures-in-tables).
 
@@ -160,12 +161,20 @@ DateFilter("shipped", "shipped_at")         # filter name, then attribute
 
 The chips read "Order date from 2025-03-01" and "Order date until 2025-03-31".
 
+Show the two pickers side by side with `columns(2)`. Start with a range using `default()`: a dict, a `(from, until)` pair, or one date for "from". Use a closure so the dates are worked out on each visit:
+
+```python
+DateFilter("created_at").columns(2).default(lambda: {"from": date.today() - timedelta(days=30)})
+DateFilter("created_at").default((date(2025, 1, 1), date(2025, 3, 31)))
+```
+
 ## TrashedFilter
 
 For resources with soft deletes (a `deleted_at` column). Users choose between **without** deleted records (the default), **with** them, or **only** deleted records.
 
 ```python
 TrashedFilter()
+TrashedFilter().default("only")     # start on "only deleted"; "with" also works
 ```
 
 Add it so users can find deleted records and restore them. See [Resources](resources).

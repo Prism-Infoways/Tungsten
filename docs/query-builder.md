@@ -55,6 +55,11 @@ A rule that is not finished yet (for example, no value typed) is marked "Not app
 | --- | --- |
 | `constraints([...])` | The attributes users can filter on. |
 | `label(text)` | Section title (default "Custom filters"). |
+| `default(groups)` | Rules to start with. A list of groups, each a list of rules like `{"c": "price", "op": "gt", "v": 3000}`. A flat list of rules is one group. |
+
+```python
+QueryBuilder().constraints([...]).default([{"c": "status", "op": "is", "v": "published"}])
+```
 
 Every constraint has:
 
@@ -166,7 +171,7 @@ Filter on whether related records exist, how many there are, or which ones they 
 ```python
 RelationshipConstraint("tags").selectable("name")
 RelationshipConstraint("orders")
-RelationshipConstraint("category").selectable("name").multiple(False)
+RelationshipConstraint("category").selectable("name")
 ```
 
 | Operator | Matches | Available |
@@ -175,14 +180,16 @@ RelationshipConstraint("category").selectable("name").multiple(False)
 | Is none of | Not linked to any of the picked records. | with `selectable()` |
 | Has any | Has at least one related record. | always |
 | Has none | Has no related records. | always |
-| Has at least | At least N related records. | unless `multiple(False)` |
-| Has at most | At most N related records. | unless `multiple(False)` |
-| Has exactly | Exactly N related records. | unless `multiple(False)` |
+| Has at least | At least N related records. | to-many relationships |
+| Has at most | At most N related records. | to-many relationships |
+| Has exactly | Exactly N related records. | to-many relationships |
+
+Whether a relationship is to-many (like `tags`) or to-one (like `category`) is read from the SQLAlchemy relationship, so the count operators only appear where they make sense.
 
 | Method | What it does |
 | --- | --- |
 | `selectable(title_attribute, modify_query=None)` | Let users pick related records by this attribute. `modify_query` gets the `query` of related records. The list shows up to 500 records, sorted by title. |
-| `multiple(False)` | Hide the count operators. Use it for to-one relationships such as `category`. |
+| `multiple(True \| False)` | Show or hide the count operators yourself, instead of reading it from the relationship. |
 
 ## Custom constraints
 

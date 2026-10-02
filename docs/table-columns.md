@@ -18,7 +18,7 @@ from tungsten.tables import (
 | --- | --- |
 | `label(text)` | The heading. By default it comes from the name: `customer.name` becomes "Customer name". |
 | `sortable(condition=True, query=None)` | Users can sort by this column. See [Sorting](tables#sorting). |
-| `searchable(condition=True, query=None, columns=None)` | Include it in the table search. See [Search](tables#search). |
+| `searchable(condition=True, query=None, columns=None, is_global=True, is_individual=False)` | Include it in the table search. `is_individual=True` adds a search box for this column only. See [Search](tables#search). |
 | `toggleable(condition=True, hidden_by_default=False)` | Users can show or hide it. See [Table features](table-features#show-and-hide-columns). |
 | `state(fn)` | Compute the value instead of reading an attribute. Also `get_state_using()`. |
 | `format_state_using(fn)` | Change how the value is shown. `fn` gets `state` and `record`. Also `formatted()`. |
@@ -191,6 +191,7 @@ ImageColumn("photo").default_image_url("/static/placeholder.png")
 | Method | What it does |
 | --- | --- |
 | `circular()` | Round images. |
+| `square()` | Square images with sharp corners. By default the corners are slightly rounded. |
 | `size(px)` | Width and height in pixels (default `40`). |
 | `stacked()` | Overlap several images. |
 | `limit(n)` | Show at most `n` images. |

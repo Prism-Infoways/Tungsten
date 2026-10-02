@@ -3,9 +3,9 @@
   <div class="flex {{ '-space-x-2' if v.stacked else 'gap-1.5' }}">
     {% for url in v.urls %}
     <img src="{{ url }}" alt="" loading="lazy" style="height: {{ v.size }}px; width: {{ v.size }}px"
-         class="{{ 'rounded-full' if v.circular else 'rounded-lg' }} object-cover bg-gray-100 ring-1 ring-gray-950/5 dark:bg-white/5 {{ 'ring-2 ring-white dark:ring-gray-900' if v.stacked }}">
+         class="{{ 'rounded-full' if v.circular else ('rounded-none' if v.square else 'rounded-lg') }} object-cover bg-gray-100 ring-1 ring-gray-950/5 dark:bg-white/5 {{ 'ring-2 ring-white dark:ring-gray-900' if v.stacked }}">
     {% else %}
-    <span style="height: {{ v.size }}px; width: {{ v.size }}px" class="flex items-center justify-center {{ 'rounded-full' if v.circular else 'rounded-lg' }} bg-gray-100 text-gray-400 dark:bg-white/5">{{ icon('image', 'h-4 w-4') }}</span>
+    <span style="height: {{ v.size }}px; width: {{ v.size }}px" class="flex items-center justify-center {{ 'rounded-full' if v.circular else ('rounded-none' if v.square else 'rounded-lg') }} bg-gray-100 text-gray-400 dark:bg-white/5">{{ icon('image', 'h-4 w-4') }}</span>
     {% endfor %}
   </div>
   {% if v.description %}<span class="text-sm text-gray-500">{{ v.description }}</span>{% endif %}
