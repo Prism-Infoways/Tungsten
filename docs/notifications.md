@@ -52,8 +52,7 @@ Notification("New version available").info().send(ctx)  # blue, info icon
 | `icon("shopping-cart")` | Use another icon. Default: the status icon, or a bell. |
 | `color("primary")` | Use another color. Default: the status color, or gray. |
 
-> [!NOTE]
-> Toasts can only show the status icons (`circle-check`, `circle-x`, `triangle-alert`, `info`) and `bell`, `copy` and `check`. Other icons show as a bell in a toast. The notification bell can show any Lucide icon.
+Toasts and the bell can show any [Lucide](https://lucide.dev/icons) icon.
 
 ## How long a toast stays
 
@@ -71,7 +70,7 @@ Notification("Backup failed").danger().persistent().send(ctx)
 
 ## Action links
 
-Add link buttons to a notification with `action(label, url, color="primary")`. You can add several.
+Add link buttons to a notification with `action(label, url, color="primary")`. You can add several. `color` sets the link color, like `"danger"` or `"gray"`.
 
 ```python
 Notification("Import finished").body("3 rows failed.") \
@@ -93,7 +92,7 @@ Notification("New order") \
     .send_to_database(admins, db)
 ```
 
-- `users` can be a user object, a user id, or a list of either.
+- `users` can be a user object, a user id, or a list of either. For a user object, its primary key is stored, even when the key column is not called `id`.
 - The second argument can be a database session or `ctx`.
 - It commits the session.
 
@@ -153,7 +152,7 @@ With an async engine, use `panel.with_session(lambda db: ...)` to get a normal s
 Notification("Order shipped").success().send(ctx)   # shown in Hindi to a Hindi user, if lang/hi.json has "Order shipped"
 ```
 
-Database notifications are stored and shown as written. Use text with the values filled in, as in the examples above.
+Database notifications are stored as written, and the bell translates the title, body and action labels into each user's language when it shows them. Text with values filled in (like an order number) is only translated if that exact text is in your language file, so it usually shows as written.
 
 ## All methods
 

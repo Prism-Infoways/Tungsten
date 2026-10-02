@@ -27,15 +27,17 @@ class Context:
         self.notifications: list[dict] = []
         self.events: dict[str, Any] = {}
         self.redirect_to: str | None = None
+        #: the custom page (or dashboard) being drawn; its ``filters_form`` feeds ``filters``
+        self.page: Any = None
         self._permissions: set[str] | None = None
 
     # ------------------------------------------------------------------ helpers
     @property
     def filters(self) -> dict[str, Any]:
-        """Dashboard filter values (from the dashboard's ``filters_form``)."""
+        """Filter values from the current page's ``filters_form`` (the dashboard's when no page is set)."""
         if not hasattr(self, "_filters"):
-            dashboard = self.panel.dashboard
-            self._filters = dashboard.get_filters(self) if dashboard is not None else {}
+            page = self.page or self.panel.dashboard
+            self._filters = page.get_filters(self) if page is not None else {}
         return self._filters
 
     @property
@@ -86,7 +88,9 @@ class Context:
             self.flash()
         events = dict(self.events)
         if self.notifications:
-            events["tw-notify"] = self.notifications
+            from .notifications import with_icon_svg
+
+            events["tw-notify"] = [with_icon_svg(n) for n in self.notifications]
             self.notifications = []
         if events:
             response.headers["HX-Trigger"] = json.dumps(events, default=str)

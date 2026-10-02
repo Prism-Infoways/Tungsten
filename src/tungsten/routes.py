@@ -4,6 +4,7 @@ DB session: in a thread pool for a sync engine, or inside
 
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 import time
@@ -56,8 +57,6 @@ def build_app(panel: "Panel") -> FastAPI:
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
     routes = Routes(panel)
     routes.register(app)
-    for fn in panel._extra_routes:
-        fn(app, panel)
     return app
 
 
@@ -400,6 +399,10 @@ class Routes:
         @p("/_tw/locale")
         async def locale(request: Request):
             return await r.run(request, r.switch_locale, public=True, read_form=True)
+
+        # your own routes (panel.routes) come before the page catch-alls below, so short paths reach them
+        for fn in r.panel._extra_routes:
+            fn(app, r.panel)
 
         # pages & resources
         @g("/")
@@ -757,6 +760,7 @@ class Routes:
     def custom_page(self, ctx: Context, fd: Any, page: Any) -> Response:
         if not page.can_access(ctx):
             raise Forbidden()
+        ctx.page = page  # its widgets get this page's filters
         host = page.host()
         form = host.form(ctx, "edit")
         if form is not None:
@@ -1032,6 +1036,7 @@ class Routes:
             None if getattr(action, "operation", None) == "view" else (__("Confirm") if confirm_only else __("Submit")))
         if hasattr(action, "operation") and action._modal_submit_label is None:
             submit = {"create": __("Create"), "edit": __("Save changes"), "view": None}.get(action.operation, submit)
+        another = form is not None and getattr(action, "_create_another", False)
         color = evaluate(action._color, **ev) or "primary"
         m = {
             "endpoint": ctx.url("_tw", "action"),
@@ -1047,6 +1052,7 @@ class Routes:
             "confirm_only": confirm_only,
             "content": evaluate(action._modal_content, **ev),
             "multipart": False,
+            "create_another_label": __("Create & create another") if another else None,
         }
         hidden = {"_tw_host": host.key, "_tw_scope": scope, "_tw_name": action.name,
                   "_tw_record": host.record_key(record) if record is not None else ""}
@@ -1084,11 +1090,34 @@ class Routes:
                 form.errors = exc.errors
                 return self._modal(ctx, host, action, record, records, scope, form)
             raise
+        except (NotFound, Forbidden, PermissionError):
+            raise
+        except Exception:
+            if action._failure_title is None:
+                raise
+            # a failure toast is set: show it instead of an error page
+            ctx.db.rollback()
+            logging.getLogger("tungsten").exception("Action %r failed", action.name)
+            result = False
         if isinstance(result, Response):
             return result
+        if result is False:  # the action failed
+            note = action.failure_notification(ctx, record, records)
+            if note is not None:
+                note.send(ctx)
+            if form is not None:
+                return self._modal(ctx, host, action, record, records, scope, form)
+            ctx.dispatch("tw-close-modal")
+            return ctx.html("")
         note = action.success_notification(ctx, record, records)
         if note is not None:
             note.send(ctx)
+        if fd.get("_tw_another") and form is not None and getattr(action, "_create_another", False):
+            # "Create & create another": refresh the table behind and open an empty form again
+            ctx.dispatch("tw-refresh")
+            fresh = self._action_form(ctx, host, action, record, records, scope)
+            action.fill(fresh, ctx, record, records)
+            return self._modal(ctx, host, action, record, records, scope, fresh)
         redirect = ctx.redirect_to or evaluate(action._success_redirect, **action.ev(ctx, record, records, result=result))
         if redirect:
             return ctx.go(redirect)
@@ -1268,6 +1297,11 @@ class Routes:
             raise NotFound()
         if not widget.can_view(ctx):
             raise Forbidden()
+        slug = ctx.request.query_params.get("_tw_page")
+        if slug is not None:  # the page the widget sits on: its filters reach the widget
+            page = self.panel.page(slug)
+            if page is not None and page.can_access(ctx):
+                ctx.page = page
         return ctx.html(widget.render(ctx))
 
     def export(self, ctx: Context, fd: Any) -> Response:

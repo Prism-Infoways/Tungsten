@@ -91,12 +91,17 @@ panel = Panel(
     ...,
     brand_name="Acme Shop",
     brand_logo="/static/acme-logo.svg",
+    brand_logo_dark="/static/acme-logo-white.svg",   # optional: used in dark mode
+    brand_tagline="Back office for the Acme stores",  # optional: shown on the sign-in pages
 )
 ```
 
 - `brand_name` shows in the sidebar, on the login page and in the browser tab title (`Products · Acme Shop`).
 - Without a logo, the sidebar shows a small Tungsten icon (in your primary color) next to the brand name.
 - With `brand_logo`, the image replaces both the icon and the name. Use a logo that includes your name, and make sure it reads well on a dark background, because the sidebar is dark.
+
+- With `brand_logo_dark` as well, that image is shown while the panel is in dark mode, and `brand_logo` in light mode. If you only set `brand_logo_dark`, it is used in both modes.
+- `brand_tagline` is a short line under the brand on the sign-in, sign-up and password pages. It is translated like other text.
 
 The logo is shown 32px high. Any URL works: a file served by your app, or a full `https://` address.
 
@@ -112,13 +117,13 @@ Without it, the browser tab shows the Tungsten icon.
 
 Users can switch between **light**, **dark** and **system** (follow the computer's setting) with the switch in the top bar. Their choice is remembered in the browser.
 
-Pick the theme users see before they choose with `default_theme`:
+Pick the theme users see before they choose with `default_theme`. The switch shows this choice as selected until the user picks another one:
 
 ```python
 panel = Panel(..., default_theme="dark")   # "light", "dark" or "system" (default)
 ```
 
-To keep the panel light and hide the switch, turn dark mode off:
+To keep the panel light and hide the switch, turn dark mode off. The panel then stays light even when the computer switches to dark:
 
 ```python
 panel = Panel(..., dark_mode=False)

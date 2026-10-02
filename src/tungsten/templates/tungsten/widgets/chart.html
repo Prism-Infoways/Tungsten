@@ -7,7 +7,7 @@
     </div>
     {% if filters %}
     <select class="tw-input w-auto py-1.5 pe-9 text-sm" aria-label="{{ __('Period') }}" name="filter"
-            hx-get="{{ panel.url('_tw', 'widget', w.get_id()) }}" hx-target="closest section" hx-swap="outerHTML">
+            hx-get="{{ w.get_url(ctx, filter=None) }}" hx-target="closest section" hx-swap="outerHTML">
       {% for value, label in filters.items() %}<option value="{{ value }}" {% if value == active_filter %}selected{% endif %}>{{ __(label) }}</option>{% endfor %}
     </select>
     {% endif %}

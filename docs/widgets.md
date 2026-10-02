@@ -50,7 +50,7 @@ The data methods (`stats()`, `data()`, `items()`, `query()`) work like other Tun
 | `db` | The database session |
 | `ctx` | The request context (panel, request, user, tenant...) |
 | `user` | The signed-in user |
-| `filters` | The dashboard filter values (see [Dashboard filters](#dashboard-filters)) |
+| `filters` | The filter values of the page the widget is on (see [Dashboard filters](#dashboard-filters)) |
 | `filter` | Chart widgets only: the chart's own selected filter |
 
 ```python
@@ -229,7 +229,7 @@ class RevenueChart(ChartWidget):
         ...
 ```
 
-Changing the dropdown reloads only this widget.
+Changing the dropdown reloads only this widget. The dashboard filters stay as they are.
 
 ### Chart settings
 
@@ -367,8 +367,7 @@ class LiveOrders(TableWidget):
     polling_interval = "30s"
 ```
 
-> [!NOTE]
-> Polling only works on lazy widgets. If you set `lazy = False`, the widget is drawn once with the page and is not refreshed.
+Polling works with `lazy = False` too: the widget is drawn with the page, then refreshed on the timer.
 
 ## Showing a widget to some users only
 
@@ -422,8 +421,7 @@ How it works:
 - If a value doesn't pass the form's validation, the defaults are used.
 - `filters` is a dictionary. Every widget data method can ask for it, including chart `data()`, table `query()` and progress `items()`.
 
-> [!NOTE]
-> Filters come from the dashboard's `filters_form` only. Custom pages don't show a filter form.
+A [custom page](custom-pages) can have a `filters_form` in the same way. Its widgets then get that page's values as `filters`, not the dashboard's.
 
 ### Dashboard options
 

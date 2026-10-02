@@ -65,6 +65,12 @@ class CreateAction(RecordFormAction):
         self._success_title = "Created"
         self._create_another = True
 
+    def create_another(self, condition: bool = True) -> "CreateAction":
+        """Show a "Create & create another" button in the modal (on by default). It saves, then
+        opens an empty form again."""
+        self._create_another = condition
+        return self
+
     def get_label(self, ev: dict | None = None) -> str:
         if self._label is None and ev and ev.get("host") is not None:
             return __("New :label", label=ev["host"].model_label().lower())

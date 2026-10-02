@@ -225,6 +225,18 @@ Action("refund").form(lambda record: [
 | --- | --- |
 | `success_notification_title("...")` | Show a success toast after the action. Can be a closure. |
 | `success_notification_body("...")` | Text under the title. Can be a closure. |
+| `failure_notification_title("...")` | Show a red toast when the action fails. Can be a closure. |
+
+An action fails when it returns `False`, or when it raises an error. On an error, the database changes are rolled back and the error is logged. Without a failure title, an error is not caught and shows as a server error, as before. After a failure, a modal form stays open so the user can try again.
+
+```python
+(
+    Action("sync")
+    .action(lambda record: shop_api.sync(record))   # return False (or raise) when it did not work
+    .success_notification_title("Synced")
+    .failure_notification_title("Could not reach the shop")
+)
+```
 
 Without a title, a custom action shows no toast. You can always send your own with [Notification](notifications):
 
@@ -346,6 +358,8 @@ CreateAction().label("Add product").keyboard_shortcut("alt+n")
 ```python
 CreateAction().mutate_form_data_using(lambda data, ctx: {**data, "created_by_id": ctx.user.id})
 ```
+
+When `CreateAction` opens in a popup, it has a **Create & create another** button next to **Create**. It saves the record, refreshes the table and opens an empty form again. Turn it off with `CreateAction().create_another(False)`.
 
 `CreateAction`, `EditAction` and `DeleteAction` run your own `action()` instead of their default code when you give one.
 

@@ -81,7 +81,7 @@ panel = Panel(
     path="/admin",
     session_factory=SessionLocal,
     secret_key="change-me",          # signs the session cookie
-    auth=Auth(User),                 # needs email + password (hash) fields
+    auth=Auth(User),                 # needs email + password (hash) fields; password_field="..." if not "password"
     brand_name="Acme",
     colors={"primary": "orange"},    # or a hex color: "#ec5b1d"
 )
@@ -143,8 +143,8 @@ class OrderResource(Resource):
     policy = None                       # object with view_any/update/delete(user, record) ...
 
     @classmethod
-    def navigation_badge(cls, db):      # number next to the menu item
-        return db.scalar(select(func.count()).where(Order.status == "pending"))
+    def navigation_badge(cls, ctx):     # number next to the menu item (may also ask for db or user)
+        return ctx.db.scalar(select(func.count()).where(Order.status == "pending"))
 
     @classmethod
     def query(cls, ctx):                # scope every page
@@ -157,7 +157,7 @@ class OrderResource(Resource):
     def after_save(cls, record, db): ...
 ```
 
-Other hooks: `mutate_form_data_before_create`, `before_create`, `mutate_form_data_before_save`, `before_save`, `before_delete`, `after_delete`. Soft deletes turn on by themselves when the model has a `deleted_at` column.
+Other hooks: `mutate_form_data_before_create`, `before_create`, `mutate_form_data_before_save`, `before_save`, `before_delete`, `after_delete`, `after_restore`. Soft deletes turn on by themselves when the model has a `deleted_at` column.
 
 Change the header buttons with `header_actions(cls, ctx, page, record)`.
 

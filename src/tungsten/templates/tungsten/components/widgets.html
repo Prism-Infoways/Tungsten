@@ -1,14 +1,16 @@
-{# Lazy widget grid. vars: widgets, columns (default 4) #}
+{# Widget grid (lazy widgets load in their own request). vars: widgets, columns (default 4) #}
 {% set cols = {1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-2 xl:grid-cols-4', 6: 'md:grid-cols-6'} %}
 {% if widgets %}
 <div class="mb-6 grid grid-cols-1 gap-6 {{ cols.get(columns or 4, cols[4]) }}">
   {% for w in widgets %}
   <div class="{{ w.span_class() }}">
     {% if w.lazy %}
-    <div hx-get="{{ panel.url('_tw', 'widget', w.get_id()) }}{{ '?' ~ ctx.request.query_params if ctx.request.query_params }}"
+    <div hx-get="{{ w.get_url(ctx) }}"
          hx-trigger="load{% if w.polling_interval %}, every {{ w.polling_interval }}{% endif %}" hx-swap="innerHTML">
       <div class="tw-card animate-pulse p-6"><div class="h-4 w-1/3 rounded bg-gray-200 dark:bg-white/10"></div><div class="mt-4 h-8 w-1/2 rounded bg-gray-200 dark:bg-white/10"></div></div>
     </div>
+    {% elif w.polling_interval %}
+    <div class="h-full" hx-get="{{ w.get_url(ctx) }}" hx-trigger="every {{ w.polling_interval }}" hx-swap="innerHTML">{{ w.render(ctx) }}</div>
     {% else %}{{ w.render(ctx) }}{% endif %}
   </div>
   {% endfor %}

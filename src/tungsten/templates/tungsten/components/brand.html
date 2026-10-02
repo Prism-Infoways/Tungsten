@@ -1,5 +1,8 @@
-{% if panel.brand_logo %}
-<img src="{{ panel.brand_logo }}" alt="{{ panel.brand_name }}" class="h-8 w-auto">
+{% if panel.brand_logo and panel.brand_logo_dark %}
+<img src="{{ panel.brand_logo }}" alt="{{ panel.brand_name }}" class="h-8 w-auto dark:hidden">
+<img src="{{ panel.brand_logo_dark }}" alt="{{ panel.brand_name }}" class="hidden h-8 w-auto dark:block">
+{% elif panel.brand_logo or panel.brand_logo_dark %}
+<img src="{{ panel.brand_logo or panel.brand_logo_dark }}" alt="{{ panel.brand_name }}" class="h-8 w-auto">
 {% else %}
 <svg viewBox="0 0 32 32" class="h-8 w-8" aria-hidden="true">
   <defs><linearGradient id="tw-brand-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="rgb(var(--tw-c-primary-400))"/><stop offset="1" stop-color="rgb(var(--tw-c-primary-600))"/></linearGradient></defs>
