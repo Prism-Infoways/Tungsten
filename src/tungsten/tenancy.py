@@ -5,13 +5,17 @@
 
 Every resource whose model has the ``ownership`` column is filtered by the
 current tenant, and new records get it set automatically. Users switch tenant
-from the user menu.
+from the user menu. A user without any tenant sees no tenant-owned records.
+
+A resource can name another column or relationship with ``tenant_ownership``,
+or opt out (a model shared by all tenants) with ``tenant_scoped = False``.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable
 
+from sqlalchemy import false
 from sqlalchemy import inspect as sa_inspect
 
 from .support.evaluate import call
@@ -26,10 +30,13 @@ class NoTenancy:
     def resolve(self, ctx: "Context") -> Any:
         return None
 
-    def scope(self, ctx: "Context", model: Any, query: Any) -> Any:
+    def ownership_for(self, ctx: "Context | None", model: Any, resource: Any = None) -> str | None:
+        return None
+
+    def scope(self, ctx: "Context", model: Any, query: Any, resource: Any = None) -> Any:
         return query
 
-    def assign(self, ctx: "Context", model: Any, record: Any) -> None:
+    def assign(self, ctx: "Context", model: Any, record: Any, resource: Any = None) -> None:
         return None
 
     def tenants(self, ctx: "Context") -> list:
@@ -84,19 +91,67 @@ class Tenancy(NoTenancy):
     def label(self, tenant: Any) -> str:
         return str(getattr(tenant, self.label_attribute, tenant)) if tenant is not None else ""
 
-    def _owned(self, model: Any) -> bool:
+    def _has(self, model: Any, attribute: str) -> bool:
         try:
-            return self.ownership in sa_inspect(model).columns
+            mapper = sa_inspect(model)
         except Exception:  # noqa: BLE001
             return False
+        return attribute in mapper.columns or attribute in mapper.relationships
 
-    def scope(self, ctx: "Context", model: Any, query: Any) -> Any:
-        if ctx.tenant is None or not self._owned(model):
+    def _owned(self, model: Any) -> bool:
+        return self._has(model, self.ownership)
+
+    def ownership_for(self, ctx: "Context | None", model: Any, resource: Any = None) -> str | None:
+        """The column or relationship that links ``model`` to a tenant, or None when it is not scoped.
+
+        ``resource`` (or else the panel's resource for ``model``) can opt out with
+        ``tenant_scoped = False`` or name another attribute with ``tenant_ownership``.
+        """
+        if resource is None and ctx is not None and model is not None:
+            resource = ctx.panel.resource_for_model(model)
+        if resource is not None:
+            if not getattr(resource, "tenant_scoped", True):
+                return None
+            if getattr(resource, "tenant_ownership", None):
+                return resource.tenant_ownership
+        return self.ownership if self._owned(model) else None
+
+    def _tenant_key(self, tenant: Any) -> Any:
+        return getattr(tenant, sa_inspect(type(tenant)).primary_key[0].key)
+
+    def scope(self, ctx: "Context", model: Any, query: Any, resource: Any = None) -> Any:
+        attribute = self.ownership_for(ctx, model, resource)
+        if attribute is None:
             return query
-        return query.where(getattr(model, self.ownership) == getattr(ctx.tenant, sa_inspect(type(ctx.tenant)).primary_key[0].key))
+        if ctx.tenant is None:
+            # no current tenant (the user belongs to none): show nothing rather than everything
+            return query.where(false())
+        mapper = sa_inspect(model)
+        if attribute in mapper.relationships:
+            rel = mapper.relationships[attribute]
+            target_pk = getattr(rel.mapper.class_, rel.mapper.primary_key[0].key)
+            match = target_pk == self._tenant_key(ctx.tenant)
+            prop = getattr(model, attribute)
+            return query.where(prop.any(match) if rel.uselist else prop.has(match))
+        return query.where(getattr(model, attribute) == self._tenant_key(ctx.tenant))
 
-    def assign(self, ctx: "Context", model: Any, record: Any) -> None:
-        if ctx.tenant is None or not self._owned(model):
+    def assign(self, ctx: "Context", model: Any, record: Any, resource: Any = None) -> None:
+        attribute = self.ownership_for(ctx, model, resource)
+        if attribute is None:
             return
-        if getattr(record, self.ownership, None) is None:
-            setattr(record, self.ownership, getattr(ctx.tenant, sa_inspect(type(ctx.tenant)).primary_key[0].key))
+        if ctx.tenant is None:
+            raise PermissionError("No tenant is selected, so records can't be created here.")
+        mapper = sa_inspect(model)
+        if attribute in mapper.relationships:
+            rel = mapper.relationships[attribute]
+            if rel.uselist:
+                collection = getattr(record, attribute)
+                if not collection:
+                    collection.append(ctx.tenant)
+                return
+            local_keys = [mapper.get_property_by_column(c).key for c in rel.local_columns]
+            if getattr(record, attribute, None) is None and all(getattr(record, k, None) is None for k in local_keys):
+                setattr(record, attribute, ctx.tenant)
+            return
+        if getattr(record, attribute, None) is None:
+            setattr(record, attribute, self._tenant_key(ctx.tenant))

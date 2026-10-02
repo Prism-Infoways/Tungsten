@@ -249,16 +249,53 @@ def make_plugin(
     typer.echo(f"\nUse it:  panel.plugin({cls}())")
 
 
+def _attribute_value(model: Any, key: str, value: str) -> Any:
+    """Turn ``--set key=value`` text into the column's type (bool, number, date, ``null``)."""
+    import datetime as dt
+    import decimal
+
+    from sqlalchemy import inspect as sa_inspect
+
+    lowered = value.lower()
+    if lowered in ("true", "false"):
+        return lowered == "true"
+    if lowered in ("null", "none"):
+        return None
+    try:
+        python_type = sa_inspect(model).columns[key].type.python_type
+    except Exception:  # noqa: BLE001 - not a column, or no python type: keep the text
+        return value
+    try:
+        if python_type is dt.datetime:
+            return dt.datetime.now() if lowered == "now" else dt.datetime.fromisoformat(value)
+        if python_type is dt.date:
+            return dt.date.today() if lowered in ("now", "today") else dt.date.fromisoformat(value)
+        if python_type in (int, float, decimal.Decimal):
+            return python_type(value)
+    except (ValueError, decimal.InvalidOperation):
+        raise typer.BadParameter(f"--set {key}: {value!r} is not a valid {python_type.__name__}") from None
+    return value
+
+
 @app.command("make:user")
 def make_user(
     panel: str = typer.Option(..., "--panel", "-p", help="Import path of your panel, e.g. app.admin:panel"),
     name: str = typer.Option(..., prompt=True),
     email: str = typer.Option(..., prompt=True),
     password: str = typer.Option(..., prompt=True, hide_input=True, confirmation_prompt=True),
-    role: Optional[str] = typer.Option(None, help="Give this role (e.g. 'Super Admin'); created with * if missing"),
-    extra: list[str] = typer.Option([], "--set", help="Extra attributes, e.g. --set is_admin=true"),
+    role: Optional[str] = typer.Option(
+        None, help="Give this role (e.g. 'Super Admin'). A missing role is created: with every permission (*) "
+                   "when its name contains 'admin', otherwise with none"),
+    extra: list[str] = typer.Option(
+        [], "--set", help="Extra attributes, e.g. --set is_admin=true or --set email_verified_at=now. "
+                          "Values follow the column type (true/false, numbers, dates, now, null)"),
+    verified: bool = typer.Option(
+        True, "--verified/--unverified",
+        help="With email verification on, mark the email as verified (default) or make the user verify it"),
 ) -> None:
     """Create a user who can sign in to the panel."""
+    import datetime as dt
+
     from sqlalchemy import select
 
     from ..models import Role
@@ -278,10 +315,11 @@ def make_user(
         setattr(user, auth.name_field, name)
         setattr(user, auth.email_field, email)
         setattr(user, auth.password_field, auth.hash(password))
+        if auth.email_verification and verified:
+            setattr(user, auth.verified_field, dt.datetime.now())  # the admin vouches for this address
         for item in extra:
             key, _, value = item.partition("=")
-            parsed: Any = {"true": True, "false": False}.get(value.lower(), value)
-            setattr(user, key, parsed)
+            setattr(user, key, _attribute_value(auth.user_model, key, value))
         db.add(user)
         db.commit()
         if role:

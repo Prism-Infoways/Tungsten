@@ -346,7 +346,7 @@ class AttachAction(Action):
         model = host.model
         pk = host.primary_key()
         attached = select(pk).where(with_parent(host.owner, getattr(type(host.owner), host.manager.relationship)))
-        query = select(model).where(pk.not_in(attached))
+        query = ctx.panel.tenancy.scope(ctx, model, select(model).where(pk.not_in(attached)))
         if title:
             query = query.order_by(getattr(model, title))
         rows = ctx.db.scalars(query.limit(500)).all()
@@ -365,7 +365,8 @@ class AttachAction(Action):
 
         keys = [host._typed_key(k) for k in (data or {}).get("records") or []]
         # look up outside the relation scope: these records are not attached yet
-        found = ctx.db.scalars(select(host.model).where(host.primary_key().in_(keys))).all() if keys else []
+        query = ctx.panel.tenancy.scope(ctx, host.model, select(host.model).where(host.primary_key().in_(keys)))
+        found = ctx.db.scalars(query).all() if keys else []
         host.attach(ctx, list(found))
 
 

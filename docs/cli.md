@@ -252,7 +252,18 @@ tungsten make:user --panel app.admin:panel --name "Asha Rao" --email asha@exampl
 | `--email` | The user's email. Asked for if left out. |
 | `--password` | The password. Asked for (twice) if left out. |
 | `--role` | Give the user this role. See below. |
-| `--set` | Set another attribute, as `key=value`. Repeat it for more. `true` and `false` become booleans; other values are saved as text. |
+| `--set` | Set another attribute, as `key=value`. Repeat it for more. See below. |
+| `--verified` / `--unverified` | With [email verification](email-verification) on, the new user is marked as verified (`--verified`, the default). Pass `--unverified` to make them confirm their email first. |
+
+About `--set`:
+
+- `true` and `false` become booleans, and `null` (or `none`) becomes an empty value.
+- Other values follow the column's type: numbers for number columns, and dates for date columns, written like `2024-05-06` or `2024-05-06T09:30`. `now` is the current date and time.
+- Anything else is saved as text.
+
+```bash
+tungsten make:user --panel app.admin:panel --set is_admin=true --set joined_on=2024-05-06 --set email_verified_at=now
+```
 
 About `--role`:
 

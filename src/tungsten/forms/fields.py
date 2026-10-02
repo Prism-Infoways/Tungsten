@@ -264,6 +264,7 @@ class Field(SchemaComponentMixin, Component):
             return None
         column = getattr(model, self._unique["column"])
         query = select(func.count()).select_from(model).where(column == value)
+        query = form.ctx.panel.tenancy.scope(form.ctx, model, query)  # unique within the current tenant
         if self._unique["ignore_record"] and form.record is not None and form.operation != "create" \
                 and isinstance(form.record, model):
             pk = sa_inspect(model).primary_key[0]
@@ -710,6 +711,8 @@ class HasOptions(Field):
 
         rel, target, pk = self._rel_info(form)
         query = select(target)
+        if form.ctx is not None:  # only the current tenant's records
+            query = form.ctx.panel.tenancy.scope(form.ctx, target, query)
         attr = self._relationship.get("title")
         if attr:
             if search:
@@ -735,7 +738,8 @@ class HasOptions(Field):
                 from sqlalchemy import select
 
                 _, target, pk = self._rel_info(form)
-                rows = form.ctx.db.scalars(select(target).where(pk.in_(keys))).all()
+                query = form.ctx.panel.tenancy.scope(form.ctx, target, select(target).where(pk.in_(keys)))
+                rows = form.ctx.db.scalars(query).all()
             else:
                 rows = form.ctx.db.scalars(self.relationship_query(form)).all()
             return [(getattr(r, pk.key), self._title_of(r)) for r in rows]
@@ -809,6 +813,14 @@ class HasOptions(Field):
     def validate_value(self, form: "Form", base: str, value: Any) -> list[str]:
         label = self.get_label(form, base).lower()
         if self._relationship and self._options is None and getattr(self, "_searchable", False):
+            if form.ctx is not None and form.ctx.panel.tenancy.enabled:  # refuse another tenant's records
+                from sqlalchemy import func, select
+
+                _, target, pk = self._rel_info(form)
+                keys = {self._match_key(form, base, v) for v in (value if self._multiple else [value])}
+                query = select(func.count()).select_from(target).where(pk.in_(keys))
+                if form.ctx.db.scalar(form.ctx.panel.tenancy.scope(form.ctx, target, query)) < len(keys):
+                    return [__("The selected :attribute is invalid.", attribute=label)]
             return []
         allowed = {str(k) for k, _ in self.get_options(form, base)}
         values = value if self._multiple else [value]
@@ -827,7 +839,8 @@ class HasOptions(Field):
 
             _, target, pk = self._rel_info(form)
             keys = data[self.name]
-            objs = form.ctx.db.scalars(select(target).where(pk.in_(keys))).all() if keys else []
+            query = form.ctx.panel.tenancy.scope(form.ctx, target, select(target).where(pk.in_(keys)))
+            objs = form.ctx.db.scalars(query).all() if keys else []
             setattr(record, self.name, list(objs))
         super().save_relationships(form, record, data)
 

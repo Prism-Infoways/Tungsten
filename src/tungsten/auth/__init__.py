@@ -197,6 +197,9 @@ class Auth:
     def logout(self, ctx: "Context") -> None:
         ctx.session.pop(self.session_key(), None)
         ctx.session.pop("tw_tenant", None)
+        tenancy = self.panel.tenancy if self.panel else None
+        if tenancy is not None and tenancy.enabled:
+            ctx.session.pop(tenancy.session_key, None)  # a custom ``Tenancy(session_key=...)``
         ctx.user = None
 
     def display_name(self, user: Any) -> str:

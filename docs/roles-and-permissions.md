@@ -222,11 +222,11 @@ class OrderPolicy:
     def view_any(self, user):
         return True
 
-    def update(self, user, record=None):
+    def update(self, user, record):
         # shipped orders can't be edited
         return record is None or record.status != "shipped"
 
-    def delete(self, user, record=None):
+    async def delete(self, user, record, db):
         return user.is_admin and (record is None or record.status == "pending")
 
 
@@ -237,7 +237,9 @@ class OrderResource(Resource):
 
 How it works:
 
-- Methods are called as `method(user, record)` when there is a record, and `method(user)` when there isn't (lists, bulk actions, create). So give `record` a default of `None`.
+- Methods get their arguments by name, like other closures. They can ask for `user`, `record`, `ctx`, `db`, `tenant` and `ability`, in any order. `record` is `None` when there is no record (lists, bulk actions, create). A method that only needs the user can leave `record` out.
+- Methods can be `async def`. Tungsten waits for the answer.
+- Older policies with other parameter names still work: they are called as `method(user, record)`, or `method(user)` when there is no record.
 - If the policy has a method for the ability, its answer is final.
 - If it has no method for an ability, Tungsten falls back to the gate and roles.
 - Policies work with or without `panel.rbac()`.

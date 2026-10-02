@@ -83,7 +83,7 @@ Built-in forms ask for at least 8 characters for new passwords (sign-up, reset, 
 - **Two-factor login** with authenticator apps and one-time recovery codes. You can require it for everyone. See [Two-factor login](authentication#two-factor-login).
 
 > [!NOTE]
-> The login attempt counter lives in memory in each server process. With many workers, an attacker gets a few more tries. For public panels, add rate limiting at your proxy as well.
+> The login attempt counter lives in memory, in each server process. It is not shared between workers or servers, and it is reset when the app restarts. With 4 workers, an attacker can get about 4 times as many tries. For public panels, add rate limiting at your proxy as well.
 
 ## Who can do what
 
@@ -93,6 +93,8 @@ Being signed in is not the same as being allowed. Without any rules, every user 
 - **What they may do**: roles (`panel.rbac()`), resource policies, or a gate.
 
 Permissions are checked on the server for every page, action, inline edit and export, not only by hiding buttons. See [Roles and permissions](roles-and-permissions).
+
+Download endpoints only do what the screen offers. An export only works when the table has an `ExportAction` (or an `ExportBulkAction` for selected rows) that the user may run, and the example file of an import only when its `ImportAction` is available to the user.
 
 ## Rich text and HTML
 
@@ -113,6 +115,7 @@ Uploads are checked when they arrive:
 - **Random names.** Files are saved under a random name (a UUID) with the original extension. The user's file name is never used as a path.
 - **No path tricks.** Paths with `..` are cleaned, and reading a file outside the storage folder is refused.
 - **Safe serving.** Stored files are served with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`, so the browser won't run them as a page.
+- **Signed-in users only.** The panel only serves stored files to signed-in users. Others are sent to the login page.
 
 Limit size and type on each field:
 
@@ -124,15 +127,23 @@ FileUpload("invoice").accepted_file_types([".pdf", "application/pdf"]).max_size(
 `max_size` is in kilobytes. There is no size limit unless you set one. The type check uses the file name and the type the browser reports, so treat it as a convenience, not proof of what the file contains.
 
 > [!NOTE]
-> Files in the default `LocalStorage` are served at `<panel path>/storage/...` to anyone who has the link. The random names make links impossible to guess, but don't store highly sensitive documents there. Use your own `Storage` class for private files.
+> Files in the default `LocalStorage` are served at `<panel path>/storage/...` to signed-in users. The panel doesn't check *which* user uploaded a file, so any signed-in user who has the link can open it. The random names make links impossible to guess. Use your own `Storage` class if files need stricter rules.
+
+If files must be visible without signing in (for example product photos on a public shop), make the storage public:
+
+```python
+Panel(..., storage=LocalStorage("storage/tungsten", public=True))
+```
+
+Even then, files in the `imports` folder (uploaded import files and the "failed rows" reports) still need a signed-in user.
 
 ## Exports
 
-CSV and Excel exports protect against **formula injection**: a cell value that starts with `=`, `+`, `-`, `@`, a tab or a carriage return gets a `'` in front, so spreadsheet apps show it as text instead of running it. Exports only contain records the user can see, with the current filters. See [Import and export](import-export).
+CSV and Excel exports protect against **formula injection**: a cell value that starts with `=`, `+`, `-`, `@`, a tab or a carriage return gets a `'` in front, so spreadsheet apps show it as text instead of running it. Exports only contain records the user can see, with the current filters, and only work when the table offers an export action the user may run. See [Import and export](import-export).
 
 ## Multi-tenancy
 
-With [multi-tenancy](multi-tenancy), resource lists, record pages, global search and exports are limited to the current team. Read the notes on that page about things that are **not** scoped automatically, such as select options and your own widget queries.
+With [multi-tenancy](multi-tenancy), resource lists, record pages, global search, exports, relationship select options, `.unique()` checks and imports are limited to the current team. A user who belongs to no team sees no team records at all. Read the notes on that page about things that are **not** scoped automatically, such as your own widget queries.
 
 ## Production checklist
 
@@ -141,7 +152,13 @@ Go through this list before you put a panel on the internet:
 1. **Set a fixed `secret_key`** from an environment variable. Never commit it.
 2. **Serve over HTTPS** and set `https_only_cookies=True`.
 3. **Use a real mailer** (`Auth(mailer=...)`). The default only prints emails to the console.
-4. **Check host headers.** Reset and verification links use the host from the request. Add FastAPI's `TrustedHostMiddleware` so a forged `Host` header can't create links to another site:
+4. **Set `app_url`.** Password reset and email verification links are built from `Panel(app_url=...)`, the public address of your site:
+
+    ```python
+    panel = Panel(..., app_url="https://admin.acme.example")
+    ```
+
+    Without it, links use the host from the request, and a forged `Host` header could put another site's address in the emails. As extra protection, add FastAPI's `TrustedHostMiddleware`, so requests for other host names are refused:
 
     ```python
     from starlette.middleware.trustedhost import TrustedHostMiddleware
