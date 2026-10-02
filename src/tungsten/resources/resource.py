@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy import select
@@ -16,6 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..tables.table import Table
 
 
+@lru_cache(maxsize=1024)
 def _plural(word: str) -> str:
     if re.search(r"[^aeiou]y$", word):
         return word[:-1] + "ies"
@@ -24,6 +26,7 @@ def _plural(word: str) -> str:
     return word + "s"
 
 
+@lru_cache(maxsize=1024)
 def _kebab(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
 

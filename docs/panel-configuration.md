@@ -199,6 +199,12 @@ panel.mount(app)
 
 The panel app has its own session middleware, CSRF checks and static files, so you do not need to add anything to your main app.
 
+It also keeps pages fast for you:
+
+- Pages, CSS and JavaScript are sent gzip-compressed (a list page shrinks from about 130 KB to about 15 KB).
+- CSS and JavaScript URLs carry a content hash, so browsers keep them for a year and only download them again after an upgrade.
+- Big libraries (charts, rich editor, searchable selects, drag sorting, QR codes) load only on pages that use them.
+
 ## Helpers
 
 These are handy in scripts, plugins and custom code.

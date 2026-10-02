@@ -28,15 +28,9 @@
   {% endif %}
   <style>{{ panel.theme_css() }}</style>
   <link rel="stylesheet" href="{{ panel.asset('tungsten.css') }}">
-  <link rel="stylesheet" href="{{ panel.asset('vendor/trix.css') }}">
-  <link rel="stylesheet" href="{{ panel.asset('vendor/tom-select.css') }}">
   <script src="{{ panel.asset('vendor/htmx.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/trix.umd.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/tom-select.complete.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/chart.umd.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/sortable.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/qrcode.js') }}"></script>
-  <script defer src="{{ panel.asset('tungsten.js') }}"></script>
+  {# charts, rich editor, searchable selects, drag sorting and QR codes load only on pages that use them #}
+  <script defer src="{{ panel.asset('tungsten.js') }}" data-tw-vendor='{{ tojson_attr(panel.vendor_assets()) }}'></script>
   <script defer src="{{ panel.asset('vendor/alpine.min.js') }}"></script>
   {{ panel.hooks('head.end', ctx) }}
 </head>

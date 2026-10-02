@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 from dataclasses import replace
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Iterable
 from urllib.parse import urlencode
@@ -32,7 +34,20 @@ if TYPE_CHECKING:  # pragma: no cover
     from .plugins import Plugin
 
 STATIC_DIR = Path(__file__).with_name("static")
+
+
+@lru_cache(maxsize=None)
+def asset_version(name: str) -> str:
+    """Short hash of a built-in asset, so browsers can cache it forever and still get new versions."""
+    try:
+        return hashlib.sha1((STATIC_DIR / "tungsten" / name).read_bytes()).hexdigest()[:10]
+    except OSError:
+        return VERSION
+
+
 VERSION = "0.1.0"
+VENDOR_FILES = ("chart.umd.min.js", "trix.umd.min.js", "trix.css", "tom-select.complete.min.js", "tom-select.css",
+                "sortable.min.js", "qrcode.js")
 
 
 class Panel:
@@ -277,7 +292,11 @@ class Panel:
         return f"{url.scheme}://{url.netloc}{path}"
 
     def asset(self, name: str) -> str:
-        return self.url("assets", name) + f"?v={VERSION}"
+        return self.url("assets", name) + f"?v={asset_version(name)}"
+
+    def vendor_assets(self) -> dict[str, str]:
+        """Big libraries that ``tungsten.js`` loads only when a page needs them."""
+        return {name: self.asset(f"vendor/{name}") for name in VENDOR_FILES}
 
     # ------------------------------------------------------------------ languages
     def resolve_locale(self, ctx: "Context") -> str:

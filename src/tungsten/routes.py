@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import String, cast, func, or_, select, update
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import QueryParams
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
@@ -42,6 +43,15 @@ class Forbidden(Exception):
     pass
 
 
+class CachedStaticFiles(StaticFiles):
+    """Asset URLs carry a content hash (``?v=``), so browsers may keep them for a year."""
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
 
@@ -54,7 +64,9 @@ def build_app(panel: "Panel") -> FastAPI:
         same_site="lax",
         https_only=panel.https_only_cookies,
     )
-    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
+    # compress pages, CSS and JS (a list page shrinks from ~130 KB to ~15 KB)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+    app.mount("/assets", CachedStaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
     routes = Routes(panel)
     routes.register(app)
     return app

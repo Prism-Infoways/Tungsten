@@ -128,6 +128,20 @@ panel.render_hook("topbar.end", lambda: Markup('<span class="text-xs text-gray-5
 
 You can call `panel.render_hook()` from a plugin's `boot()`, or directly on the panel. Several functions can use the same hook. They are drawn in the order you added them.
 
+### Using the built-in JavaScript libraries
+
+To keep pages light, the big libraries (Chart.js, Trix, Tom Select, SortableJS and the QR code maker) load only on pages that use them. If your own script needs one, ask for it with `twNeed()` first:
+
+```python
+panel.render_hook("body.end", lambda: Markup("""
+<script>
+  twNeed("chart").then(() => new Chart(document.getElementById("my-chart"), {type: "bar", data: {...}}));
+</script>
+"""))
+```
+
+The names are `chart`, `trix`, `select`, `sortable` and `qr`. `twNeed()` loads each library once and returns a promise.
+
 ### Hook names
 
 | Hook | Where it appears |

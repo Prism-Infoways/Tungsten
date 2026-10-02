@@ -538,7 +538,7 @@ TUNGSTEN_TEST_ASYNC=1 pytest  # the same tests on an async engine (aiosqlite)
 cd frontend && npm install && npm run build
 ```
 
-The built assets (Tailwind CSS, HTMX, Alpine.js, Chart.js, Trix, Tom Select, SortableJS, a QR code generator and Lucide icons) ship inside the package. Nothing loads from a CDN, except the optional Google font (`Panel(font=None)` turns it off).
+The built assets (Tailwind CSS, HTMX, Alpine.js, Chart.js, Trix, Tom Select, SortableJS, a QR code generator and Lucide icons) ship inside the package. Nothing loads from a CDN, except the optional Google font (`Panel(font=None)` turns it off). Pages load only HTMX, Alpine and `tungsten.js` up front; the bigger libraries load on the pages that use them, and everything is sent gzip-compressed with long-lived browser caching.
 
 **Website and docs** live in `website/` and `docs/` (Markdown). Build them with:
 
