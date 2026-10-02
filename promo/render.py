@@ -2,6 +2,7 @@
 
     python promo/render.py                 # full video
     python promo/render.py --stills 2,8,13 # a few still frames for checking
+    python promo/sound.py                  # then add the soundtrack
 """
 import argparse, asyncio, pathlib, subprocess
 from playwright.async_api import async_playwright
