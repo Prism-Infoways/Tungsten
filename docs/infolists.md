@@ -59,15 +59,12 @@ TextEntry("tags.name").badge()        # to-many: one badge per tag
 
 When the value is a list (a to-many relationship or a JSON list), each item is shown separately.
 
-To show a computed value, use `state()`. To change how the value is written, use `formatted()`. Both take closures that get what they ask for, such as `record` and `state`.
+To show a computed value, use `state()`. To change how the value is written, use `formatted()` (or its other name, `format_state_using()`). Both take closures that get what they ask for, such as `record` and `state`.
 
 ```python
 TextEntry("items_count").label("Items").state(lambda record: len(record.items))
 TextEntry("status").formatted(lambda state: state.replace("_", " ").title())
 ```
-
-> [!NOTE]
-> On entries, use `formatted()`. The form-field method `format_state_using()` has no effect on an entry.
 
 An empty value shows "—". Change it with `.placeholder("Not set")`, or show a fallback value with `.default(...)`.
 
@@ -87,7 +84,7 @@ These work on every entry.
 | `placeholder("...")` | Text for an empty value. |
 | `default(value)` | Value to use when the attribute is empty. |
 | `state(fn)` | Compute the value instead of reading an attribute. |
-| `formatted(fn)` | Change how the value is displayed. |
+| `formatted(fn)` / `format_state_using(fn)` | Change how the value is displayed. |
 | `url(fn, open_in_new_tab=False)` | Make the value a link. |
 | `tooltip("...")` | Tooltip on hover. |
 | `description("...", position="below")` | Small extra text with the value. |

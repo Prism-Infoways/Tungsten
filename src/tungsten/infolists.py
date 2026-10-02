@@ -109,6 +109,11 @@ class Entry(Field):
         self.column.default(value)
         return self
 
+    def format_state_using(self, fn: Any) -> "Entry":
+        """Change how the value is displayed (same as ``formatted()``)."""
+        self.column.format_state_using(fn)
+        return self
+
     def inline_label(self, condition: bool = True) -> "Entry":
         """Put the label to the left of the value instead of above it."""
         self._inline_label = condition

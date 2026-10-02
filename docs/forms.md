@@ -127,7 +127,7 @@ Empty text is saved as `None`, and spaces at the start and end are removed.
 | --- | --- | --- |
 | `required()` | every field | "The name field is required." (checkboxes: "must be accepted") |
 | `email()`, `url()` | `TextInput` | "must be a valid email address / URL" |
-| `min_length(n)`, `max_length(n)`, `length(n)` | `TextInput`, `Textarea` | "must be at least n characters" |
+| `min_length(n)`, `max_length(n)`, `length(n)` | `TextInput`, `Textarea` (`RichEditor` has `max_length`) | "must be at least n characters" |
 | `numeric()`, `integer()` | `TextInput` | "must be a number" |
 | `min_value(n)`, `max_value(n)` | numeric `TextInput` | "must be at least n" |
 | `regex(pattern, message=None)` | `TextInput` | your message, or "format is invalid" |
@@ -191,8 +191,10 @@ Pick a state and the city field appears with the right cities. You write no Java
 | Call | When the form refreshes |
 | --- | --- |
 | `.live()` | When the value changes. For text inputs, that is when the user leaves the field. |
-| `.live(on_blur=True)` | When the user leaves the field. |
+| `.live(on_blur=True)` | When the user leaves the field, even if the value did not change. |
 | `.live(debounce=400)` | While the user types, after a 400 ms pause. |
+
+`on_blur` and `debounce` are for fields you type in: text inputs, textareas, date pickers and the color picker. Fields where you pick a value (select, checkbox, toggle, radio, checkbox list, toggle buttons, tags) refresh as soon as the value changes; there, `debounce` waits that long after the last change. A rich editor refreshes after a short pause in typing (`debounce` sets the pause), or when the user leaves it with `on_blur=True`.
 
 `reactive()` is another name for `live()`.
 
