@@ -13,7 +13,7 @@
   {% endif %}
   {{ caller() }}
   {% for error in v.errors %}
-  <p class="text-sm text-danger-600 dark:text-danger-400" data-error>{{ error }}</p>
+  <p class="text-sm text-danger-600 dark:text-danger-400" data-error>{{ __(error) }}</p>
   {% endfor %}
   {% if v.helper_text %}
   <p class="text-sm text-gray-500 dark:text-gray-400">{{ v.helper_text }}</p>
@@ -37,6 +37,7 @@
 {%- endmacro %}
 
 {% macro ui_action(form, action, label, cls='', icon_name=None, title=None) %}
+{% set label = __(label) if label else label %}
 <button type="button" class="{{ cls }}" title="{{ title or label }}"
         hx-post="{{ form.refresh_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML"
         hx-include="closest form" hx-vals='{"_tw_ui_action": "{{ action }}"}'>

@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar
 from urllib.parse import parse_qsl, urlencode
 
 from .actions.action import Action, BulkAction
+from .i18n import translate as __
 from .support.component import headline
 from .support.evaluate import call
 
@@ -399,7 +400,9 @@ class ImportAction(Action):
         created, updated, failures = run_import(ctx, self.importer, rows)
         storage.delete(path)
         note = Notification("Import finished").body(
-            f"{created} created, {updated} updated" + (f", {len(failures)} failed." if failures else "."))
+            __(":created created, :updated updated, :failed failed.", created=created, updated=updated,
+               failed=len(failures)) if failures
+            else __(":created created, :updated updated.", created=created, updated=updated))
         if failures:
             headers = list(rows[0].keys()) if rows else []
             report = write_csv([headers + ["Error"]] + [[r.get(h, "") for h in headers] + [msg] for r, msg in failures])

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Iterator
 
 from markupsafe import Markup
 
+from ..i18n import maybe
 from ..support.component import Component
 from ..support.evaluate import evaluate
 from .base import SchemaComponentMixin
@@ -148,8 +149,8 @@ class Section(Layout):
         has_errors = any(p in form.errors for p in paths)
         return {
             "base": base,
-            "heading": evaluate(self._heading, **ev),
-            "description": evaluate(self._description, **ev),
+            "heading": maybe(evaluate(self._heading, **ev)),
+            "description": maybe(evaluate(self._description, **ev)),
             "icon": self._icon,
             "collapsible": self._collapsible,
             "collapsed": self._collapsed and not has_errors,
@@ -168,7 +169,7 @@ class Fieldset(Layout):
         self._column_span = "full"
 
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
-        return {"base": base, "label": evaluate(self._label, **form.ev(base))}
+        return {"base": base, "label": maybe(evaluate(self._label, **form.ev(base)))}
 
 
 class Tab(Layout):
@@ -227,7 +228,7 @@ class Tabs(Layout):
                 continue
             ev = form.ev(base)
             errors = sum(1 for p in tab.field_paths(form, base) if p in form.errors)
-            tabs.append({"index": i, "tab": tab, "label": evaluate(tab._label, **ev), "icon": tab._icon,
+            tabs.append({"index": i, "tab": tab, "label": maybe(evaluate(tab._label, **ev)), "icon": tab._icon,
                          "badge": evaluate(tab._badge, **ev), "errors": errors})
         active = form.ui.get(self._ui_key, str(tabs[0]["index"]) if tabs else "0")
         return {"base": base, "tabs": tabs, "key": self._ui_key, "active": active, "contained": self._contained}
@@ -323,8 +324,8 @@ class Wizard(Layout):
             steps.append({
                 "index": i,
                 "step": step,
-                "label": evaluate(step._label, **ev),
-                "description": evaluate(step._description, **ev),
+                "label": maybe(evaluate(step._label, **ev)),
+                "description": maybe(evaluate(step._description, **ev)),
                 "icon": step._icon,
                 "errors": sum(1 for p in step.field_paths(form, base) if p in form.errors),
             })
@@ -335,6 +336,6 @@ class Wizard(Layout):
             "current": current,
             "last": len(self._schema) - 1,
             "skippable": self._skippable,
-            "submit_label": evaluate(self._submit_label, **ev),
+            "submit_label": maybe(evaluate(self._submit_label, **ev)),
             "vertical": self._vertical,
         }

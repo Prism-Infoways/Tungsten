@@ -1,0 +1,36 @@
+{% extends "tungsten/layout/auth.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block title %}{{ __('Verify your email') }} · {{ panel.brand_name }}{% endblock %}
+{% block auth %}
+<span class="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-full {{ 'bg-danger-50 text-danger-600 dark:bg-danger-500/10' if invalid else 'bg-primary-50 text-primary-600 dark:bg-primary-500/10' }}">
+  {{ icon('mail-x' if invalid else 'mail-check', 'h-6 w-6') }}
+</span>
+{% if invalid %}
+<h1 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">{{ __('This link has expired') }}</h1>
+<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ __('The verification link is no longer valid. It may be old, or your email address may have changed since it was sent.') }}</p>
+{% if user %}
+<form method="post" action="{{ panel.url('email-verification', 'prompt') }}" class="mt-8">
+  <input type="hidden" name="_token" value="{{ csrf_token }}">
+  <button type="submit" class="{{ ui.button_classes('primary', size='lg') }} w-full">{{ __('Send a new link') }}</button>
+</form>
+{% else %}
+<a href="{{ panel.url('login') }}" class="mt-8 {{ ui.button_classes('primary', size='lg') }} w-full">{{ __('Sign in to get a new link') }}</a>
+{% endif %}
+{% else %}
+<h1 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">{{ __('Verify your email') }}</h1>
+<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+  {{ __('We sent a link to :email. Open it to confirm your email address and start using :app.', email=email, app=panel.brand_name) }}
+</p>
+<p class="mt-4 text-sm text-gray-500 dark:text-gray-400">{{ __("Didn't get it? Check your spam folder, or ask for a new link.") }}</p>
+<form method="post" class="mt-8">
+  <input type="hidden" name="_token" value="{{ csrf_token }}">
+  <button type="submit" class="{{ ui.button_classes('primary', size='lg') }} w-full">{{ icon('send', 'h-4 w-4') }}<span>{{ __('Resend verification email') }}</span></button>
+</form>
+{% endif %}
+{% if user %}
+<form method="post" action="{{ panel.url('logout') }}" class="mt-8 text-center text-sm">
+  <input type="hidden" name="_token" value="{{ csrf_token }}">
+  <button type="submit" class="inline-flex items-center gap-1 font-medium {{ colors.LINK.gray }}">{{ icon('log-out', 'h-4 w-4') }}{{ __('Sign out') }}</button>
+</form>
+{% endif %}
+{% endblock %}

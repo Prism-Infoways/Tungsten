@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from markupsafe import Markup
 
 from .hosts import Host
+from .i18n import translate as __
 from .support.evaluate import call
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -145,6 +146,8 @@ class ChartWidget(Widget):
         data = call(cls.data, ctx=ctx, db=ctx.db, user=ctx.user, filter=active, filters=ctx.filters)
         palette = ["primary", "info", "success", "purple", "warning", "teal", "pink", "danger", "gray"]
         for i, ds in enumerate(data.get("datasets", [])):
+            if isinstance(ds.get("label"), str):
+                ds["label"] = __(ds["label"])
             if "color" not in ds and "colors" not in ds:
                 if cls.type in ("pie", "doughnut", "polarArea"):
                     ds["colors"] = [palette[j % len(palette)] for j in range(len(ds.get("data", [])))]

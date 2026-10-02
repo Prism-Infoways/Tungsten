@@ -107,4 +107,6 @@ class Context:
         return self.finalize(RedirectResponse(self.request.headers.get("referer") or self.panel.url(), status_code=303))
 
     def render(self, template: str, **context: Any) -> HTMLResponse:
+        if not self.is_htmx:
+            self.flash()  # a full page shows pending toasts itself; HX-Trigger only works for HTMX requests
         return self.html(self.panel.render_page(self, template, **context))

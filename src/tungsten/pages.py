@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from markupsafe import Markup
 
 from .hosts import Host
+from .i18n import translate as __
 from .support.component import headline
 from .support.evaluate import call
 
@@ -63,11 +64,11 @@ class Page:
 
     @classmethod
     def get_title(cls) -> str:
-        return cls.title or headline(_kebab(cls.__name__).replace("-", "_"))
+        return __(cls.title or headline(_kebab(cls.__name__).replace("-", "_")))
 
     @classmethod
     def get_navigation_label(cls) -> str:
-        return cls.navigation_label or cls.get_title()
+        return __(cls.navigation_label) if cls.navigation_label else cls.get_title()
 
     @classmethod
     def navigation_badge(cls, ctx: "Context") -> Any:
@@ -83,7 +84,7 @@ class Page:
 
     @classmethod
     def get_subheading(cls, ctx: "Context") -> str | None:
-        return cls.subheading
+        return __(cls.subheading) if cls.subheading else None
 
     @classmethod
     def content(cls, ctx: "Context") -> Any:
@@ -178,13 +179,13 @@ class Dashboard(Page):
     @classmethod
     def get_subheading(cls, ctx: "Context") -> str | None:
         if cls.subheading:
-            return cls.subheading
-        return "Here's what's happening today."
+            return __(cls.subheading)
+        return __("Here's what's happening today.")
 
     @classmethod
     def greeting(cls, ctx: "Context") -> str:
         name = ctx.panel.auth.display_name(ctx.user).split(" ")[0] if ctx.user else ""
-        return f"Welcome back, {name}!" if name else "Dashboard"
+        return __("Welcome back, :name!", name=name) if name else __("Dashboard")
 
 
 class PageHost(Host):

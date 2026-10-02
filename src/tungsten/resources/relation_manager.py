@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from ..i18n import translate as __
 from ..support.component import headline
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -51,14 +52,14 @@ class RelationManager:
 
     @classmethod
     def get_title(cls) -> str:
-        return cls.title or headline(cls.relationship)
+        return __(cls.title or headline(cls.relationship))
 
     @classmethod
     def get_label(cls) -> str:
         if cls.label:
-            return cls.label
-        title = cls.get_title()
-        return title[:-1] if title.endswith("s") else title
+            return __(cls.label)
+        title = cls.title or headline(cls.relationship)
+        return __(title[:-1] if title.endswith("s") else title)
 
     @classmethod
     def get_record_title(cls, record: Any) -> str:

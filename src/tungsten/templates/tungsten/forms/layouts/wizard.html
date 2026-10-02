@@ -29,9 +29,9 @@
     {% endfor %}
     {% if not form.is_disabled %}
     <div class="mt-6 flex items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
-      <div>{% if v.current > 0 %}{{ ui_action(form, 'wizard.previous:' ~ key, 'Back', 'tw-btn ' ~ colors.BUTTON.gray) }}{% endif %}</div>
+      <div>{% if v.current > 0 %}{{ ui_action(form, 'wizard.previous:' ~ key, __('Back'), 'tw-btn ' ~ colors.BUTTON.gray) }}{% endif %}</div>
       {% if v.current < v.last %}
-      {{ ui_action(form, 'wizard.next:' ~ key, 'Next', 'tw-btn ' ~ colors.BUTTON.primary) }}
+      {{ ui_action(form, 'wizard.next:' ~ key, __('Next'), 'tw-btn ' ~ colors.BUTTON.primary) }}
       {% else %}
       <button type="submit" class="tw-btn {{ colors.BUTTON.primary }}">{{ v.submit_label }}</button>
       {% endif %}

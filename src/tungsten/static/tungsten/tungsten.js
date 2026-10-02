@@ -1,3 +1,5 @@
+/* Translations for strings shown by this script (filled by the layout). */
+window.twT = function (text) { return (window.twLang && window.twLang[text]) || text; };
 /* Tungsten client glue: toasts, theme, charts, selects, rich editor. */
 (function () {
   "use strict";
@@ -79,12 +81,12 @@
   // ------------------------------------------------------------------ htmx errors
   document.addEventListener("htmx:responseError", function (e) {
     var status = e.detail.xhr ? e.detail.xhr.status : 0;
-    var title = status === 419 ? "Page expired" : status === 403 ? "Not allowed" : "Something went wrong";
-    var body = status === 419 ? "Please refresh the page and try again." : "The server could not complete the request (" + status + ").";
+    var title = status === 419 ? twT("Page expired") : status === 403 ? twT("Not allowed") : twT("Something went wrong");
+    var body = status === 419 ? twT("Please refresh the page and try again.") : twT("The server could not complete the request (:status).").replace(":status", status);
     window.twToast({ title: title, body: body, status: "danger", icon: "circle-x", duration: 6000 });
   });
   document.addEventListener("htmx:sendError", function () {
-    window.twToast({ title: "Connection lost", body: "Check your internet connection.", status: "danger", icon: "circle-x" });
+    window.twToast({ title: twT("Connection lost"), body: twT("Check your internet connection."), status: "danger", icon: "circle-x" });
   });
 
   // ------------------------------------------------------------------ components
@@ -315,7 +317,7 @@
   document.addEventListener("htmx:beforeRequest", function (e) {
     // boosted navigation away from a changed form (SPA mode)
     if (dirty && alertsOn() && e.detail.boosted && !(e.detail.elt.closest && e.detail.elt.closest("form[data-tw-unsaved]"))) {
-      if (!window.confirm("You have unsaved changes. Leave this page?")) e.preventDefault();
+      if (!window.confirm(twT("You have unsaved changes. Leave this page?"))) e.preventDefault();
       else dirty = false;
     }
   });

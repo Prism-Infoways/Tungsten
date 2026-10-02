@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy import select
 
+from ..i18n import translate as __
 from ..support.component import headline
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -103,7 +104,7 @@ class Resource:
         from ..actions import CreateAction, DeleteAction, EditAction, ForceDeleteAction, RestoreAction
 
         if page in ("list", "index"):
-            return [CreateAction().label(f"Create {cls.get_label().lower()}")]
+            return [CreateAction().label(lambda: __("Create :label", label=cls.get_label().lower()))]
         if page == "edit":
             return [DeleteAction().outlined(), RestoreAction().button(), ForceDeleteAction().outlined()]
         if page == "view":
@@ -117,15 +118,19 @@ class Resource:
     # ------------------------------------------------------------------ naming
     @classmethod
     def get_label(cls) -> str:
+        """The singular label, translated (``Product``)."""
+        return __(cls._raw_label())
+
+    @classmethod
+    def _raw_label(cls) -> str:
         if cls.label:
             return cls.label
         return headline(_kebab(cls.model.__name__).replace("-", "_")).lower().capitalize() if cls.model else "Record"
 
     @classmethod
     def get_plural_label(cls) -> str:
-        if cls.plural_label:
-            return cls.plural_label
-        return _plural(cls.get_label())
+        """The plural label, translated (``Products``)."""
+        return __(cls.plural_label or _plural(cls._raw_label()))
 
     @classmethod
     def get_slug(cls) -> str:
@@ -135,7 +140,7 @@ class Resource:
 
     @classmethod
     def get_navigation_label(cls) -> str:
-        return cls.navigation_label or cls.get_plural_label()
+        return __(cls.navigation_label) if cls.navigation_label else cls.get_plural_label()
 
     @classmethod
     def navigation_badge(cls, ctx: "Context") -> Any:

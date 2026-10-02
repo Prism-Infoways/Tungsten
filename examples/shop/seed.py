@@ -6,7 +6,6 @@ import datetime as dt
 import random
 from decimal import Decimal
 
-from sqlalchemy import delete
 
 from tungsten.auth import hash_password
 from tungsten.models import Role, RoleAssignment, TungstenBase
@@ -62,7 +61,8 @@ def seed(url: str = "sqlite:///shop.db", seed_value: int = 7) -> None:
 
         password = hash_password("password")
         admin = User(name="Kuldeep Gothwal", username="kuldeep", email="admin@example.com", password=password,
-                     is_admin=True, is_active=True, department="Operations", created_at=now - dt.timedelta(days=400))
+                     is_admin=True, is_active=True, department="Operations", created_at=now - dt.timedelta(days=400),
+                     email_verified_at=now - dt.timedelta(days=400))
         db.add(admin)
         users = [admin]
         for i in range(48):
@@ -72,6 +72,7 @@ def seed(url: str = "sqlite:///shop.db", seed_value: int = 7) -> None:
                 password=password, phone=f"98{rnd.randint(10000000, 99999999)}", is_active=rnd.random() > 0.15,
                 department=rnd.choice(["Operations", "Sales", "Marketing", "Engineering", "Support"]),
                 is_admin=i < 3, created_at=now - dt.timedelta(days=rnd.randint(0, 200)),
+                email_verified_at=None if i % 7 == 6 else now - dt.timedelta(days=1),
             ))
         db.add_all(users[1:])
         db.flush()

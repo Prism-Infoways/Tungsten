@@ -3,7 +3,7 @@
 {% if v.native %}
 <select id="{{ v.id }}" name="{{ v.path }}" class="tw-input pe-9 {{ 'tw-input-error' if v.errors }}"
         {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>
-  <option value="">{{ v.placeholder or 'Select an option' }}</option>
+  <option value="">{{ v.placeholder or __('Select an option') }}</option>
   {% for o in v.options %}
   <option value="{{ o.value }}" {% if o.selected %}selected{% endif %} {% if o.disabled %}disabled{% endif %}>{{ o.label }}</option>
   {% endfor %}
@@ -11,11 +11,11 @@
 {% else %}
 <div class="{{ 'tw-ts-error' if v.errors }}">
 <select id="{{ v.id }}" name="{{ v.path }}" data-tw-select {% if v.multiple %}multiple{% endif %}
-        data-placeholder="{{ v.placeholder or 'Select an option' }}"
+        data-placeholder="{{ v.placeholder or __('Select an option') }}"
         {% if v.search_url %}data-search-url="{{ v.search_url }}" data-field="{{ v.path }}"{% endif %}
         data-searchable="{{ 'true' if v.searchable else 'false' }}"
         {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>
-  {% if not v.multiple %}<option value="">{{ v.placeholder or 'Select an option' }}</option>{% endif %}
+  {% if not v.multiple %}<option value="">{{ v.placeholder or __('Select an option') }}</option>{% endif %}
   {% for o in v.options %}
   <option value="{{ o.value }}" {% if o.selected %}selected{% endif %} {% if o.disabled %}disabled{% endif %}>{{ o.label }}</option>
   {% endfor %}

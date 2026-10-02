@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from markupsafe import Markup
 
+from ..i18n import maybe
+from ..i18n import translate as __
 from ..support.component import Component, headline
 from ..support.evaluate import call, evaluate
 
@@ -234,8 +236,8 @@ class Action(Component):
 
     def get_label(self, ev: dict | None = None) -> str:
         if self._label is None:
-            return headline(self.name)
-        return str(evaluate(self._label, **(ev or {})))
+            return __(headline(self.name))
+        return __(str(evaluate(self._label, **(ev or {}))))
 
     def needs_modal(self) -> bool:
         return bool(self._requires_confirmation or self._form is not None)
@@ -323,7 +325,7 @@ class Action(Component):
             "endpoint": endpoint,
             "vals": vals,
             "disabled": bool(evaluate(self._disabled, **ev)),
-            "tooltip": evaluate(self._tooltip, **ev) or (label if style == "icon" else None),
+            "tooltip": maybe(evaluate(self._tooltip, **ev)) or (label if style == "icon" else None),
             "badge": evaluate(self._badge, **ev),
             "outlined": self._outlined,
             "hidden_label": self._hidden_label,
@@ -401,7 +403,7 @@ class ActionGroup(Component):
         return ctx.panel.renderer.render(
             "tungsten/actions/group.html",
             items=items,
-            label=evaluate(self._label, record=record),
+            label=maybe(evaluate(self._label, record=record)),
             group_icon=self._icon,
             color=self._color,
             button=self._button or style == "soft",

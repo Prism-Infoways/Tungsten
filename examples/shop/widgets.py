@@ -12,7 +12,7 @@ from tungsten.forms import Select
 from tungsten.models import Role, RoleAssignment
 from tungsten.tables import TextColumn
 
-from .models import Category, Order, OrderItem, OrderStatus, Product, User
+from .models import Category, Order, OrderItem, Product, User
 
 INR = "₹"
 

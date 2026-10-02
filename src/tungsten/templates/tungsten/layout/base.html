@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full antialiased">
+<html lang="{{ (current_locale() or panel.locale) | replace('_', '-') }}"{% if is_rtl(current_locale()) %} dir="rtl"{% endif %} class="h-full antialiased">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,6 +17,9 @@
       try { if (localStorage.getItem('tw-sidebar') === 'collapsed') document.documentElement.classList.add('tw-sidebar-collapsed'); } catch (e) {}
     })();
   </script>
+  {% if current_locale() and current_locale() != 'en' %}
+  <script>window.twLang = {{ js_translations() | tojson }};</script>
+  {% endif %}
   {% if panel.font %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ panel.font | replace(' ', '+') }}:wght@400;500;600;700;800&display=swap">

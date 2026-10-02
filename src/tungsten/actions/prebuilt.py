@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ..i18n import translate as __
 from ..support.evaluate import call
 from .action import Action, BulkAction
 
@@ -66,7 +67,7 @@ class CreateAction(RecordFormAction):
 
     def get_label(self, ev: dict | None = None) -> str:
         if self._label is None and ev and ev.get("host") is not None:
-            return f"New {ev['host'].model_label().lower()}"
+            return __("New :label", label=ev["host"].model_label().lower())
         return super().get_label(ev)
 
     def view_data(self, ctx, host, record=None, **kw):  # type: ignore[override]
@@ -156,11 +157,11 @@ class DeleteAction(Action):
         self._modal_width = "md"
 
     def get_modal_heading(self, host: "Host | None") -> str:
-        return f"Delete {host.model_label().lower()}" if host else "Delete"
+        return __("Delete :label", label=host.model_label().lower()) if host else __("Delete")
 
     def get_modal_description(self, host: "Host | None") -> str:
-        label = host.model_label().lower() if host else "record"
-        return f"Are you sure you want to delete this {label}? This action cannot be undone."
+        label = host.model_label().lower() if host else __("record")
+        return __("Are you sure you want to delete this :label? This action cannot be undone.", label=label)
 
     def is_available(self, host, ctx, record=None) -> bool:  # type: ignore[override]
         return super().is_available(host, ctx, record) and not (host and record is not None and host.is_trashed(record))

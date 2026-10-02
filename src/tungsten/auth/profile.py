@@ -54,9 +54,20 @@ class ProfileHost(Host):
 
     def update(self, ctx: "Context", record: Any, data: dict, form: Form) -> Any:
         auth = self.panel.auth
+        old_email = str(getattr(record, auth.email_field, "") or "").lower()
         form.fill_record(record, data)
         new_password = form.get("new_password")
         if new_password:
             setattr(record, auth.password_field, auth.hash(new_password))
+        email_changed = str(getattr(record, auth.email_field, "") or "").lower() != old_email
+        if email_changed and auth.email_verification:
+            # a new address must be confirmed again
+            setattr(record, auth.verified_field, None)
         ctx.db.commit()
+        if email_changed and auth.email_verification:
+            from .verification import send
+
+            ctx.session.pop("tw_verify_sent", None)
+            send(ctx, record)
+            ctx.redirect(self.panel.url("email-verification", "prompt"))
         return record

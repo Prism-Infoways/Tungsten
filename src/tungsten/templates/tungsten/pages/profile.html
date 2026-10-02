@@ -2,22 +2,22 @@
 {% import "tungsten/components/ui.html" as ui %}
 {% block content %}
 {% set subheading = 'Manage your account details and password.' %}
-{% set breadcrumbs = [('Profile', None)] %}
+{% set breadcrumbs = [(__('Profile'), None)] %}
 {% include "tungsten/components/page-header.html" %}
 {% if two_factor is not none %}
 <div class="tw-card mb-6 flex flex-wrap items-center gap-4 p-5">
   <span class="flex h-11 w-11 items-center justify-center rounded-xl {{ colors.pick(colors.SOFT_ICON, 'success' if two_factor else 'warning') }}">{{ icon('shield-check' if two_factor else 'shield-alert', 'h-5 w-5') }}</span>
   <div class="flex-1">
-    <p class="font-semibold text-gray-950 dark:text-white">Two-factor authentication</p>
-    <p class="text-sm text-gray-500 dark:text-gray-400">{{ 'On — a code from your phone is needed to sign in.' if two_factor else 'Off — add a second step to protect your account.' }}</p>
+    <p class="font-semibold text-gray-950 dark:text-white">{{ __('Two-factor authentication') }}</p>
+    <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('On — a code from your phone is needed to sign in.') if two_factor else __('Off — add a second step to protect your account.') }}</p>
   </div>
-  <a href="{{ panel.url('two-factor') }}" class="{{ ui.button_classes('gray') }}">{{ 'Manage' if two_factor else 'Set up' }}</a>
+  <a href="{{ panel.url('two-factor') }}" class="{{ ui.button_classes('gray') }}">{{ __('Manage') if two_factor else __('Set up') }}</a>
 </div>
 {% endif %}
 <form hx-post="{{ panel.url('profile') }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" class="grid gap-6">
   {{ form.render() }}
   <div class="flex justify-end">
-    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>Save changes</span></button>
+    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ __('Save changes') }}</span></button>
   </div>
 </form>
 {% endblock %}

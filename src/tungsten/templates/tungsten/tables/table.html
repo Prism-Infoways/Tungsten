@@ -26,7 +26,7 @@
 
     {% if tabs %}
     {# ------------------------------------------------------------ list tabs #}
-    <nav class="flex gap-1 overflow-x-auto border-b border-gray-100 px-4 dark:border-white/10" aria-label="Tabs">
+    <nav class="flex gap-1 overflow-x-auto border-b border-gray-100 px-4 dark:border-white/10" aria-label="{{ __('Tabs') }}">
       {% for t in tabs %}
       <button type="button" hx-get="{{ t.url }}" hx-target="#{{ table.id }}" hx-swap="outerHTML"
               class="-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition
@@ -52,24 +52,24 @@
       {% endfor %}
       {% if panel_filters %}
       <button type="button" @click="panel = !panel" class="{{ ui.button_classes('gray') }}" :class="panel && 'ring-primary-500 text-primary-600'">
-        {{ icon('list-filter', 'h-4 w-4') }}<span>{{ 'More filters' if inline_filters else 'Filters' }}</span>
+        {{ icon('list-filter', 'h-4 w-4') }}<span>{{ __('More filters') if inline_filters else __('Filters') }}</span>
         {% if active_panel_count %}<span class="rounded-full bg-primary-600 px-1.5 text-xs text-white">{{ active_panel_count }}</span>{% endif %}
       </button>
       {% endif %}
       <div class="ms-auto flex flex-wrap items-center gap-3">
         {% if groups %}
         <select name="group" class="tw-input w-auto pe-9">
-          <option value="none">No grouping</option>
-          {% for g in groups %}<option value="{{ g.attribute }}" {% if group and group.attribute == g.attribute %}selected{% endif %}>Group by {{ g.get_label() | lower }}</option>{% endfor %}
+          <option value="none">{{ __('No grouping') }}</option>
+          {% for g in groups %}<option value="{{ g.attribute }}" {% if group and group.attribute == g.attribute %}selected{% endif %}>{{ __('Group by :label', label=g.get_label() | lower) }}</option>{% endfor %}
         </select>
         {% endif %}
         {% if toggleable %}
         <input type="hidden" name="_cols" value="1">
         {% call(part) ui.dropdown(width='w-60') %}
           {% if part == 'trigger' %}
-          <button type="button" class="{{ ui.button_classes('gray') }}">{{ icon('columns-3', 'h-4 w-4') }}<span>Columns</span>{{ icon('chevron-down', 'h-4 w-4') }}</button>
+          <button type="button" class="{{ ui.button_classes('gray') }}">{{ icon('columns-3', 'h-4 w-4') }}<span>{{ __('Columns') }}</span>{{ icon('chevron-down', 'h-4 w-4') }}</button>
           {% else %}
-          <p class="px-2 pb-1 pt-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">Show columns</p>
+          <p class="px-2 pb-1 pt-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ __('Show columns') }}</p>
           {% for c in toggleable %}
           <label class="flex cursor-pointer items-center gap-x-3 rounded-md px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
             <input type="checkbox" name="cols" value="{{ c.name }}" class="tw-checkbox" {% if c.visible %}checked{% endif %}>{{ c.label }}
@@ -81,7 +81,7 @@
         {% if reorderable %}
         <button type="button" class="{{ ui.button_classes('primary' if reordering else 'gray') }}"
                 hx-get="{{ table.url(reordering=(None if reordering else '1'), page=None) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML">
-          {{ icon('check' if reordering else 'arrow-up-down', 'h-4 w-4') }}<span>{{ 'Done reordering' if reordering else 'Reorder' }}</span>
+          {{ icon('check' if reordering else 'arrow-up-down', 'h-4 w-4') }}<span>{{ __('Done reordering') if reordering else __('Reorder') }}</span>
         </button>
         {% endif %}
         {% for a in header_actions %}{{ a.render(ctx, host, None, table_id=table.id) }}{% endfor %}
@@ -91,7 +91,7 @@
     {# ------------------------------------------------------------ active filter chips #}
     {% if indicators %}
     <div class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-4 py-3 text-sm dark:border-white/10">
-      <span class="text-gray-500 dark:text-gray-400">Active filters</span>
+      <span class="text-gray-500 dark:text-gray-400">{{ __('Active filters') }}</span>
       {% for i in indicators %}{{ ui.badge(i.label, 'primary') }}{% endfor %}
       <a href="#" class="ms-1 {{ colors.LINK.gray }}" hx-get="{{ ctx.url('_tw', 'table') }}?host={{ host.key | urlencode }}&_f=1&_reset=1" hx-target="#{{ table.id }}" hx-swap="outerHTML">{{ icon('x', 'h-4 w-4') }}</a>
     </div>
@@ -101,9 +101,9 @@
     {# ------------------------------------------------------------ bulk bar #}
     {% if selectable %}
     <div x-show="selected.length" x-cloak class="flex flex-wrap items-center gap-2 border-t border-gray-100 bg-primary-50/40 px-4 py-2.5 dark:border-white/10 dark:bg-primary-500/5">
-      <span class="me-2 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-950/10 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10"><span x-text="selected.length"></span> selected</span>
+      <span class="me-2 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-950/10 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10"><span x-text="selected.length"></span> {{ __('selected') }}</span>
       {% for a in bulk_actions %}{{ a.render(ctx, host, None, style='soft', table_id=table.id) }}{% endfor %}
-      <button type="button" class="ms-auto text-sm {{ colors.LINK.gray }}" @click="selected = []">Clear selection</button>
+      <button type="button" class="ms-auto text-sm {{ colors.LINK.gray }}" @click="selected = []">{{ __('Clear selection') }}</button>
     </div>
     {% endif %}
 
@@ -117,7 +117,7 @@
           <tr>
             {% if reordering %}<th class="w-1 px-4 py-3"></th>{% endif %}
             {% if selectable %}
-            <th class="w-1 px-4 py-3"><input type="checkbox" class="tw-checkbox" data-tw-local :checked="allSelected" @click="toggleAll()" aria-label="Select all"></th>
+            <th class="w-1 px-4 py-3"><input type="checkbox" class="tw-checkbox" data-tw-local :checked="allSelected" @click="toggleAll()" aria-label="{{ __('Select all') }}"></th>
             {% endif %}
             {% if table._row_index %}<th class="w-1 px-3 py-3 text-start text-sm font-medium text-gray-500 dark:text-gray-400">#</th>{% endif %}
             {% for c in columns %}
@@ -136,7 +136,7 @@
               {% else %}<span class="whitespace-nowrap">{{ c.get_label() }}</span>{% endif %}
             </th>
             {% endfor %}
-            {% if row_actions %}<th class="px-4 py-3 text-end text-sm font-medium text-gray-600 dark:text-gray-300">Actions</th>{% endif %}
+            {% if row_actions %}<th class="px-4 py-3 text-end text-sm font-medium text-gray-600 dark:text-gray-300">{{ __('Actions') }}</th>{% endif %}
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-white/5"
@@ -150,7 +150,7 @@
               :class="selected.includes('{{ row.key }}') && '!bg-primary-50/60 dark:!bg-primary-500/10'" data-key="{{ row.key }}">
             {% if reordering %}<td class="w-1 px-4 py-3"><span class="tw-drag-handle cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing">{{ icon('grip-vertical', 'h-5 w-5') }}</span></td>{% endif %}
             {% if selectable %}
-            <td class="w-1 px-4 py-3"><input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox" data-tw-local x-model="selected" aria-label="Select row"></td>
+            <td class="w-1 px-4 py-3"><input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox" data-tw-local x-model="selected" aria-label="{{ __('Select row') }}"></td>
             {% endif %}
             {% if table._row_index %}<td class="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">{{ row.index }}</td>{% endif %}
             {% for c in columns %}
@@ -179,7 +179,7 @@
               {% for s in summaries.get(c.name, []) %}
               <div class="{{ 'text-end' if c._alignment == 'end' else '' }}"><span class="text-gray-500 dark:text-gray-400">{{ s.label }}:</span> <span class="font-semibold text-gray-950 dark:text-white">{{ s.value }}</span></div>
               {% endfor %}
-              {% if loop.first and not summaries.get(c.name) %}<span class="font-medium text-gray-950 dark:text-white">Summary</span>{% endif %}
+              {% if loop.first and not summaries.get(c.name) %}<span class="font-medium text-gray-950 dark:text-white">{{ __('Summary') }}</span>{% endif %}
             </td>
             {% endfor %}
             {% if row_actions %}<td></td>{% endif %}
@@ -192,18 +192,18 @@
     {# ------------------------------------------------------------ pagination #}
     {% if paginated %}
     <nav class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 dark:border-white/10">
-      <p class="text-sm text-gray-600 dark:text-gray-400">Showing <span class="font-medium">{{ from }}</span> to <span class="font-medium">{{ to }}</span> of <span class="font-medium">{{ total | number }}</span> results</p>
+      <p class="text-sm text-gray-600 dark:text-gray-400">{{ __('Showing') }} <span class="font-medium">{{ from }}</span> {{ __('to') }} <span class="font-medium">{{ to }}</span> {{ __('of') }} <span class="font-medium">{{ total | number }}</span> {{ __('results') }}</p>
       <div class="flex flex-wrap items-center gap-3">
         {% if table._per_page_options | length > 1 %}
-        <select name="per_page" class="tw-input w-auto pe-9" aria-label="Per page">
-          {% for n in table._per_page_options %}<option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }} per page</option>{% endfor %}
+        <select name="per_page" class="tw-input w-auto pe-9" aria-label="{{ __('Per page') }}">
+          {% for n in table._per_page_options %}<option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ __(':count per page', count=n) }}</option>{% endfor %}
         </select>
         {% endif %}
         {% if pages > 1 %}
         {% set pbtn = 'inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg px-2 text-sm font-medium ring-1 transition' %}
         <div class="flex items-center gap-1">
           <button type="button" class="{{ pbtn }} ring-gray-950/10 text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:ring-white/10 dark:text-gray-300 dark:hover:bg-white/5" {% if page == 1 %}disabled{% endif %}
-                  hx-get="{{ table.url(page=page - 1) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML" aria-label="Previous">{{ icon('chevrons-left', 'h-4 w-4') }}</button>
+                  hx-get="{{ table.url(page=page - 1) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML" aria-label="{{ __('Previous') }}">{{ icon('chevrons-left', 'h-4 w-4') }}</button>
           {% for n in page_links %}
             {% if n is none %}<span class="px-1 text-gray-400">…</span>
             {% elif n == page %}<span class="{{ pbtn }} ring-primary-500 text-primary-600 bg-primary-50/50 dark:bg-primary-500/10 dark:text-primary-400" aria-current="page">{{ n }}</span>
@@ -212,7 +212,7 @@
             {% endif %}
           {% endfor %}
           <button type="button" class="{{ pbtn }} ring-gray-950/10 text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:ring-white/10 dark:text-gray-300 dark:hover:bg-white/5" {% if page == pages %}disabled{% endif %}
-                  hx-get="{{ table.url(page=page + 1) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML" aria-label="Next">{{ icon('chevrons-right', 'h-4 w-4') }}</button>
+                  hx-get="{{ table.url(page=page + 1) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML" aria-label="{{ __('Next') }}">{{ icon('chevrons-right', 'h-4 w-4') }}</button>
         </div>
         {% endif %}
       </div>
@@ -229,10 +229,11 @@
 
     {# ------------------------------------------------------------ filter panel #}
     {% if panel_filters %}
-    <aside x-show="panel" x-cloak class="w-72 shrink-0 border-s border-t border-gray-100 p-4 dark:border-white/10">
+    {% set has_builder = panel_filters | selectattr('field', 'defined') | list %}
+    <aside x-show="panel" x-cloak class="{{ 'w-80' if has_builder else 'w-72' }} shrink-0 border-s border-t border-gray-100 p-4 dark:border-white/10">
       <div class="mb-4 flex items-center justify-between">
-        <h4 class="text-base font-semibold text-gray-950 dark:text-white">Filters</h4>
-        <button type="button" class="tw-icon-btn text-gray-400" @click="panel = false" aria-label="Close filters">{{ icon('x', 'h-4 w-4') }}</button>
+        <h4 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Filters') }}</h4>
+        <button type="button" class="tw-icon-btn text-gray-400" @click="panel = false" aria-label="{{ __('Close filters') }}">{{ icon('x', 'h-4 w-4') }}</button>
       </div>
       <div class="grid gap-5">
         {% for f in panel_filters %}
@@ -243,7 +244,7 @@
       </div>
       <button type="button" class="mt-5 w-full {{ ui.button_classes('gray') }}"
               hx-get="{{ ctx.url('_tw', 'table') }}?host={{ host.key | urlencode }}&_f=1&_reset=1" hx-target="#{{ table.id }}" hx-swap="outerHTML">
-        {{ icon('rotate-ccw', 'h-4 w-4') }}<span>Clear filters</span>
+        {{ icon('rotate-ccw', 'h-4 w-4') }}<span>{{ __('Clear filters') }}</span>
       </button>
     </aside>
     {% endif %}

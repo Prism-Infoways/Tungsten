@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Callable
 
 from ..forms.fields import Checkbox, CheckboxList, DatePicker, Select, normalize_options
+from ..i18n import translate as __
 from ..support.component import Component, headline
 from ..support.evaluate import call, evaluate
 
@@ -66,7 +67,7 @@ class Filter(Component):
         return self
 
     def get_label(self) -> str:
-        return str(self._label) if self._label is not None else headline(self.name)
+        return __(str(self._label) if self._label is not None else headline(self.name))
 
     def get_fields(self) -> list:
         """The filter's form fields (built once, then reused)."""
@@ -109,7 +110,7 @@ class Filter(Component):
             return [result] if isinstance(result, str) else list(result or [])
         if self._fields is None:
             return [self.get_label()]
-        parts = [f"{headline(k)}: {v}" for k, v in data.items() if v not in (None, "", [], False)]
+        parts = [f"{__(headline(k))}: {v}" for k, v in data.items() if v not in (None, "", [], False)]
         return [f"{self.get_label()} — " + ", ".join(parts)]
 
 
@@ -303,7 +304,7 @@ class TernaryFilter(Filter):
         value = data.get("value")
         if value not in ("1", "0"):
             return []
-        return [f"{self.get_label()}: {self._true_label if value == '1' else self._false_label}"]
+        return [f"{self.get_label()}: {__(self._true_label if value == '1' else self._false_label)}"]
 
 
 class TrashedFilter(TernaryFilter):
@@ -328,7 +329,7 @@ class TrashedFilter(TernaryFilter):
 
     def indicators(self, data: dict[str, Any], table: "Table") -> list[str]:
         mode = self.mode(data)
-        return [] if mode == "without" else ["With deleted records" if mode == "with" else "Only deleted records"]
+        return [] if mode == "without" else [__("With deleted records") if mode == "with" else __("Only deleted records")]
 
 
 class DateFilter(Filter):
@@ -339,8 +340,8 @@ class DateFilter(Filter):
         self._attribute = attribute or name
 
     def _build_fields(self) -> list:
-        label = self.get_label()
-        return [DatePicker("from").label(f"{label} from"), DatePicker("until").label(f"{label} until")]
+        return [DatePicker("from").label(lambda: __(":label from", label=self.get_label())),
+                DatePicker("until").label(lambda: __(":label until", label=self.get_label()))]
 
     def apply(self, query: Any, data: dict[str, Any], table: "Table") -> Any:
         import datetime as dt
@@ -358,7 +359,7 @@ class DateFilter(Filter):
     def indicators(self, data: dict[str, Any], table: "Table") -> list[str]:
         out = []
         if data.get("from"):
-            out.append(f"{self.get_label()} from {data['from']}")
+            out.append(__(":label from :date", label=self.get_label(), date=data["from"]))
         if data.get("until"):
-            out.append(f"{self.get_label()} until {data['until']}")
+            out.append(__(":label until :date", label=self.get_label(), date=data["until"]))
         return out

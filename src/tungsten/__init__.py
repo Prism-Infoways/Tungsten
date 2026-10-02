@@ -23,6 +23,7 @@ Quick start::
 
 from .auth import Auth, hash_password, verify_password
 from .context import Context
+from .i18n import __, translate
 from .navigation import NavigationGroup, NavigationItem
 from .notifications import Notification
 from .pages import Dashboard, Page
@@ -48,5 +49,5 @@ __all__ = [
     "AccountWidget", "Auth", "ChartWidget", "Context", "Dashboard", "LocalStorage", "NavigationGroup",
     "NavigationItem", "Notification", "Page", "Panel", "Plugin", "ProgressItem", "ProgressListWidget",
     "RelationManager", "Resource", "Stat", "StatsOverviewWidget", "Storage", "TableWidget", "Tenancy", "Widget",
-    "__version__", "hash_password", "verify_password",
+    "__", "__version__", "hash_password", "translate", "verify_password",
 ]

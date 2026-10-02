@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import warnings
 
@@ -48,9 +49,13 @@ class PanelClient:
         return self.client.post(url, data=data, headers=headers, **kw)
 
     def login(self, email: str = "admin@example.com", password: str = "password"):
-        r = self.get("/admin/login")
+        self.get("/admin/login")
         return self.client.post("/admin/login", data={"_token": self.token, "email": email, "password": password},
                                 follow_redirects=False)
+
+
+#: ``TUNGSTEN_TEST_ASYNC=1 pytest`` runs the whole suite on an async engine (aiosqlite)
+ASYNC_DB = os.environ.get("TUNGSTEN_TEST_ASYNC") == "1"
 
 
 @pytest.fixture()
@@ -59,7 +64,7 @@ def app_and_panel(tmp_path, monkeypatch):
     seed(url)
     monkeypatch.setattr(shop_pages, "SETTINGS_FILE", tmp_path / "settings.json")
     mails: list[dict] = []
-    app, panel = create_app(url, storage_dir=str(tmp_path / "storage"),
+    app, panel = create_app(url, async_db=ASYNC_DB, storage_dir=str(tmp_path / "storage"),
                             mailer=lambda to, subject, body: mails.append({"to": to, "subject": subject, "body": body}))
     panel.test_mails = mails  # type: ignore[attr-defined]
     return app, panel
@@ -84,4 +89,4 @@ def admin(client):
 
 
 def db_session(panel):
-    return panel.session_factory()
+    return panel.sync_session_factory()

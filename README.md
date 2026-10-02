@@ -44,14 +44,16 @@ class ProductResource(Resource):
 | **Layouts** | Section (cards, collapsible, aside), Grid, Fieldset, Group, Tabs, Wizard (step-by-step, validates each step). |
 | **Validation** | Required, length, min/max, email, URL, regex, unique, "same as", custom rules. Clear messages under each field. |
 | **Dependent fields** | `.live()` fields re-render the form on the server: show/hide fields, change options, fill other fields. |
-| **Tables** | Text, badge, image, icon, color columns, plus inline-editable toggle, checkbox, text input and select columns. Search (also through relations), sort, filters, list tabs with counts, pagination, row and bulk actions, show/hide columns, grouping, totals, drag-to-reorder rows. |
+| **Tables** | Text, badge, image, icon, color columns, plus inline-editable toggle, checkbox, text input and select columns. Search (also through relations), sort, filters, a query builder (users build their own AND/OR rules), list tabs with counts, pagination, row and bulk actions, show/hide columns, grouping, totals, drag-to-reorder rows. |
 | **Actions** | Buttons, confirm boxes and modal forms. Ready-made create, edit, view, delete, restore, replicate, attach and detach actions. |
 | **Relations** | Relation managers: manage a customer's orders, or attach tags to a product, on the record page. |
 | **Widgets** | Stats cards with trends and sparklines, charts (line, bar, pie, doughnut...), table widgets, progress lists. Loaded lazily, optional polling. Dashboard filters (e.g. "Last 30 days") passed to every widget. |
-| **Auth & roles** | Login, sign-up, forgot/reset password, profile page, two-factor login (TOTP + recovery codes), role-based permissions with a Roles screen, policies or a custom gate. |
+| **Auth & roles** | Login, sign-up, email verification, forgot/reset password, profile page, two-factor login (TOTP + recovery codes), role-based permissions with a Roles screen, policies or a custom gate. |
 | **Notifications** | Toast messages and an in-app notification bell (stored in the database). |
 | **Navigation** | Sidebar groups, icons, badge counts, nested items, ⌘K global search across records and pages. |
 | **Theming & UX** | Brand colors (any Tailwind palette or a hex color), logo, dark mode, SPA mode (no full page reloads), unsaved-changes warning, collapsible sidebar, keyboard shortcuts (Ctrl/⌘+S saves). |
+| **Languages** | Every screen can be translated. Hindi ships built in; add any language with a JSON file. Users switch language from the user menu or the login page. |
+| **Database** | Works with a normal SQLAlchemy engine or an async one (`create_async_engine`). `async def` hooks work too. |
 | **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins, render hooks, CLI generators. |
 
 ---
@@ -59,7 +61,7 @@ class ProductResource(Resource):
 ## Install
 
 ```bash
-pip install tungsten-admin            # add [excel] for .xlsx import/export
+pip install tungsten-admin            # add [excel] for .xlsx import/export, [async] for async engines
 ```
 
 ## Quick start
@@ -94,6 +96,7 @@ Create your first user:
 
 ```bash
 tungsten make:user --panel app.admin:panel --role "Super Admin"
+tungsten lang:extract hi --path app                      # collect text to translate into lang/hi.json
 ```
 
 Passwords are hashed with PBKDF2-SHA256 (`tungsten.hash_password`). Pass `hasher=` to `Auth` to use your own.
@@ -107,7 +110,7 @@ python -m examples.shop.seed
 uvicorn examples.shop.app:app --reload
 ```
 
-Open <http://127.0.0.1:8000/admin> and sign in with **admin@example.com / password**. The demo has users (wizard on create, tabs on edit), products (tabs, images, tags, import/export), orders (repeater with live prices), customers (dependent state → city, orders relation manager), roles, a settings page and a full dashboard.
+Open <http://127.0.0.1:8000/admin> and sign in with **admin@example.com / password**. The demo has users (wizard on create, tabs on edit), products (tabs, images, tags, import/export), orders (repeater with live prices), customers (dependent state → city, orders relation manager), roles, a settings page and a full dashboard. Switch to Hindi from the user menu, try the **Custom filters** query builder on Products, and set `DATABASE_URL=sqlite+aiosqlite:///shop.db` to run it on an async engine.
 
 ---
 
@@ -213,6 +216,30 @@ table.columns([
 ```
 
 Table state (search, sort, filters, page) is kept in the URL, so you can bookmark and share it.
+
+### Query builder filter
+
+Let users build their own conditions in the filter panel. Rules in a group must all match (AND); groups are joined with OR.
+
+```python
+from tungsten.tables import (QueryBuilder, TextConstraint, NumberConstraint, DateConstraint,
+                             BooleanConstraint, SelectConstraint, RelationshipConstraint)
+
+table.filters([
+    QueryBuilder().constraints([
+        TextConstraint("name"),                        # contains, starts with, equals, is blank...
+        NumberConstraint("price"),                     # =, >, <, between...
+        NumberConstraint("stock").integer(),
+        DateConstraint("created_at"),                  # on, before, after, between, in the last N days
+        BooleanConstraint("is_featured"),
+        SelectConstraint("status").options(Status),    # is, is not, is any of...
+        TextConstraint("category.name").label("Category name"),   # through a relationship
+        RelationshipConstraint("tags").selectable("name"),        # has any / none / at least N / which ones
+    ]),
+])
+```
+
+Example: *Price is greater than 3000 and Tags has at least 1* — **or** — *Featured is true*. The rules live in the URL like other filters.
 
 ### Actions
 
@@ -353,6 +380,52 @@ Auth(User,
 
 Two-factor uses 6-digit codes from any authenticator app (Google Authenticator, Microsoft Authenticator, 1Password…). Users scan a QR code, confirm one code, and get 8 one-time recovery codes. Each code works only once.
 
+### Email verification
+
+```python
+Auth(User, email_verification=True)   # needs a nullable datetime column: email_verified_at
+```
+
+New users get an email with a signed link (valid 60 minutes, `verification_minutes=` to change). Until they click it they only see a "Verify your email" page with a **Resend** button (once a minute). Changing the email on the profile page asks for verification again, and old links stop working. Emails go through `Auth(mailer=...)`, which receives `to`, `subject`, `body` (and `url`, `user`, `kind` if it asks for them).
+
+### Translations
+
+```python
+Panel(...,
+      locale="en",                 # default language
+      locales=["en", "hi"],        # languages users can pick (switcher appears when more than one)
+      lang_dirs=["lang"])          # your own lang/<code>.json files
+```
+
+Text is looked up by its English wording. Tungsten ships **Hindi** (`hi`). For your own labels, add a JSON file:
+
+```json
+// lang/hi.json
+{"Products": "उत्पाद", "Low stock only": "सिर्फ़ कम स्टॉक", "Welcome, :name": "स्वागत है, :name"}
+```
+
+Labels, headings, buttons, options, notifications and validation messages are translated automatically. In your own code use `__()`:
+
+```python
+from tungsten import __
+Notification(__("Order shipped")).send(ctx)
+```
+
+`tungsten lang:extract hi --path app` collects the text in your code into `lang/hi.json`, ready to fill in. The language comes from the user's pick, then the browser's language, then `locale`. Right-to-left languages (Arabic, Hebrew, Urdu, Persian) set `dir="rtl"`.
+
+### Async database
+
+Pass an async engine and everything else stays the same:
+
+```python
+from sqlalchemy.ext.asyncio import create_async_engine
+
+panel = Panel(engine=create_async_engine("postgresql+asyncpg://..."), ...)
+await panel.acreate_tables()      # or panel.create_tables() outside an event loop
+```
+
+Handlers run on the event loop through SQLAlchemy's `AsyncSession.run_sync`, so your closures still get a normal `db` session and lazy loading keeps working. Password hashing and file uploads run in a worker thread so they don't block the loop. Any closure can also be `async def` — Tungsten awaits it. For scripts, `panel.with_session(lambda db: ...)` works with both engine types.
+
 ### Notifications
 
 ```python
@@ -440,6 +513,7 @@ tungsten make:page Settings --form
 tungsten make:widget Sales --type chart                  # stats, chart, table, progress
 tungsten make:plugin Blog
 tungsten make:user --panel app.admin:panel --role "Super Admin"
+tungsten lang:extract hi --path app                      # collect text to translate into lang/hi.json
 ```
 
 ---
@@ -455,7 +529,8 @@ tungsten make:user --panel app.admin:panel --role "Super Admin"
 
 ```bash
 pip install -e ".[dev]"
-pytest                       # 75 tests
+pytest                       # 91 tests
+TUNGSTEN_TEST_ASYNC=1 pytest  # the same tests on an async engine (aiosqlite)
 
 # rebuild CSS/JS assets after changing templates or classes
 cd frontend && npm install && npm run build
@@ -465,10 +540,8 @@ The built assets (Tailwind CSS, HTMX, Alpine.js, Chart.js, Trix, Tom Select, Sor
 
 ## Roadmap
 
-- Async SQLAlchemy sessions
-- Advanced query-builder filter
-- Email verification and impersonation
-- More languages (translations)
+- Impersonation (sign in as another user)
+- More built-in languages
 
 ## License
 

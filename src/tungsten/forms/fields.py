@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from markupsafe import Markup
 
+from ..i18n import maybe
+from ..i18n import translate as __
 from ..support.component import Component, headline
 from ..support.evaluate import call, evaluate
 from ..support.html import attrs, sanitize
@@ -153,10 +155,10 @@ class Field(SchemaComponentMixin, Component):
     # ------------------------------------------------------------------ getters
     def get_label(self, form: "Form | None" = None, base: str = "") -> str:
         if self._label is None:
-            return headline(self.name)
+            return __(headline(self.name))
         if form is None:
-            return str(self._label) if not callable(self._label) else headline(self.name)
-        return str(evaluate(self._label, **form.ev(base)))
+            return __(str(self._label) if not callable(self._label) else headline(self.name))
+        return __(str(evaluate(self._label, **form.ev(base))))
 
     def is_required(self, form: "Form", base: str = "") -> bool:
         return bool(evaluate(self._required, **form.ev(base)))
@@ -238,9 +240,9 @@ class Field(SchemaComponentMixin, Component):
             if result is True or result is None:
                 continue
             if isinstance(result, str):
-                errors.append(result)
+                errors.append(__(result, attribute=label.lower()))
             else:
-                errors.append(str(evaluate(message, **form.ev(base))) if message else f"The {label.lower()} is invalid.")
+                errors.append(str(evaluate(message, **form.ev(base))) if message else __("The :attribute is invalid.", attribute=label.lower()))
         if self._unique and not is_blank(value):
             err = self._check_unique(form, value)
             if err:
@@ -263,7 +265,7 @@ class Field(SchemaComponentMixin, Component):
             pk = sa_inspect(model).primary_key[0]
             query = query.where(pk != getattr(form.record, pk.key))
         if form.ctx.db.scalar(query):
-            return f"The {self.get_label(form).lower()} has already been taken."
+            return __("The :attribute has already been taken.", attribute=self.get_label(form).lower())
         return None
 
     def is_dehydrated(self, form: "Form", base: str) -> bool:
@@ -279,11 +281,11 @@ class Field(SchemaComponentMixin, Component):
         try:
             value = self.cast(state)
         except ValueError as exc:
-            errors.setdefault(path, []).append(str(exc).replace(":attribute", label.lower()))
+            errors.setdefault(path, []).append(__(str(exc), attribute=label.lower()))
             return
         if is_blank(value):
             if self.is_required(form, base) and not self.is_disabled(form, base):
-                errors.setdefault(path, []).append(f"The {label.lower()} field is required.")
+                errors.setdefault(path, []).append(__("The :attribute field is required.", attribute=label.lower()))
                 return
         else:
             msgs = self.validate_value(form, base, value)
@@ -347,10 +349,10 @@ class Field(SchemaComponentMixin, Component):
             "required": self.is_required(form, base),
             "disabled": self.is_disabled(form, base),
             "errors": form.errors.get(path, []),
-            "helper_text": evaluate(self._helper_text, **ev),
-            "hint": evaluate(self._hint, **ev),
+            "helper_text": maybe(evaluate(self._helper_text, **ev)),
+            "hint": maybe(evaluate(self._hint, **ev)),
             "hint_icon": self._hint_icon,
-            "placeholder": evaluate(self._placeholder, **ev),
+            "placeholder": maybe(evaluate(self._placeholder, **ev)),
             "live": self.live_attrs(form),
             "autofocus": self._autofocus,
             "extra": attrs(self._extra_attributes),
@@ -508,28 +510,28 @@ class TextInput(Field):
         label = self.get_label(form, base).lower()
         errors = []
         if self._type == "email" and not EMAIL_RE.match(str(value)):
-            errors.append(f"The {label} must be a valid email address.")
+            errors.append(__("The :attribute must be a valid email address.", attribute=label))
         if self._type == "url" and not URL_RE.match(str(value)):
-            errors.append(f"The {label} must be a valid URL.")
+            errors.append(__("The :attribute must be a valid URL.", attribute=label))
         if not self._numeric:
             n = len(str(value))
             if self._min_length is not None and n < self._min_length:
-                errors.append(f"The {label} must be at least {self._min_length} characters.")
+                errors.append(__("The :attribute must be at least :min characters.", attribute=label, min=self._min_length))
             if self._max_length is not None and n > self._max_length:
-                errors.append(f"The {label} may not be greater than {self._max_length} characters.")
+                errors.append(__("The :attribute may not be greater than :max characters.", attribute=label, max=self._max_length))
         else:
             lo = evaluate(self._min_value, **form.ev(base))
             hi = evaluate(self._max_value, **form.ev(base))
             if lo is not None and value < Decimal(str(lo)):
-                errors.append(f"The {label} must be at least {lo}.")
+                errors.append(__("The :attribute must be at least :min.", attribute=label, min=lo))
             if hi is not None and value > Decimal(str(hi)):
-                errors.append(f"The {label} may not be greater than {hi}.")
+                errors.append(__("The :attribute may not be greater than :max.", attribute=label, max=hi))
         if self._regex and not re.search(self._regex[0], str(value)):
-            errors.append(self._regex[1] or f"The {label} format is invalid.")
+            errors.append(self._regex[1] or __("The :attribute format is invalid.", attribute=label))
         if self._same:
             other = form.ev(base)["get"](self._same)
             if other != value:
-                errors.append(f"The {label} confirmation does not match.")
+                errors.append(__("The :attribute confirmation does not match.", attribute=label))
         return errors
 
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
@@ -590,9 +592,9 @@ class Textarea(Field):
         label = self.get_label(form, base).lower()
         n = len(str(value))
         if self._min_length is not None and n < self._min_length:
-            return [f"The {label} must be at least {self._min_length} characters."]
+            return [__("The :attribute must be at least :min characters.", attribute=label, min=self._min_length)]
         if self._max_length is not None and n > self._max_length:
-            return [f"The {label} may not be greater than {self._max_length} characters."]
+            return [__("The :attribute may not be greater than :max characters.", attribute=label, max=self._max_length)]
         return []
 
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
@@ -797,7 +799,7 @@ class HasOptions(Field):
         allowed = {str(k) for k, _ in self.get_options(form, base)}
         values = value if self._multiple else [value]
         if any(str(v) not in allowed for v in values):
-            return [f"The selected {label} is invalid."]
+            return [__("The selected :attribute is invalid.", attribute=label)]
         return []
 
     def fill_record(self, form: "Form", record: Any, data: dict) -> None:
@@ -826,9 +828,9 @@ class HasOptions(Field):
             disabled = bool(call(self._disable_option, **{**ev, "value": key, "label": label})) if self._disable_option else False
             options.append({
                 "value": str(key),
-                "label": label,
+                "label": maybe(label),
                 "selected": str(key) in selected,
-                "description": descriptions.get(key) if isinstance(descriptions, dict) else None,
+                "description": maybe(descriptions.get(key)) if isinstance(descriptions, dict) else None,
                 "disabled": disabled,
             })
         v["options"] = options
@@ -1043,7 +1045,7 @@ class Checkbox(Field):
         value = bool(get_path(form.state, self.path(base)))
         if self.is_required(form, base) and not value:
             label = self.get_label(form, base).lower()
-            errors.setdefault(self.path(base), []).append(f"The {label} must be accepted.")
+            errors.setdefault(self.path(base), []).append(__("The :attribute must be accepted.", attribute=label))
             return
         msgs = self.run_rules(form, base, value)
         if msgs:
@@ -1153,9 +1155,9 @@ class DatePicker(Field):
         lo = self._bound(form, base, self._min_date)
         hi = self._bound(form, base, self._max_date)
         if lo is not None and value < lo:
-            return [f"The {label} must be a date after or equal to {self.to_state(lo)}."]
+            return [__("The :attribute must be a date after or equal to :date.", attribute=label, date=self.to_state(lo))]
         if hi is not None and value > hi:
-            return [f"The {label} must be a date before or equal to {self.to_state(hi)}."]
+            return [__("The :attribute must be a date before or equal to :date.", attribute=label, date=self.to_state(hi))]
         return []
 
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
@@ -1195,7 +1197,7 @@ class ColorPicker(Field):
 
     def validate_value(self, form: "Form", base: str, value: Any) -> list[str]:
         if not HEX_RE.match(str(value)):
-            return [f"The {self.get_label(form, base).lower()} must be a valid hex color."]
+            return [__("The :attribute must be a valid hex color.", attribute=self.get_label(form, base).lower())]
         return []
 
 
@@ -1336,7 +1338,7 @@ class FileUpload(Field):
 
     def check_upload(self, filename: str, content_type: str, size: int) -> str | None:
         if self._max_size is not None and size > self._max_size * 1024:
-            return f"The file may not be greater than {self._max_size} kilobytes."
+            return __("The file may not be greater than :max kilobytes.", max=self._max_size)
         if self._accepted:
             ok = False
             for t in self._accepted:
@@ -1347,14 +1349,14 @@ class FileUpload(Field):
                 elif t == content_type:
                     ok = True
             if not ok:
-                return "The file type is not allowed."
+                return __("The file type is not allowed.")
         return None
 
     def accept_upload(self, form: "Form", path: str, stored: str) -> None:
         if self._multiple:
             current = list(get_path(form.state, path) or [])
             if self._max_files and len(current) >= self._max_files:
-                form.add_error(path, f"You may not upload more than {self._max_files} files.")
+                form.add_error(path, __("You may not upload more than :max files.", max=self._max_files))
                 return
             current.append(stored)
             set_path(form.state, path, current)
@@ -1649,11 +1651,11 @@ class Repeater(Field):
                 row_data["__key"] = row["__key"]
             out.append(self._join_value(row if isinstance(row, dict) else {}, row_data))
         if self.is_required(form, base) and not out:
-            errors.setdefault(path, []).append(f"The {label} field is required.")
+            errors.setdefault(path, []).append(__("The :attribute field is required.", attribute=label))
         if self._min_items is not None and len(out) < self._min_items:
-            errors.setdefault(path, []).append(f"The {label} must have at least {self._min_items} items.")
+            errors.setdefault(path, []).append(__("The :attribute must have at least :min items.", attribute=label, min=self._min_items))
         if self._max_items is not None and len(out) > self._max_items:
-            errors.setdefault(path, []).append(f"The {label} may not have more than {self._max_items} items.")
+            errors.setdefault(path, []).append(__("The :attribute may not have more than :max items.", attribute=label, max=self._max_items))
         if self.is_disabled(form, base) or not self.is_dehydrated(form, base):
             return
         if self._dehydrate_state is not None:
@@ -1731,7 +1733,7 @@ class Repeater(Field):
             rows=rows,
             schema=self._schema,
             columns=self._columns,
-            add_label=evaluate(self._add_label, **ev) or "Add to " + v["label"].lower(),
+            add_label=maybe(evaluate(self._add_label, **ev)) or __("Add to :label", label=v["label"].lower()),
             can_add=bool(evaluate(self._addable, **ev)) and (self._max_items is None or count < self._max_items),
             can_delete=bool(evaluate(self._deletable, **ev)) and (self._min_items is None or count > self._min_items),
             reorderable=self._reorderable,
@@ -1774,7 +1776,7 @@ class Block(Component):
         return self
 
     def get_label(self) -> str:
-        return str(self._label) if self._label is not None else headline(self.name)
+        return __(str(self._label) if self._label is not None else headline(self.name))
 
 
 class Builder(Repeater):
@@ -1831,7 +1833,7 @@ class Builder(Repeater):
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
         v = super().view_data(form, base)
         v["blocks"] = [{"name": b.name, "label": b.get_label(), "icon": b._icon} for b in self._blocks]
-        v["add_label"] = evaluate(self._add_label, **form.ev(base)) or "Add block"
+        v["add_label"] = maybe(evaluate(self._add_label, **form.ev(base))) or __("Add block")
         v["table"] = False
         return v
 
@@ -1906,7 +1908,7 @@ class KeyValue(Field):
 
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
         v = super().view_data(form, base)
-        v.update(key_label=self._key_label, value_label=self._value_label, add_label=self._add_label,
+        v.update(key_label=__(self._key_label), value_label=__(self._value_label), add_label=__(self._add_label),
                  addable=self._addable, deletable=self._deletable, editable_keys=self._editable_keys,
                  rows=v["state"] or [])
         return v

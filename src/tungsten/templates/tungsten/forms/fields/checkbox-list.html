@@ -3,8 +3,8 @@
 <div x-data="{ toggleAll(on) { $root.querySelectorAll('input[type=checkbox]:not(:disabled)').forEach(c => c.checked = on); } }">
   {% if v.bulk and not v.disabled %}
   <div class="mb-2 flex gap-x-3 text-sm">
-    <button type="button" class="{{ colors.LINK.primary }} font-medium" @click="toggleAll(true)">Select all</button>
-    <button type="button" class="{{ colors.LINK.gray }} font-medium" @click="toggleAll(false)">Deselect all</button>
+    <button type="button" class="{{ colors.LINK.primary }} font-medium" @click="toggleAll(true)">{{ __('Select all') }}</button>
+    <button type="button" class="{{ colors.LINK.gray }} font-medium" @click="toggleAll(false)">{{ __('Deselect all') }}</button>
   </div>
   {% endif %}
   <div class="grid gap-x-6 gap-y-3 {{ v.grid }}">
@@ -18,7 +18,7 @@
       </span>
     </label>
     {% else %}
-    <p class="text-sm text-gray-500">No options available.</p>
+    <p class="text-sm text-gray-500">{{ __('No options available.') }}</p>
     {% endfor %}
   </div>
 </div>

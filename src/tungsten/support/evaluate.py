@@ -2,7 +2,7 @@
 
 Like Filament, any option can be a plain value or a function. When it is a
 function, Tungsten looks at the parameter names and passes in what it asks
-for, e.g. ``lambda get, record: ...``.
+for, e.g. ``lambda get, record: ...``. ``async def`` functions are awaited.
 """
 
 from __future__ import annotations
@@ -35,12 +35,14 @@ def call(fn: Callable, **available: Any) -> Any:
     except TypeError:  # unhashable callable
         names, var_kw = _signature.__wrapped__(fn)
     if var_kw:
-        return fn(**available)
-    kwargs = {}
-    for name in names:
-        if name in available:
-            kwargs[name] = available[name]
-    return fn(**kwargs)
+        result = fn(**available)
+    else:
+        result = fn(**{name: available[name] for name in names if name in available})
+    if inspect.isawaitable(result):  # ``async def`` closures work too
+        from .aio import resolve
+
+        return resolve(result)
+    return result
 
 
 def evaluate(value: Any, **available: Any) -> Any:

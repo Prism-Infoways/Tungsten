@@ -17,11 +17,11 @@
         <td><input name="{{ v.path }}.{{ loop.index0 }}.value" value="{{ row.value }}" {% if v.disabled %}readonly{% endif %}
                    class="w-full border-0 bg-transparent px-3 py-2 text-sm text-gray-950 focus:ring-0 dark:text-white"></td>
         {% if v.deletable and not v.disabled %}
-        <td class="px-1 text-center">{{ ui_action(form, 'keyvalue.remove:' ~ v.path ~ ':' ~ loop.index0, 'Delete', 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}</td>
+        <td class="px-1 text-center">{{ ui_action(form, 'keyvalue.remove:' ~ v.path ~ ':' ~ loop.index0, __('Delete'), 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}</td>
         {% endif %}
       </tr>
       {% else %}
-      <tr><td colspan="3" class="px-3 py-3 text-center text-gray-500">No entries.</td></tr>
+      <tr><td colspan="3" class="px-3 py-3 text-center text-gray-500">{{ __('No entries.') }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

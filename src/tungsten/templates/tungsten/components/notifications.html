@@ -1,9 +1,9 @@
 <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-white/10">
-  <h3 class="text-sm font-semibold text-gray-950 dark:text-white">Notifications {% if unread %}<span class="ms-1 rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-700 dark:bg-primary-500/10 dark:text-primary-400">{{ unread }} new</span>{% endif %}</h3>
+  <h3 class="text-sm font-semibold text-gray-950 dark:text-white">{{ __('Notifications') }} {% if unread %}<span class="ms-1 rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-700 dark:bg-primary-500/10 dark:text-primary-400">{{ __(':count new', count=unread) }}</span>{% endif %}</h3>
   {% if items %}
   <div class="flex gap-3 text-xs">
-    {% if unread %}<button type="button" class="{{ colors.LINK.primary }}" hx-post="{{ panel.url('_tw', 'notifications') }}" hx-target="#tw-notifications">Mark all read</button>{% endif %}
-    <button type="button" class="{{ colors.LINK.gray }}" hx-post="{{ panel.url('_tw', 'notifications') }}" hx-vals='{"clear": "1"}' hx-target="#tw-notifications">Clear</button>
+    {% if unread %}<button type="button" class="{{ colors.LINK.primary }}" hx-post="{{ panel.url('_tw', 'notifications') }}" hx-target="#tw-notifications">{{ __('Mark all read') }}</button>{% endif %}
+    <button type="button" class="{{ colors.LINK.gray }}" hx-post="{{ panel.url('_tw', 'notifications') }}" hx-vals='{"clear": "1"}' hx-target="#tw-notifications">{{ __('Clear') }}</button>
   </div>
   {% endif %}
 </div>
@@ -18,15 +18,15 @@
       <div class="mt-1 flex flex-wrap items-center gap-3 text-xs">
         <span class="text-gray-400">{{ n.created_at.strftime('%d %b, %H:%M') }}</span>
         {% for a in d.actions or [] %}<a href="{{ a.url }}" class="font-medium {{ colors.pick(colors.LINK, a.color) }}">{{ a.label }}</a>{% endfor %}
-        {% if not n.read_at %}<button type="button" class="{{ colors.LINK.gray }}" hx-post="{{ panel.url('_tw', 'notifications') }}" hx-vals='{"id": "{{ n.id }}"}' hx-target="#tw-notifications">Mark read</button>{% endif %}
+        {% if not n.read_at %}<button type="button" class="{{ colors.LINK.gray }}" hx-post="{{ panel.url('_tw', 'notifications') }}" hx-vals='{"id": "{{ n.id }}"}' hx-target="#tw-notifications">{{ __('Mark read') }}</button>{% endif %}
       </div>
     </div>
   </li>
   {% else %}
   <li class="px-4 py-10 text-center">
     <span class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-white/5">{{ icon('bell-off', 'h-5 w-5') }}</span>
-    <p class="text-sm font-medium text-gray-950 dark:text-white">No notifications</p>
-    <p class="text-sm text-gray-500">You're all caught up.</p>
+    <p class="text-sm font-medium text-gray-950 dark:text-white">{{ __('No notifications') }}</p>
+    <p class="text-sm text-gray-500">{{ __("You're all caught up.") }}</p>
   </li>
   {% endfor %}
 </ul>

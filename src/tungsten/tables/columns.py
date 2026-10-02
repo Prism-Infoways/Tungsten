@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from markupsafe import Markup, escape
 
+from ..i18n import translate as __
 from ..support import colors
 from ..support.component import Component, headline
 from ..support.evaluate import call, evaluate
@@ -170,7 +171,7 @@ class Column(Component):
 
     # ------------------------------------------------------------------ data
     def get_label(self) -> str:
-        return str(self._label) if self._label is not None else headline(self.name.replace(".", " "))
+        return __(str(self._label) if self._label is not None else headline(self.name.replace(".", " ")))
 
     def is_relation(self) -> bool:
         return "." in self.name
@@ -226,7 +227,7 @@ def default_format(value: Any) -> Any:
             return label()
         return label or headline(str(value.name).lower())
     if isinstance(value, bool):
-        return "Yes" if value else "No"
+        return __("Yes") if value else __("No")
     if isinstance(value, dt.datetime):
         return value.strftime("%d %b %Y, %H:%M")
     if isinstance(value, dt.date):
@@ -247,6 +248,7 @@ class TextColumn(Column):
         self._icon: Any = None
         self._icons: dict | None = None
         self._icon_position = "before"
+        self._icon_color: Any = None
         self._limit: int | None = None
         self._words: int | None = None
         self._weight: str | None = None
@@ -279,6 +281,11 @@ class TextColumn(Column):
     def icon(self, icon: Any, position: str = "before") -> "TextColumn":
         self._icon = icon
         self._icon_position = position
+        return self
+
+    def icon_color(self, color: Any) -> "TextColumn":
+        """Color for the icon only (the text keeps its own color)."""
+        self._icon_color = color
         return self
 
     def icons(self, mapping: dict[str, Any]) -> "TextColumn":
@@ -461,6 +468,7 @@ class TextColumn(Column):
             more=more,
             badge=self._badge,
             icon_position=self._icon_position,
+            icon_color=evaluate(self._icon_color, **ev) if self._icon_color is not None else None,
             weight={"bold": "font-bold", "semibold": "font-semibold", "medium": "font-medium"}.get(self._weight or "", ""),
             size={"xs": "text-xs", "sm": "text-sm", "base": "text-base", "lg": "text-lg"}.get(self._size, "text-sm"),
             mono=self._font_mono,

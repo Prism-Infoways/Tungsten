@@ -13,7 +13,7 @@
         hx-post="{{ m.endpoint }}" hx-target="#tw-modal" hx-swap="innerHTML" {% if m.multipart %}hx-encoding="multipart/form-data"{% endif %}>
     {% for key, value in hidden.items() %}<input type="hidden" name="{{ key }}" value="{{ value if value is not none else '' }}">{% endfor %}
     {% for key in records %}<input type="hidden" name="records" value="{{ key }}">{% endfor %}
-    <button type="button" class="absolute end-3 top-3 tw-icon-btn text-gray-400" @click="open = false; $nextTick(() => $el.closest('#tw-modal').innerHTML = '')" aria-label="Close">{{ icon('x', 'h-5 w-5') }}</button>
+    <button type="button" class="absolute end-3 top-3 tw-icon-btn text-gray-400" @click="open = false; $nextTick(() => $el.closest('#tw-modal').innerHTML = '')" aria-label="{{ __('Close') }}">{{ icon('x', 'h-5 w-5') }}</button>
     {% if m.confirm_only %}
     <div class="flex flex-col items-center px-6 pb-2 pt-8 text-center">
       {% if m.icon %}<span class="mb-4 flex h-12 w-12 items-center justify-center rounded-full {{ colors.pick(colors.SOFT_ICON, m.icon_color) }}">{{ icon(m.icon, 'h-6 w-6') }}</span>{% endif %}

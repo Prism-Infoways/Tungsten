@@ -6,6 +6,7 @@
     tungsten make:widget SalesChart --type chart
     tungsten make:plugin Blog
     tungsten make:user --panel app.admin:panel
+    tungsten lang:extract hi --path app
     tungsten init
 """
 
@@ -267,10 +268,12 @@ def make_user(
     if not auth.enabled:
         typer.secho("This panel has no auth user model.", fg=typer.colors.RED)
         raise typer.Exit(1)
-    with p.session_factory() as db:
+    if role:
+        p.create_tables()
+
+    def create(db: Any) -> bool:
         if auth.find_by_email(db, email):
-            typer.secho(f"A user with email {email} already exists.", fg=typer.colors.RED)
-            raise typer.Exit(1)
+            return False
         user = auth.user_model()
         setattr(user, auth.name_field, name)
         setattr(user, auth.email_field, email)
@@ -282,11 +285,15 @@ def make_user(
         db.add(user)
         db.commit()
         if role:
-            p.create_tables()
             if not db.scalars(select(Role).where(Role.name == role)).first():
                 db.add(Role(name=role, permissions=["*"] if "admin" in role.lower() else []))
                 db.commit()
             auth.assign_role(db, user, role)
+        return True
+
+    if not p.with_session(create):
+        typer.secho(f"A user with email {email} already exists.", fg=typer.colors.RED)
+        raise typer.Exit(1)
     typer.secho(f"User {email} created.", fg=typer.colors.GREEN)
 
 
@@ -298,6 +305,35 @@ def init(
     """Create an admin/ package with a ready-to-mount panel."""
     write(directory / "panel.py", stubs.panel(), force)
     typer.echo("\nIn your FastAPI app:\n\n    from admin.panel import panel\n    panel.mount(app)\n")
+
+
+@app.command("lang:extract")
+def lang_extract(
+    locale: str = typer.Argument(..., help="Language code, e.g. hi, gu, fr"),
+    paths: list[Path] = typer.Option([Path(".")], "--path", "-p", help="Code to scan (repeatable)"),
+    out: Path = typer.Option(Path("lang"), "--out", "-o", help="Folder for <locale>.json"),
+    builtin: bool = typer.Option(False, "--builtin", help="Also list Tungsten's own text, to override it"),
+) -> None:
+    """Collect text from your code into lang/<locale>.json, ready to translate.
+
+    Existing translations are kept; new text is added with an empty value.
+    Point the panel at the folder with ``Panel(lang_dirs=["lang"], locales=["en", "<locale>"])``.
+    """
+    from ..i18n import BUILTIN_DIR, extract_strings, update_language_file
+
+    strings = extract_strings(paths)
+    if builtin:
+        strings |= extract_strings([BUILTIN_DIR.parent])
+    else:
+        # Tungsten ships these already; only keep what your app adds
+        shipped = BUILTIN_DIR / f"{locale}.json"
+        if shipped.is_file():
+            import json
+
+            strings -= set(json.loads(shipped.read_text(encoding="utf-8")))
+    file = out / f"{locale}.json"
+    added, empty = update_language_file(file, strings)
+    typer.secho(f"  {file}: {added} new, {empty} still to translate", fg=typer.colors.GREEN)
 
 
 @app.command("version")

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Iterable
 
+from .i18n import translate as __
+
 if TYPE_CHECKING:  # pragma: no cover
     from .context import Context
 
@@ -78,26 +80,30 @@ class Notification:
         self._actions.append({"label": label, "url": url, "color": color})
         return self
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, translate: bool = False) -> dict[str, Any]:
+        """Plain data. ``translate=True`` puts title, body and action labels into the current language."""
         status = self._status
+        tr = __ if translate else (lambda text: text)
         return {
-            "title": self._title,
-            "body": self._body,
+            "title": tr(self._title),
+            "body": tr(self._body) if self._body else self._body,
             "status": status,
             "icon": self._icon or STATUS_ICONS.get(status or "", "bell"),
             "color": self._color or status or "gray",
             "duration": self._duration,
-            "actions": self._actions,
+            "actions": [{**a, "label": tr(a["label"])} for a in self._actions],
         }
 
     # ------------------------------------------------------------------ sending
     def send(self, ctx: "Context") -> "Notification":
-        """Show as a toast on the current response."""
-        ctx.notify(self)
+        """Show as a toast on the current response (translated into the user's language)."""
+        ctx.notify(self.to_dict(translate=True))
         return self
 
     def send_to_database(self, users: Any, ctx_or_db: Any) -> "Notification":
-        """Store for the notification bell. ``users`` is a user, id or list of either."""
+        """Store for the notification bell. ``users`` is a user, id or list of either.
+
+        Stored as written, and translated when each user opens the bell."""
         from .models import DatabaseNotification
 
         db = getattr(ctx_or_db, "db", ctx_or_db)

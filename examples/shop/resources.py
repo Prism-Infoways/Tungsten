@@ -32,13 +32,11 @@ from tungsten.auth.rbac import RolesField
 from tungsten.forms import (
     Block,
     Builder,
-    Checkbox,
     CheckboxList,
     ColorPicker,
     DatePicker,
     DateTimePicker,
     FileUpload,
-    Grid,
     Group,
     KeyValue,
     Placeholder,
@@ -57,11 +55,18 @@ from tungsten.forms import (
     ToggleButtons,
     Wizard,
 )
-from tungsten.infolists import IconEntry, ImageEntry, KeyValueEntry, RepeatableEntry, TextEntry
+from tungsten.infolists import IconEntry, ImageEntry, KeyValueEntry, TextEntry
 from tungsten.importexport import ExportAction, ExportBulkAction, ImportAction, ImportColumn, Importer
 from tungsten.models import Role, RoleAssignment
 from tungsten.tables import (
+    BooleanConstraint,
+    DateConstraint,
     DateFilter,
+    NumberConstraint,
+    QueryBuilder,
+    RelationshipConstraint,
+    SelectConstraint,
+    TextConstraint,
     Filter,
     Group as TableGroup,
     IconColumn,
@@ -76,7 +81,7 @@ from tungsten.tables import (
     TrashedFilter,
 )
 
-from .models import Brand, Category, Customer, Order, OrderItem, OrderStatus, Post, Product, Tag, User
+from .models import Brand, Category, Customer, Order, OrderStatus, Post, Product, User
 from .widgets import ProductStats, UserStats
 
 INR = "₹"
@@ -180,7 +185,8 @@ class UserResource(Resource):
             table.columns([
                 TextColumn("name").avatar("avatar").description(lambda record: f"@{record.username}" if record.username else None)
                 .weight("medium").searchable(columns=["name", "username"]).sortable(),
-                TextColumn("email").searchable().sortable().copyable(),
+                TextColumn("email").searchable().sortable().copyable()
+                .icon(lambda record: "badge-check" if record.email_verified_at else None, "after").icon_color("success"),
                 TextColumn("roles").label("Role").badge().state(cls.role_names)
                 .color(lambda state: {"Admin": "info", "Manager": "purple", "Editor": "gray", "Viewer": "warning"}.get(state, "primary")),
                 TextColumn("is_active").label("Status").badge().sortable()
@@ -451,6 +457,18 @@ class ProductResource(Resource):
                 Filter("low_stock").label("Low stock only").query(lambda query, model: query.where(model.stock < 10)),
                 TernaryFilter("is_featured").label("Featured"),
                 TrashedFilter(),
+                QueryBuilder().constraints([
+                    TextConstraint("name"),
+                    TextConstraint("sku").label("SKU"),
+                    NumberConstraint("price"),
+                    NumberConstraint("stock").integer(),
+                    SelectConstraint("status").options({"draft": "Draft", "published": "Published",
+                                                        "archived": "Archived"}),
+                    BooleanConstraint("is_featured").label("Featured"),
+                    DateConstraint("created_at").label("Created"),
+                    TextConstraint("category.name").label("Category name"),
+                    RelationshipConstraint("tags").selectable("name"),
+                ]),
             ])
             .groups(["category.name", "status"])
             .actions([

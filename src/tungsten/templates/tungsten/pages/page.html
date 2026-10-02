@@ -11,7 +11,7 @@
   {{ form.render() }}
   {% if not form.has_wizard %}
   <div class="flex justify-end gap-3">
-    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ page.save_label }}</span></button>
+    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ __(page.save_label) }}</span></button>
   </div>
   {% endif %}
 </form>

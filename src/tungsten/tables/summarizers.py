@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from ..i18n import translate as __
 from ..support.component import Component
 from ..support.evaluate import call
 
@@ -38,7 +39,7 @@ class Summarizer(Component):
         return self
 
     def get_label(self) -> str:
-        return self._label or self.default_label
+        return __(self._label or self.default_label)
 
     def expression(self, column: Any) -> Any:
         from sqlalchemy import func

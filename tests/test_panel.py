@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import io
+import datetime as dt
 import json
 import re
 
@@ -474,7 +474,7 @@ def login_as_role(app_and_panel, role_name: str) -> PanelClient:
     app, panel = app_and_panel
     with db_session(panel) as db:
         user = User(name=f"{role_name} Person", email=f"{role_name.lower()}@x.com", password=hash_password("password"),
-                    is_admin=True, is_active=True)
+                    is_admin=True, is_active=True, email_verified_at=dt.datetime.now())
         db.add(user)
         db.flush()
         role = db.scalars(select(Role).where(Role.name == role_name)).one()

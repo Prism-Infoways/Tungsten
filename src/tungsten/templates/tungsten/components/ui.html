@@ -22,6 +22,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {%- endmacro %}
 
 {% macro button(label, color='primary', icon_name=None, href=None, type='button', style='button', size='md', attrs_='', outlined=false) %}
+{% set label = __(label) %}
 {% if href %}
 <a href="{{ href }}" class="{{ button_classes(color, style, size, outlined) }}" {{ attrs_ }}>{{ icon(icon_name, 'h-4 w-4' if size != 'lg' else 'h-5 w-5') }}<span>{{ label }}</span></a>
 {% else %}
@@ -30,6 +31,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {% endmacro %}
 
 {% macro icon_button(icon_name, label, color='gray', href=None, attrs_='', bordered=true) %}
+{% set label = __(label) %}
 {% set cls = button_classes(color, 'icon') if bordered else 'tw-icon-btn ' ~ colors.pick(colors.ICON_BUTTON, color) %}
 {% if href %}
 <a href="{{ href }}" class="{{ cls }}" title="{{ label }}" aria-label="{{ label }}" {{ attrs_ }}>{{ icon(icon_name, 'h-4 w-4') }}</a>
@@ -74,7 +76,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
       <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ heading }}</h3>
       {% if description %}<p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
     </div>
-    {% if link %}<a href="{{ link }}" class="flex shrink-0 items-center gap-1 text-sm font-medium {{ colors.LINK.primary }}">{{ link_label }}{{ icon('arrow-right', 'h-4 w-4') }}</a>{% endif %}
+    {% if link %}<a href="{{ link }}" class="flex shrink-0 items-center gap-1 text-sm font-medium {{ colors.LINK.primary }}">{{ __(link_label) }}{{ icon('arrow-right', 'h-4 w-4') }}</a>{% endif %}
   </header>
   {% endif %}
   <div class="{{ padding }}">{{ caller() }}</div>
@@ -95,7 +97,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {# ---------------------------------------------------------------- headers #}
 {% macro breadcrumbs(items) %}
 {% if items %}
-<nav class="mb-2 flex items-center gap-x-2 text-sm text-gray-500 dark:text-gray-400" aria-label="Breadcrumb">
+<nav class="mb-2 flex items-center gap-x-2 text-sm text-gray-500 dark:text-gray-400" aria-label="{{ __('Breadcrumb') }}">
   {% for label, url in items %}
     {% if not loop.first %}{{ icon('chevron-right', 'h-4 w-4 text-gray-400') }}{% endif %}
     {% if url %}<a href="{{ url }}" class="hover:text-gray-700 dark:hover:text-gray-200">{{ label }}</a>{% else %}<span>{{ label }}</span>{% endif %}
@@ -159,8 +161,9 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
       {% if trend_value %}
       {% set c = trend_color or ('success' if trend_direction == 'up' else 'danger') %}
       <p class="flex items-center gap-x-1 font-semibold {{ colors.pick(colors.TEXT, c) }}">{{ icon('arrow-up' if trend_direction == 'up' else 'arrow-down', 'h-4 w-4') }}{{ trend_value }}</p>
-      <p class="text-gray-500 dark:text-gray-400">{{ description or 'vs last month' }}</p>
-      {% elif description %}<p class="text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+      {% set description = description or __('vs last month') %}
+      <p class="truncate text-gray-500 dark:text-gray-400" title="{{ description }}">{{ description }}</p>
+      {% elif description %}<p class="truncate text-gray-500 dark:text-gray-400" title="{{ description }}">{{ description }}</p>{% endif %}
     </div>
     {% if chart %}<div class="shrink-0">{{ sparkline(chart, trend_color or color, id) }}</div>{% endif %}
   </div>
@@ -168,7 +171,8 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {% endmacro %}
 
 {# ---------------------------------------------------------------- toolbar input #}
-{% macro search_input(name, value='', placeholder='Search...', id=None, attrs_='', shortcut=None) %}
+{% macro search_input(name, value='', placeholder=None, id=None, attrs_='', shortcut=None) %}
+{% set placeholder = placeholder or __('Search...') %}
 <label class="relative block">
   <span class="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-gray-400">{{ icon('search', 'h-4 w-4') }}</span>
   <input type="search" name="{{ name }}" value="{{ value }}" placeholder="{{ placeholder }}" {% if id %}id="{{ id }}"{% endif %}

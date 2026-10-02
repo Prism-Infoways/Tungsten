@@ -1,19 +1,19 @@
 {% extends "tungsten/layout/app.html" %}
 {% import "tungsten/components/ui.html" as ui %}
 {% block content %}
-{% set subheading = resource.description if operation == 'create' else ({'edit': 'Update the details below and save your changes.', 'view': None}[operation]) %}
+{% set subheading = (__(resource.description) if resource.description else none) if operation == 'create' else ({'edit': __('Update the details below and save your changes.'), 'view': None}[operation]) %}
 {% set editable = operation in ('create', 'edit') and not trashed %}
 {% set extra_actions %}
   {% if editable and not form.has_wizard %}
-  <a href="{{ resource.get_url(ctx) }}" class="{{ ui.button_classes('gray') }}">Cancel</a>
-  <button type="submit" form="tw-record-form-el" data-tw-keys="mod+s" title="Save (Ctrl+S)" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ 'Create' if operation == 'create' else 'Save changes' }}</span></button>
+  <a href="{{ resource.get_url(ctx) }}" class="{{ ui.button_classes('gray') }}">{{ __('Cancel') }}</a>
+  <button type="submit" form="tw-record-form-el" data-tw-keys="mod+s" title="{{ __('Save (Ctrl+S)') }}" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ __('Create') if operation == 'create' else __('Save changes') }}</span></button>
   {% endif %}
 {% endset %}
 {% include "tungsten/components/page-header.html" %}
 
 {% if trashed %}
 <div class="mb-6 flex items-center gap-3 rounded-xl bg-warning-50 px-4 py-3 text-sm text-warning-800 ring-1 ring-warning-600/20 dark:bg-warning-500/10 dark:text-warning-300">
-  {{ icon('triangle-alert', 'h-5 w-5') }}<span>This record has been deleted. Restore it to make changes.</span>
+  {{ icon('triangle-alert', 'h-5 w-5') }}<span>{{ __('This record has been deleted. Restore it to make changes.') }}</span>
 </div>
 {% endif %}
 
@@ -21,11 +21,11 @@
   {{ form.render() }}
   {% if editable and not form.has_wizard %}
   <div class="flex flex-wrap items-center gap-3">
-    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ 'Create' if operation == 'create' else 'Save changes' }}</span></button>
+    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ __('Create') if operation == 'create' else __('Save changes') }}</span></button>
     {% if operation == 'create' %}
-    <button type="submit" name="_another" value="1" class="{{ ui.button_classes('gray') }}">Create &amp; create another</button>
+    <button type="submit" name="_another" value="1" class="{{ ui.button_classes('gray') }}">{{ __('Create & create another') }}</button>
     {% endif %}
-    <a href="{{ resource.get_url(ctx) }}" class="{{ ui.button_classes('gray', 'link') }} px-2">Cancel</a>
+    <a href="{{ resource.get_url(ctx) }}" class="{{ ui.button_classes('gray', 'link') }} px-2">{{ __('Cancel') }}</a>
   </div>
   {% endif %}
 </form>

@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from sqlalchemy import func, select
 
+from ..support.aio import blocking
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..context import Context
     from ..panel import Panel
@@ -76,6 +78,9 @@ class Auth:
         on_register: Callable | None = None,
         two_factor: bool = False,
         two_factor_required: bool = False,
+        email_verification: bool = False,
+        verified_field: str = "email_verified_at",
+        verification_minutes: int = 60,
         reset_token_minutes: int = 60,
         max_login_attempts: int = 5,
     ) -> None:
@@ -97,6 +102,9 @@ class Auth:
         self.on_register = on_register
         self.two_factor = two_factor or two_factor_required
         self.two_factor_required = two_factor_required
+        self.email_verification = email_verification
+        self.verified_field = verified_field
+        self.verification_minutes = verification_minutes
         self.reset_token_minutes = reset_token_minutes
         self.max_login_attempts = max_login_attempts
         self.panel: Panel | None = None
@@ -108,10 +116,11 @@ class Auth:
 
     # ------------------------------------------------------------------ hashing
     def hash(self, password: str) -> str:
-        return self.hasher.hash(password) if self.hasher else hash_password(password)
+        # hashing is slow on purpose; keep it off the event loop in async mode
+        return blocking(self.hasher.hash if self.hasher else hash_password, password)
 
     def verify(self, password: str, hashed: str | None) -> bool:
-        return self.hasher.verify(password, hashed) if self.hasher else verify_password(password, hashed)
+        return blocking(self.hasher.verify if self.hasher else verify_password, password, hashed)
 
     # ------------------------------------------------------------------ users
     def session_key(self) -> str:
@@ -127,12 +136,7 @@ class Auth:
         column = getattr(self.user_model, self.email_field)
         return db.scalars(select(self.user_model).where(func.lower(column) == email.strip().lower())).first()
 
-    def load_user(self, ctx: "Context") -> Any:
-        if not self.enabled:
-            return None
-        user_id = ctx.session.get(self.session_key())
-        if user_id is None:
-            return None
+    def find_by_id(self, db: Any, user_id: Any) -> Any:
         from sqlalchemy import inspect as sa_inspect
 
         pk = sa_inspect(self.user_model).primary_key[0]
@@ -140,7 +144,18 @@ class Auth:
             key = pk.type.python_type(user_id)
         except (TypeError, ValueError, NotImplementedError):
             key = user_id
-        user = ctx.db.get(self.user_model, key)
+        try:
+            return db.get(self.user_model, key)
+        except Exception:  # noqa: BLE001 - a malformed id is just "not found"
+            return None
+
+    def load_user(self, ctx: "Context") -> Any:
+        if not self.enabled:
+            return None
+        user_id = ctx.session.get(self.session_key())
+        if user_id is None:
+            return None
+        user = self.find_by_id(ctx.db, user_id)
         if user is None or not self.is_active(user):
             return None
         return user

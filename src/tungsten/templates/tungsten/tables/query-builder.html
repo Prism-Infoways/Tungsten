@@ -1,0 +1,74 @@
+{# Query builder filter. Rules in a group are ANDed; groups are ORed. Buttons re-render the table with a `_qb` action. #}
+{% macro qb(action) -%}
+hx-get="{{ ctx.url('_tw', 'table') }}" hx-include="closest form" hx-vals='{{ {"_qb": action} | tojson }}'
+hx-target="#{{ table.id }}" hx-swap="outerHTML"
+{%- endmacro %}
+{% macro picker(label, where, icon_name='plus') %}
+<div x-data="{ open: false }" class="grid gap-1">
+  <button type="button" class="inline-flex items-center gap-1.5 justify-self-start text-sm font-semibold text-primary-600 hover:text-primary-500 dark:text-primary-400"
+          @click="open = !open" :aria-expanded="open">{{ icon(icon_name, 'h-4 w-4') }}{{ label }}</button>
+  <div x-show="open" x-cloak class="grid max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-sm dark:border-white/10 dark:bg-gray-900">
+    {% for c in constraints %}
+    <button type="button" class="flex items-center gap-2 px-3 py-1.5 text-start text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+            {{ qb('add:' ~ builder.name ~ ':' ~ where ~ ':' ~ c.name) }}>
+      {{ icon(c.get_icon(), 'h-4 w-4 text-gray-400') }}{{ c.get_label() }}
+    </button>
+    {% endfor %}
+  </div>
+</div>
+{% endmacro %}
+<div class="grid gap-3" data-tw-query-builder="{{ builder.name }}">
+  <p class="tw-label">{{ builder.get_label() }}</p>
+  {% for g in groups %}
+  {% if not loop.first %}
+  <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <span class="h-px flex-1 bg-gray-200 dark:bg-white/10"></span>{{ __('or') }}<span class="h-px flex-1 bg-gray-200 dark:bg-white/10"></span>
+  </div>
+  {% endif %}
+  <div class="grid gap-3 rounded-lg border border-gray-200 p-3 dark:border-white/10" data-tw-qb-group="{{ g.index }}">
+    {% for r in g.rules %}
+    {% if not loop.first %}<p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('and') }}</p>{% endif %}
+    <div class="grid gap-2" data-tw-qb-rule>
+      <input type="hidden" name="{{ r.prefix }}.c" value="{{ r.constraint.name }}">
+      <div class="flex items-center justify-between gap-2">
+        <span class="flex min-w-0 items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
+          {{ icon(r.constraint.get_icon(), 'h-4 w-4 shrink-0 text-gray-400') }}<span class="truncate">{{ r.constraint.get_label() }}</span>
+          {% if not r.complete %}<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" title="{{ __('Not applied yet') }}"></span>{% endif %}
+        </span>
+        <button type="button" class="tw-icon-btn text-gray-400 hover:text-danger-600" aria-label="{{ __('Remove rule') }}" {{ qb(r.remove) }}>{{ icon('x', 'h-4 w-4') }}</button>
+      </div>
+      <select name="{{ r.prefix }}.op" class="tw-input pe-9" aria-label="{{ __('Operator') }}">
+        {% for key, o in r.operators.items() %}<option value="{{ key }}" {% if key == r.op %}selected{% endif %}>{{ __(o[0]) }}</option>{% endfor %}
+      </select>
+      {% set itype = r.constraint.input_type() %}
+      {% if r.needs in ('text', 'number', 'date') %}
+      <input type="{{ itype }}" name="{{ r.prefix }}.v" value="{{ r.v }}" class="tw-input" {% if itype == 'number' %}step="any"{% endif %}
+             aria-label="{{ __('Value') }}" placeholder="{{ __('Value') }}">
+      {% elif r.needs == 'count' %}
+      <input type="number" min="0" step="1" name="{{ r.prefix }}.v" value="{{ r.v }}" class="tw-input" aria-label="{{ __('Value') }}" placeholder="0">
+      {% elif r.needs == 'between' %}
+      <div class="grid grid-cols-2 gap-2">
+        <input type="{{ itype }}" name="{{ r.prefix }}.v" value="{{ r.v }}" class="tw-input" {% if itype == 'number' %}step="any"{% endif %} aria-label="{{ __('From') }}" placeholder="{{ __('From') }}">
+        <input type="{{ itype }}" name="{{ r.prefix }}.v2" value="{{ r.v2 }}" class="tw-input" {% if itype == 'number' %}step="any"{% endif %} aria-label="{{ __('To') }}" placeholder="{{ __('To') }}">
+      </div>
+      {% elif r.needs == 'select' %}
+      <select name="{{ r.prefix }}.v" class="tw-input pe-9" aria-label="{{ __('Value') }}">
+        <option value="">{{ __('Select an option') }}</option>
+        {% for value, label in r.options %}<option value="{{ value }}" {% if value == r.v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      {% elif r.needs == 'multi' %}
+      <div class="grid max-h-40 gap-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-white/10">
+        {% for value, label in r.options %}
+        <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+          <input type="checkbox" name="{{ r.prefix }}.vs" value="{{ value }}" class="tw-checkbox" {% if value in r.vs %}checked{% endif %}>{{ label }}
+        </label>
+        {% else %}<p class="text-sm text-gray-400">{{ __('No options') }}</p>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {{ picker(__('Add rule'), g.index) }}
+  </div>
+  {% endfor %}
+  {% if groups %}{{ picker(__('Add “or” group'), 'new', 'git-branch-plus') }}{% else %}{{ picker(__('Add rule'), 'new') }}{% endif %}
+</div>

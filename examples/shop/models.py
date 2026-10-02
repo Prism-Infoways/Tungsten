@@ -61,6 +61,7 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     date_of_birth: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     preferences: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    email_verified_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
 
     def __str__(self) -> str:

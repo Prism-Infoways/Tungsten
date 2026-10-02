@@ -3,7 +3,7 @@
 <div x-data="{ q: '', match(text) { return !this.q || text.toLowerCase().includes(this.q.toLowerCase()); } }" class="grid gap-4">
   <label class="relative block">
     <span class="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-gray-400">{{ icon('search', 'h-4 w-4') }}</span>
-    <input type="search" x-model="q" placeholder="Search permissions..." class="tw-input ps-9" data-tw-local>
+    <input type="search" x-model="q" placeholder="{{ __('Search permissions...') }}" class="tw-input ps-9" data-tw-local>
   </label>
   <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
     {% for g in v.groups %}
@@ -13,8 +13,8 @@
         <legend class="text-sm font-semibold text-gray-950 dark:text-white">{{ g.label }}</legend>
         {% if not v.disabled %}
         <span class="flex gap-2 text-xs">
-          <button type="button" class="{{ colors.LINK.primary }}" @click="all(true)">All</button>
-          <button type="button" class="{{ colors.LINK.gray }}" @click="all(false)">None</button>
+          <button type="button" class="{{ colors.LINK.primary }}" @click="all(true)">{{ __('All') }}</button>
+          <button type="button" class="{{ colors.LINK.gray }}" @click="all(false)">{{ __('None') }}</button>
         </span>
         {% endif %}
       </div>

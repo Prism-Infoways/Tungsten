@@ -1,13 +1,13 @@
 {% import "tungsten/components/ui.html" as ui %}
 {% if not q %}
-<p class="px-4 py-6 text-center text-sm text-gray-500">Type to search across the panel.</p>
+<p class="px-4 py-6 text-center text-sm text-gray-500">{{ __('Type to search across the panel.') }}</p>
 {% elif not groups and not pages %}
-<div class="px-4 py-8 text-center"><p class="text-sm font-medium text-gray-950 dark:text-white">No results for “{{ q }}”</p><p class="mt-1 text-sm text-gray-500">Try another word.</p></div>
+<div class="px-4 py-8 text-center"><p class="text-sm font-medium text-gray-950 dark:text-white">No results for “{{ q }}”</p><p class="mt-1 text-sm text-gray-500">{{ __('Try another word.') }}</p></div>
 {% else %}
 <div class="divide-y divide-gray-100 py-1 dark:divide-white/5">
   {% if pages %}
   <div class="py-2">
-    <p class="px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Pages</p>
+    <p class="px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ __('Pages') }}</p>
     {% for item in pages %}
     <a href="{{ item.url }}" class="flex items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5">
       <span class="text-gray-400">{{ icon(item.icon, 'h-4 w-4') }}</span>{{ item.label }}

@@ -1,5 +1,6 @@
-"""HTTP routes for a panel. All handlers run synchronously in a thread pool
-with their own DB session (see :func:`build_app`)."""
+"""HTTP routes for a panel. Handlers are plain sync functions with their own
+DB session: in a thread pool for a sync engine, or inside
+``AsyncSession.run_sync`` for an async engine (see :meth:`Routes.run`)."""
 
 from __future__ import annotations
 
@@ -20,8 +21,11 @@ from .actions.action import Action, Halt, flatten_actions
 from .context import Context
 from .forms.form import Form, ValidationError
 from .hosts import Host, RelationHost
+from .i18n import maybe, reset_locale, set_locale
+from .i18n import translate as __
 from .notifications import Notification
 from .panel import STATIC_DIR
+from .support.aio import blocking
 from .support.evaluate import call, evaluate
 from .tables.columns import EditableColumn
 
@@ -67,46 +71,80 @@ class Routes:
         formdata = None
         if read_form and request.method == "POST":
             formdata = await request.form(max_files=50, max_fields=10000)
+        panel = self.panel
+        if panel.session_factory is None:
+            raise RuntimeError("Panel needs session_factory= or engine=")
         try:
+            if panel.is_async:
+                # the same sync handler runs on the event loop; SQLAlchemy drives the async driver underneath
+                async with panel.session_factory() as adb:
+                    return await adb.run_sync(self._handle, request, handler, public, formdata, kwargs)
             return await run_in_threadpool(self._run_sync, request, handler, public, formdata, kwargs)
         finally:
             if formdata is not None:
                 await formdata.close()
 
     def _run_sync(self, request: Request, handler: Callable, public: bool, formdata: Any, kwargs: dict) -> Response:
-        panel = self.panel
-        if panel.session_factory is None:
-            raise RuntimeError("Panel needs session_factory= or engine=")
-        with panel.session_factory() as db:
-            ctx = Context(panel, request, db)
-            if panel.auth.enabled:
-                ctx.user = panel.auth.load_user(ctx)
-                if ctx.user is not None and not panel.auth.allowed(ctx, ctx.user):
-                    panel.auth.logout(ctx)
-                if not public and ctx.user is None:
-                    return ctx.go(panel.url("login", next=request.url.path if request.method == "GET" else None))
-                if (not public and panel.auth.two_factor_required and request.url.path.rstrip("/") != panel.url("two-factor")
-                        and not request.url.path.startswith(panel.url("assets"))):
-                    from .auth.two_factor import TwoFactor
+        with self.panel.session_factory() as db:
+            return self._handle(db, request, handler, public, formdata, kwargs)
 
-                    if not TwoFactor(ctx, ctx.user).enabled:
-                        Notification("Two-factor authentication required").body(
-                            "Please set up two-factor authentication to continue.").warning().send(ctx)
-                        return ctx.go(panel.url("two-factor"))
-            ctx.tenant = panel.tenancy.resolve(ctx)
-            if request.method == "POST" and not self._csrf_ok(ctx, formdata):
-                return HTMLResponse("Page expired. Please refresh and try again.", status_code=419)
-            try:
-                return handler(ctx, formdata, **kwargs)
-            except NotFound:
-                db.rollback()
-                return self.error(ctx, 404, "Page not found", "We couldn't find what you were looking for.")
-            except (Forbidden, PermissionError):
-                db.rollback()
-                return self.error(ctx, 403, "Not allowed", "You don't have permission to do that.")
-            except Exception:
-                db.rollback()
-                raise
+    def _handle(self, db: Any, request: Request, handler: Callable, public: bool, formdata: Any,
+                kwargs: dict) -> Response:
+        panel = self.panel
+        ctx = Context(panel, request, db)
+        tokens = set_locale(panel.resolve_locale(ctx), panel.translator)
+        try:
+            return self._dispatch(ctx, db, handler, public, formdata, kwargs)
+        finally:
+            reset_locale(tokens)
+
+    def _dispatch(self, ctx: Context, db: Any, handler: Callable, public: bool, formdata: Any,
+                  kwargs: dict) -> Response:
+        panel = self.panel
+        request = ctx.request
+        if panel.auth.enabled:
+            ctx.user = panel.auth.load_user(ctx)
+            if ctx.user is not None and not panel.auth.allowed(ctx, ctx.user):
+                panel.auth.logout(ctx)
+            if not public:
+                blocked = self._gate(ctx)
+                if blocked is not None:
+                    return blocked
+        ctx.tenant = panel.tenancy.resolve(ctx)
+        if request.method == "POST" and not self._csrf_ok(ctx, formdata):
+            return HTMLResponse(__("Page expired. Please refresh and try again."), status_code=419)
+        try:
+            return handler(ctx, formdata, **kwargs)
+        except NotFound:
+            db.rollback()
+            return self.error(ctx, 404, __("Page not found"), __("We couldn't find what you were looking for."))
+        except (Forbidden, PermissionError):
+            db.rollback()
+            return self.error(ctx, 403, __("Not allowed"), __("You don't have permission to do that."))
+        except Exception:
+            db.rollback()
+            raise
+
+    def _gate(self, ctx: Context) -> Response | None:
+        """Send signed-out users to login, and users who still owe a step (2FA setup) to that step."""
+        panel = self.panel
+        request = ctx.request
+        if ctx.user is None:
+            return ctx.go(panel.url("login", next=request.url.path if request.method == "GET" else None))
+        path = request.url.path.rstrip("/")
+        if panel.auth.email_verification and path != panel.url("email-verification", "prompt"):
+            from .auth.verification import needs_verification
+
+            if needs_verification(panel, ctx.user):
+                return ctx.go(panel.url("email-verification", "prompt"))
+        if panel.auth.two_factor_required and path != panel.url("two-factor"):
+            from .auth.two_factor import TwoFactor
+
+            if not TwoFactor(ctx, ctx.user).enabled:
+                Notification("Two-factor authentication required").body(
+                    "Please set up two-factor authentication to continue.").warning().send(ctx)
+                return ctx.go(panel.url("two-factor"))
+        return None
 
     def _csrf_ok(self, ctx: Context, formdata: Any) -> bool:
         expected = ctx.session.get("tw_csrf")
@@ -119,6 +157,7 @@ class Routes:
         if ctx.is_htmx:
             Notification(title).body(message).danger().send(ctx)
             return ctx.finalize(Response(status_code=204))
+        title, message = __(title), __(message)
         html = self.panel.render_page(ctx, "tungsten/pages/error.html", status=status, title=title, message=message)
         return HTMLResponse(str(html), status_code=status)
 
@@ -277,6 +316,18 @@ class Routes:
         async def two_factor_post(request: Request):
             return await r.run(request, r.two_factor_setup, read_form=True)
 
+        @g("/email-verification/prompt")
+        async def verification_prompt(request: Request):
+            return await r.run(request, r.verification_prompt)
+
+        @p("/email-verification/prompt")
+        async def verification_prompt_post(request: Request):
+            return await r.run(request, r.verification_prompt, read_form=True)
+
+        @g("/email-verification/verify/{token}")
+        async def verify_email(request: Request, token: str):
+            return await r.run(request, r.verify_email, public=True, token=token)
+
         @g("/profile")
         async def profile(request: Request):
             return await r.run(request, r.profile)
@@ -345,6 +396,10 @@ class Routes:
         @p("/_tw/tenant")
         async def tenant(request: Request):
             return await r.run(request, r.switch_tenant, read_form=True)
+
+        @p("/_tw/locale")
+        async def locale(request: Request):
+            return await r.run(request, r.switch_locale, public=True, read_form=True)
 
         # pages & resources
         @g("/")
@@ -446,14 +501,7 @@ class Routes:
         if not panel.auth.two_factor or not pending or time.time() - pending.get("at", 0) > 600:
             ctx.session.pop("tw_2fa_pending", None)
             return RedirectResponse(panel.url("login"), status_code=303)
-        from sqlalchemy import inspect as sa_inspect
-
-        model = panel.auth.user_model
-        pk = sa_inspect(model).primary_key[0]
-        try:
-            user = ctx.db.get(model, pk.type.python_type(pending["id"]))
-        except (TypeError, ValueError, NotImplementedError):
-            user = ctx.db.get(model, pending["id"])
+        user = panel.auth.find_by_id(ctx.db, pending["id"])
         if user is None:
             ctx.session.pop("tw_2fa_pending", None)
             return RedirectResponse(panel.url("login"), status_code=303)
@@ -521,7 +569,7 @@ class Routes:
         account = str(getattr(ctx.user, auth.email_field, ""))
         return ctx.render(
             "tungsten/auth/two-factor-setup.html",
-            title="Two-factor authentication",
+            title=__("Two-factor authentication"),
             step=step, codes=codes, error=error, secret=secret,
             uri=otpauth_uri(secret, account, panel.brand_name) if secret else None,
             remaining=len(tf.credential.recovery_codes or []) if tf.enabled and tf.credential else 0,
@@ -558,6 +606,10 @@ class Routes:
                     call(auth.on_register, user=user, db=ctx.db, ctx=ctx)
                 ctx.db.add(user)
                 ctx.db.commit()
+                if auth.email_verification:
+                    from .auth import verification
+
+                    verification.send(ctx, user)
                 if auth.is_active(user) and auth.allowed(ctx, user):
                     auth.login(ctx, user)
                     Notification("Welcome!").body("Your account was created.").success().send(ctx)
@@ -569,6 +621,43 @@ class Routes:
         else:
             form.fill()
         return ctx.render("tungsten/auth/register.html", form=form, created=created)
+
+    def verification_prompt(self, ctx: Context, fd: Any) -> Response:
+        from .auth import verification
+
+        panel = self.panel
+        if not panel.auth.email_verification or verification.is_verified(panel, ctx.user):
+            return ctx.go(panel.url())
+        sent = None
+        if fd is not None:
+            sent = verification.send(ctx, ctx.user)
+            if sent:
+                Notification("Verification link sent").body("Check your inbox for a new link.").success().send(ctx)
+            else:
+                Notification("Please wait a moment").body("You can ask for a new link once a minute.").warning() \
+                    .send(ctx)
+        return ctx.render("tungsten/auth/verify-email.html", email=getattr(ctx.user, panel.auth.email_field, ""),
+                          sent=sent)
+
+    def verify_email(self, ctx: Context, fd: Any, token: str) -> Response:
+        from .auth import verification
+
+        panel = self.panel
+        auth = panel.auth
+        if not auth.enabled or not auth.email_verification:
+            raise NotFound()
+        data = verification.read_token(panel, token)
+        user = auth.find_by_id(ctx.db, data["id"]) if data else None
+        if user is None or not verification.token_matches(panel, user, data):
+            return ctx.render("tungsten/auth/verify-email.html", invalid=True,
+                              email=getattr(ctx.user, auth.email_field, "") if ctx.user is not None else "")
+        verification.mark_verified(panel, user)
+        ctx.db.commit()
+        Notification("Email verified").body("Thanks! Your email address is confirmed.").success().send(ctx)
+        ctx.flash()
+        if ctx.user is not None:
+            return RedirectResponse(panel.url(), status_code=303)
+        return RedirectResponse(panel.url("login"), status_code=303)
 
     def forgot_password(self, ctx: Context, fd: Any) -> Response:
         from .forms import TextInput
@@ -587,10 +676,11 @@ class Routes:
                     token = panel.auth.create_reset_token(ctx.db, data["email"])
                     url = f"{ctx.request.url.scheme}://{ctx.request.url.netloc}{panel.url('reset-password', token)}"
                     call(panel.auth.mailer, to=getattr(user, panel.auth.email_field),
-                         subject=f"Reset your {panel.brand_name} password",
-                         body=f"Hello,\n\nUse this link to set a new password:\n{url}\n\n"
-                              f"The link works for {panel.auth.reset_token_minutes} minutes. "
-                              "If you did not ask for this, you can ignore this email.")
+                         subject=__("Reset your :app password", app=panel.brand_name),
+                         body=__("Hello,\n\nUse this link to set a new password:\n:url\n\n"
+                                 "The link works for :minutes minutes. If you did not ask for this, you can ignore "
+                                 "this email.", url=url, minutes=panel.auth.reset_token_minutes),
+                         url=url, user=user, kind="password_reset")
                 sent = True
             except ValidationError:
                 pass
@@ -642,7 +732,7 @@ class Routes:
                 from .auth.two_factor import TwoFactor
 
                 two_factor = TwoFactor(ctx, ctx.user).enabled
-            return ctx.render("tungsten/pages/profile.html", form=form, title="My profile", two_factor=two_factor)
+            return ctx.render("tungsten/pages/profile.html", form=form, title=__("My profile"), two_factor=two_factor)
         form.load(fd)
         try:
             data = form.validate()
@@ -650,6 +740,8 @@ class Routes:
             return ctx.html(form.render())
         host.update(ctx, ctx.user, data, form)
         Notification("Profile saved").success().send(ctx)
+        if ctx.redirect_to:
+            return ctx.go(ctx.redirect_to)
         form.fill(ctx.user)
         return ctx.html(form.render())
 
@@ -725,7 +817,7 @@ class Routes:
             header_actions=actions,
             widgets=[w for w in resource.header_widgets(ctx, "list") if w.can_view(ctx)],
             title=resource.get_plural_label(),
-            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)), ("List", None)],
+            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)), (__("List"), None)],
         )
 
     def create(self, ctx: Context, fd: Any, slug: str) -> Response:
@@ -748,7 +840,7 @@ class Routes:
             record = host.create(ctx, data, form)
             self.panel.log_activity(ctx, "created", record)
             ctx.db.commit()
-            Notification("Created").body(f"{resource.get_label()} was created.").success().send(ctx)
+            Notification("Created").body(__(":label was created.", label=resource.get_label())).success().send(ctx)
             if fd.get("_another"):
                 return ctx.go(resource.get_url(ctx, "create"))
             target = host.edit_url(ctx, record) if resource.can(ctx, "update", record) else None
@@ -765,8 +857,8 @@ class Routes:
             operation="create",
             header_actions=actions,
             relations=[],
-            title=f"Create {resource.get_label().lower()}",
-            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)), ("Create", None)],
+            title=__("Create :label", label=resource.get_label().lower()),
+            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)), (__("Create"), None)],
         )
 
     def record_page(self, ctx: Context, fd: Any, slug: str, key: str, operation: str) -> Response:
@@ -831,9 +923,9 @@ class Routes:
             header_actions=actions,
             relations=relations,
             trashed=host.is_trashed(record),
-            title=(f"Edit {resource.get_label().lower()}" if operation == "edit" else title_record),
+            title=(__("Edit :label", label=resource.get_label().lower()) if operation == "edit" else title_record),
             breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)),
-                         (title_record, None) if operation == "view" else ("Edit", None)],
+                         (title_record, None) if operation == "view" else (__("Edit"), None)],
         )
 
     # ------------------------------------------------------------------ tables
@@ -931,18 +1023,19 @@ class Routes:
             heading = action.get_modal_heading(host) if hasattr(action, "get_modal_heading") else action.get_label(ev)
             if getattr(action, "operation", None) in ("edit", "view") and record is not None:
                 heading = f"{action.get_label(ev)} {host.record_title(record)}".strip()
-        description = evaluate(action._modal_description, **ev)
+        heading = maybe(heading)
+        description = maybe(evaluate(action._modal_description, **ev))
         if description is None and hasattr(action, "get_modal_description"):
             description = action.get_modal_description(host)
         confirm_only = form is None
         if description is None and confirm_only:
-            description = "Are you sure you would like to do this?"
+            description = __("Are you sure you would like to do this?")
             if scope == "bulk":
-                description = f"Are you sure you want to do this to {len(records or [])} selected records?"
-        submit = evaluate(action._modal_submit_label, **ev) if action._modal_submit_label is not None else (
-            None if getattr(action, "operation", None) == "view" else ("Confirm" if confirm_only else "Submit"))
+                description = __("Are you sure you want to do this to :count selected records?", count=len(records or []))
+        submit = maybe(evaluate(action._modal_submit_label, **ev)) if action._modal_submit_label is not None else (
+            None if getattr(action, "operation", None) == "view" else (__("Confirm") if confirm_only else __("Submit")))
         if hasattr(action, "operation") and action._modal_submit_label is None:
-            submit = {"create": "Create", "edit": "Save changes", "view": None}.get(action.operation, submit)
+            submit = {"create": __("Create"), "edit": __("Save changes"), "view": None}.get(action.operation, submit)
         color = evaluate(action._color, **ev) or "primary"
         m = {
             "endpoint": ctx.url("_tw", "action"),
@@ -951,7 +1044,7 @@ class Routes:
             "icon": evaluate(action._modal_icon, **ev),
             "icon_color": evaluate(action._modal_icon_color, **ev) or color,
             "submit_label": submit,
-            "cancel_label": evaluate(action._modal_cancel_label, **ev) or "Cancel",
+            "cancel_label": maybe(evaluate(action._modal_cancel_label, **ev)) or __("Cancel"),
             "color": color if color != "gray" else "primary",
             "width": action._modal_width,
             "slide_over": action._slide_over,
@@ -1060,7 +1153,7 @@ class Routes:
             error = field.check_upload(upload.filename, upload.content_type or "", upload.size or 0)
             if error is None:
                 try:
-                    stored = self.panel.storage.save(upload.file, upload.filename, field._directory)
+                    stored = blocking(self.panel.storage.save, upload.file, upload.filename, field._directory)
                     field.accept_upload(form, path, stored)
                 except ValueError as exc:
                     error = str(exc)
@@ -1198,6 +1291,12 @@ class Routes:
             body, media, fmt = write_csv(rows), "text/csv; charset=utf-8", "csv"
         return Response(body, media_type=media,
                         headers={"Content-Disposition": f'attachment; filename="{name}.{fmt}"'})
+
+    def switch_locale(self, ctx: Context, fd: Any) -> Response:
+        code = (fd.get("locale") if fd is not None else None) or ""
+        if code in self.panel.locales:
+            ctx.session["tw_locale"] = code
+        return ctx.refresh()
 
     def switch_tenant(self, ctx: Context, fd: Any) -> Response:
         if not self.panel.tenancy.enabled or not self.panel.tenancy.switch(ctx, fd.get("tenant") or ""):

@@ -20,7 +20,7 @@
     <input id="{{ v.id }}" type="text" x-model="draft" list="{{ v.id }}-suggestions"
            @keydown.enter.prevent="add()" @keydown.comma.prevent="add()" @blur="add()"
            @keydown.backspace="if (!draft && tags.length) remove(tags.length - 1)"
-           placeholder="{{ v.placeholder or 'New tag' }}"
+           placeholder="{{ v.placeholder or __('New tag') }}"
            class="min-w-[8rem] flex-1 border-0 bg-transparent px-1 py-0.5 text-sm text-gray-950 placeholder:text-gray-400 focus:ring-0 dark:text-white">
     {% endif %}
   </div>

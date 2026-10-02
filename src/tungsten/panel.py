@@ -10,12 +10,15 @@ from urllib.parse import urlencode
 from markupsafe import Markup
 
 from .auth import Auth
+from .i18n import LANGUAGE_NAMES, Translator
+from .i18n import translate as __
 from .navigation import NavigationGroup, NavigationItem
 from .pages import Dashboard, Page
 from .rendering import Renderer
 from .resources.resource import Resource
 from .storage import LocalStorage, Storage
 from .support import colors as color_tools
+from .support.aio import is_async_engine
 from .support.evaluate import call, evaluate
 from .tenancy import NoTenancy, Tenancy
 from .widgets import Widget
@@ -79,15 +82,25 @@ class Panel:
         sidebar_footer: Any = None,
         https_only_cookies: bool = False,
         activity_log: bool = False,
+        locale: str = "en",
+        locales: Iterable[str] | None = None,
+        lang_dirs: Iterable[str | Path] = (),
     ) -> None:
         self.id = id
         self.path = "/" + path.strip("/") if path.strip("/") else ""
         if session_factory is None and engine is not None:
-            from sqlalchemy.orm import sessionmaker
+            if is_async_engine(engine):
+                from sqlalchemy.ext.asyncio import async_sessionmaker
 
-            session_factory = sessionmaker(engine, expire_on_commit=False)
+                session_factory = async_sessionmaker(engine, expire_on_commit=False)
+            else:
+                from sqlalchemy.orm import sessionmaker
+
+                session_factory = sessionmaker(engine, expire_on_commit=False)
         self.session_factory = session_factory
         self.engine = engine
+        #: True for ``create_async_engine(...)`` / ``async_sessionmaker``: handlers then run on the event loop
+        self.is_async = is_async_engine(session_factory)
         self.secret_key = secret_key or secrets.token_urlsafe(32)
         self.auth = auth or Auth(None)
         self.auth.panel = self
@@ -118,6 +131,12 @@ class Panel:
         self.sidebar_footer = sidebar_footer
         self.https_only_cookies = https_only_cookies
         self.activity_log = activity_log
+        #: default language, and the languages users can pick from (switcher shows when more than one)
+        self.locale = locale
+        self.locales = list(locales or [locale])
+        if locale not in self.locales:
+            self.locales.insert(0, locale)
+        self.translator = Translator(locale, lang_dirs)
         self.renderer = Renderer(template_dirs)
         self.renderer.env.globals["panel"] = self
 
@@ -242,6 +261,21 @@ class Panel:
     def asset(self, name: str) -> str:
         return self.url("assets", name) + f"?v={VERSION}"
 
+    # ------------------------------------------------------------------ languages
+    def resolve_locale(self, ctx: "Context") -> str:
+        """The user's pick, else the browser's language (when allowed), else the default."""
+        chosen = ctx.session.get("tw_locale") if "session" in ctx.request.scope else None
+        if chosen in self.locales:
+            return chosen
+        if len(self.locales) > 1:
+            found = self.translator.negotiate(ctx.request.headers.get("accept-language"), self.locales)
+            if found:
+                return found
+        return self.locale
+
+    def language_options(self) -> list[dict[str, str]]:
+        return [{"code": code, "label": LANGUAGE_NAMES.get(code.split("_")[0], code)} for code in self.locales]
+
     # ------------------------------------------------------------------ permissions
     def permission_options(self) -> list[tuple[str, str]]:
         labels = {
@@ -249,24 +283,25 @@ class Panel:
             "delete_any": "Bulk delete", "restore": "Restore", "restore_any": "Bulk restore",
             "force_delete": "Force delete", "force_delete_any": "Bulk force delete",
         }
-        out: list[tuple[str, str]] = [("*", "Everything (super admin)")]
+        out: list[tuple[str, str]] = [("*", __("Everything (super admin)"))]
         for r in self._resources:
             for ability in r.abilities():
-                out.append((f"{r.permission_prefix()}.{ability}", labels.get(ability, ability.replace("_", " ").title())))
+                out.append((f"{r.permission_prefix()}.{ability}",
+                            __(labels.get(ability, ability.replace("_", " ").title()))))
         for p in self._pages:
             if p.permission:
-                out.append((p.permission, f"Open {p.get_title()}"))
+                out.append((p.permission, __("Open :page", page=p.get_title())))
         for plugin in self._plugins:
             out.extend(getattr(plugin, "permissions", lambda: [])())
         return out
 
     def permission_group_labels(self) -> dict[str, str]:
         labels = {r.permission_prefix(): r.get_plural_label() for r in self._resources}
-        labels["general"] = "General"
-        labels["*"] = "General"
+        labels["general"] = __("General")
+        labels["*"] = __("General")
         for p in self._pages:
             if p.permission:
-                labels[p.permission.rsplit(".", 1)[0]] = "Pages"
+                labels[p.permission.rsplit(".", 1)[0]] = __("Pages")
         return labels
 
     # ------------------------------------------------------------------ navigation
@@ -307,7 +342,8 @@ class Panel:
         for item in items:
             item.children = [c for c in item.children if c not in items]
         for item in items:
-            parent = by_label.get(item.parent) if item.parent else None
+            # parents are named in English in code; labels may be translated
+            parent = (by_label.get(__(item.parent)) or by_label.get(item.parent)) if item.parent else None
             if parent is not None and parent is not item:
                 parent.children.append(item)
             else:
@@ -392,14 +428,52 @@ class Panel:
         app.mount(self.path or "/", self.app, name=f"tungsten-{self.id}")
         return self
 
-    def create_tables(self, engine: Any = None) -> None:
-        """Create Tungsten's own tables (roles, notifications, password resets)."""
-        from .models import TungstenBase
-
+    def _engine(self, engine: Any = None) -> Any:
         engine = engine or self.engine
         if engine is None and self.session_factory is not None:
             engine = self.session_factory.kw.get("bind")  # type: ignore[union-attr]
+        return engine
+
+    def create_tables(self, engine: Any = None) -> None:
+        """Create Tungsten's own tables (roles, notifications, password resets).
+
+        With an async engine, call this outside a running event loop or use
+        ``await panel.acreate_tables()``.
+        """
+        from .models import TungstenBase
+
+        engine = self._engine(engine)
+        if is_async_engine(engine):
+            import asyncio
+
+            asyncio.run(self.acreate_tables(engine))
+            return
         TungstenBase.metadata.create_all(engine)
+
+    async def acreate_tables(self, engine: Any = None) -> None:
+        """Async version of :meth:`create_tables` for an async engine."""
+        from .models import TungstenBase
+
+        engine = self._engine(engine)
+        async with engine.begin() as conn:
+            await conn.run_sync(TungstenBase.metadata.create_all)
+
+    def with_session(self, fn: Callable[[Any], Any]) -> Any:
+        """Run ``fn(db)`` with a sync DB session, for scripts and the CLI (async engines too).
+
+        With an async engine this starts a private event loop, so call it
+        from sync code only.
+        """
+        if not self.is_async:
+            with self.session_factory() as db:
+                return fn(db)
+        import asyncio
+
+        async def go() -> Any:
+            async with self.session_factory() as adb:
+                return await adb.run_sync(fn)
+
+        return asyncio.run(go())
 
     def log_activity(self, ctx: "Context", event: str, record: Any, description: str | None = None,
                      properties: dict | None = None) -> None:

@@ -18,7 +18,7 @@
         {% for f in v.row_fields %}<td class="px-2 py-2 [&_.tw-label]:sr-only">{{ f.render(form, row.base) }}</td>{% endfor %}
         {% if not v.disabled %}
         <td class="px-2 py-2"><div class="flex items-center">
-          {% if v.can_delete %}{{ ui_action(form, 'repeater.remove:' ~ v.path ~ ':' ~ row.index, 'Delete', 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}{% endif %}
+          {% if v.can_delete %}{{ ui_action(form, 'repeater.remove:' ~ v.path ~ ':' ~ row.index, __('Delete'), 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}{% endif %}
         </div></td>
         {% endif %}
       </tr>
@@ -41,11 +41,11 @@
       {% endif %}
       {% if not v.disabled %}
         {% if v.reorderable %}
-          {% if not loop.first %}{{ ui_action(form, 'repeater.up:' ~ v.path ~ ':' ~ row.index, 'Move up', btn, 'arrow-up') }}{% endif %}
-          {% if not loop.last %}{{ ui_action(form, 'repeater.down:' ~ v.path ~ ':' ~ row.index, 'Move down', btn, 'arrow-down') }}{% endif %}
+          {% if not loop.first %}{{ ui_action(form, 'repeater.up:' ~ v.path ~ ':' ~ row.index, __('Move up'), btn, 'arrow-up') }}{% endif %}
+          {% if not loop.last %}{{ ui_action(form, 'repeater.down:' ~ v.path ~ ':' ~ row.index, __('Move down'), btn, 'arrow-down') }}{% endif %}
         {% endif %}
-        {% if v.can_add %}{{ ui_action(form, 'repeater.clone:' ~ v.path ~ ':' ~ row.index, 'Clone', btn, 'copy') }}{% endif %}
-        {% if v.can_delete %}{{ ui_action(form, 'repeater.remove:' ~ v.path ~ ':' ~ row.index, 'Delete', 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}{% endif %}
+        {% if v.can_add %}{{ ui_action(form, 'repeater.clone:' ~ v.path ~ ':' ~ row.index, __('Clone'), btn, 'copy') }}{% endif %}
+        {% if v.can_delete %}{{ ui_action(form, 'repeater.remove:' ~ v.path ~ ':' ~ row.index, __('Delete'), 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}{% endif %}
       {% endif %}
       {% if v.collapsible %}
       <button type="button" class="{{ btn }}" @click="open = !open"><span :class="open ? '' : '-rotate-90'" class="transition">{{ icon('chevron-down', 'h-4 w-4') }}</span></button>

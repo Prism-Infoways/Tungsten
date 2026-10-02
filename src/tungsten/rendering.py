@@ -11,6 +11,7 @@ from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PackageLoader, s
 from markupsafe import Markup
 
 from .forms.base import grid_class, span_class
+from .i18n import current_locale, is_rtl, js_translations, translate
 from .support import colors
 from .support.html import attrs
 from .support.icons import icon
@@ -48,6 +49,11 @@ class Renderer:
             grid_class=grid_class,
             span_class=span_class,
             tojson_attr=_tojson_attr,
+            __=translate,
+            _=translate,
+            current_locale=current_locale,
+            is_rtl=is_rtl,
+            js_translations=js_translations,
         )
         self.env.filters["number"] = _format_number
         self.env.filters["attr_json"] = _tojson_attr

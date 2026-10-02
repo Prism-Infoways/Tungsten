@@ -11,7 +11,7 @@
           <template x-for="a in (t.actions || [])"><a :href="a.url" class="text-sm font-medium text-primary-600 hover:text-primary-500" x-text="a.label"></a></template>
         </div>
       </div>
-      <button type="button" class="text-gray-400 hover:text-gray-600" @click="$store.toasts.dismiss(t.id)" aria-label="Close">{{ icon('x', 'h-4 w-4') }}</button>
+      <button type="button" class="text-gray-400 hover:text-gray-600" @click="$store.toasts.dismiss(t.id)" aria-label="{{ __('Close') }}">{{ icon('x', 'h-4 w-4') }}</button>
     </div>
   </template>
   {# icon sources for toasts #}

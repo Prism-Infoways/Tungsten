@@ -12,8 +12,10 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import aliased, selectinload
 
-from ..actions.action import Action, ActionGroup, BulkAction, flatten_actions
+from ..actions.action import Action, ActionGroup, flatten_actions
 from ..forms.form import Form
+from ..i18n import maybe
+from ..i18n import translate as __
 from ..support.component import Component, headline
 from ..support.evaluate import call, evaluate
 from .columns import Column, read_path
@@ -46,7 +48,7 @@ class Group(Component):
         return self
 
     def get_label(self) -> str:
-        return self._label or headline(self.attribute.replace(".", " "))
+        return __(self._label or headline(self.attribute.replace(".", " ")))
 
     def get_title(self, record: Any) -> str:
         if self._title:
@@ -89,7 +91,7 @@ class ListTab(Component):
         return self
 
     def get_label(self) -> str:
-        return self._label or headline(self.name)
+        return __(self._label or headline(self.name))
 
     def apply(self, query: Any, table: "Table") -> Any:
         if self._query is None:
@@ -426,14 +428,20 @@ class Table(Component):
         form = Form().columns(1)
         form.bind(self.ctx, operation="filter", refresh_url=None)
         form.id = self.id + "-filters"
+        form.table = self  # type: ignore[attr-defined]  # the query builder renders table-aware buttons
         self.filter_form = form
         submitted = self.params.get("_f") is not None
+        builder_action = str(self.params.get("_qb") or "")
         self.filter_data = {}
         for f in self._filters:
             base = f.base()
             if submitted:
                 for field in f.get_fields():
                     field.load_state(form, self.params, base)
+                verb, _, rest = builder_action.partition(":")
+                target, _, args = rest.partition(":")
+                if target == f.name and hasattr(f, "field"):
+                    f.field.handle(form, base, f"{verb}:{args}")
             else:
                 for field in f.get_fields():
                     field.fill_state(form, base, None)
@@ -631,11 +639,14 @@ class Table(Component):
         items = [(k, v) for k, v in params.items() if v not in (None, "")]
         if self.params.get("_f") is not None:
             items.append(("_f", "1"))
+            builders = {f.name: f for f in self._filters if hasattr(f, "field")}
             for key in self.params.keys():
-                if key.startswith("filters."):
+                if key.startswith("filters.") and key.split(".")[1] not in builders:
                     for v in self.params.getlist(key):
                         if v not in (None, ""):
                             items.append((key, v))
+            for f in builders.values():
+                items.extend(f.field.url_items(self.filter_form, f.base()))
         return items
 
     def url(self, **overrides: Any) -> str:
@@ -777,13 +788,16 @@ class Table(Component):
             "toggleable": self.toggleable_columns(),
             "groups": self._groups,
             "group": group,
-            "heading": evaluate(self._heading, **self.ev()),
-            "description": evaluate(self._description, **self.ev()),
-            "empty_heading": evaluate(self._empty_heading, **self.ev()) or f"No {self.host.title().lower() or 'records'}",
-            "empty_description": evaluate(self._empty_description, **self.ev()) or (
-                "Try a different search or filter." if (self.search or self.active_indicators()) else "Create one to get started."),
+            "heading": maybe(evaluate(self._heading, **self.ev())),
+            "description": maybe(evaluate(self._description, **self.ev())),
+            "empty_heading": maybe(evaluate(self._empty_heading, **self.ev()))
+            or __("No :records", records=self.host.title().lower() or __("records")),
+            "empty_description": maybe(evaluate(self._empty_description, **self.ev())) or (
+                __("Try a different search or filter.") if (self.search or self.active_indicators())
+                else __("Create one to get started.")),
             "empty_icon": self._empty_icon,
-            "search_placeholder": self._search_placeholder or f"Search {self.host.title().lower() or 'records'}...",
+            "search_placeholder": maybe(self._search_placeholder)
+            or __("Search :records...", records=self.host.title().lower() or __("records")),
         }
 
     def render(self) -> Markup:
