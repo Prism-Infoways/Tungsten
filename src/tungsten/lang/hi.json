@@ -37,7 +37,6 @@
   "Back to sign in": "साइन इन पर वापस",
   "Blue": "नीला",
   "Breadcrumb": "ब्रेडक्रम्ब",
-  "Build powerful internal tools, fast and beautiful.": "तेज़ और सुंदर इंटरनल टूल बनाएँ।",
   "Bulk delete": "एक साथ हटाएँ",
   "Bulk force delete": "एक साथ हमेशा के लिए हटाएँ",
   "Bulk restore": "एक साथ वापस लाएँ",
@@ -96,6 +95,7 @@
   "Does not equal": "बराबर नहीं है",
   "Done reordering": "क्रम बदलना पूरा",
   "Download": "डाउनलोड करें",
+  "Download example CSV": "उदाहरण CSV डाउनलोड करें",
   "Download failed rows": "असफल पंक्तियाँ डाउनलोड करें",
   "Download the records that match your current search and filters.": "मौजूदा खोज और फ़िल्टर से मेल खाने वाले रिकॉर्ड डाउनलोड करें।",
   "Each code works once if you lose your phone. They won't be shown again.": "फ़ोन खो जाने पर हर कोड एक बार काम करता है। ये दोबारा नहीं दिखेंगे।",
@@ -358,5 +358,14 @@
   "You're all caught up.": "सब देख लिया गया है।",
   "Your account was created.": "आपका खाता बन गया है।",
   "Your account was created. An administrator needs to give you access before you can sign in.": "आपका खाता बन गया है। साइन इन करने से पहले एडमिन को आपको अनुमति देनी होगी।",
-  "Your changes were saved.": "आपके बदलाव सेव हो गए।"
+  "Your changes were saved.": "आपके बदलाव सेव हो गए।",
+  "Python projects": "Python प्रोजेक्ट्स",
+  "Scalable architecture": "बढ़ने लायक ढाँचा",
+  "Beautiful UI components": "सुंदर UI कंपोनेंट",
+  "Fast development": "तेज़ डेवलपमेंट",
+  "Secure & role based": "सुरक्षित और रोल आधारित",
+  "Enter your password": "अपना पासवर्ड डालें",
+  "Save": "सेव करें",
+  "Element 74 • Built for FastAPI": "एलिमेंट 74 • FastAPI के लिए बना",
+  "The metal that glows in a bulb, now lighting up your data.": "बल्ब में चमकने वाली धातु, अब आपके डेटा को रोशन करती है।"
 }

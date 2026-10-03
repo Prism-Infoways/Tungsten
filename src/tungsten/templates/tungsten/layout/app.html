@@ -1,17 +1,20 @@
 {% extends "tungsten/layout/base.html" %}
 {% import "tungsten/components/ui.html" as ui %}
 {% block body %}
-<div class="min-h-full" x-data="{ sidebar: false }" @keydown.window.prevent.ctrl.k="$dispatch('tw-open-search')" @keydown.window.prevent.meta.k="$dispatch('tw-open-search')">
+<div class="min-h-full" x-data="{ sidebar: false }"{% if panel.global_search_enabled %} @keydown.window.prevent.ctrl.k="$dispatch('tw-open-search')" @keydown.window.prevent.meta.k="$dispatch('tw-open-search')"{% endif %}>
   {# ------------------------------------------------------------ sidebar #}
   <div x-show="sidebar" x-cloak class="fixed inset-0 z-40 bg-gray-950/50 lg:hidden" @click="sidebar = false"></div>
-  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full flex-col bg-sidebar-950 text-sidebar-300 transition-transform duration-200 lg:translate-x-0"
+  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full flex-col overflow-hidden bg-sidebar-950 text-sidebar-300 transition-transform duration-200 lg:translate-x-0"
          :class="sidebar && '!translate-x-0'">
-    <div class="flex h-16 shrink-0 items-center justify-between px-5">
-      <a href="{{ panel.url() }}" class="tw-sb-brand flex items-center gap-2.5">{% include "tungsten/components/brand.html" %}</a>
+    {# warm glow at the bottom of the sidebar #}
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(ellipse_at_bottom_left,rgb(var(--tw-c-primary-600)/0.28),transparent_65%)]" aria-hidden="true"></div>
+    <div class="relative flex h-16 shrink-0 items-center justify-between gap-2 px-5">
+      <a href="{{ panel.url() }}" class="tw-sb-brand flex min-w-0 items-center gap-2.5">{% include "tungsten/components/brand.html" %}</a>
+      {% if not panel.brand_logo %}<span class="tw-sb-label me-auto rounded-md bg-white/5 px-1.5 py-0.5 text-[11px] font-medium text-sidebar-400 ring-1 ring-inset ring-white/10">v{{ version }}</span>{% endif %}
       <button type="button" class="tw-icon-btn text-sidebar-400 hover:text-white lg:hidden" @click="sidebar = false" aria-label="{{ __('Close menu') }}">{{ icon('x', 'h-5 w-5') }}</button>
     </div>
     {% if tenants %}
-    <div class="px-3 pb-2">
+    <div class="relative px-3 pb-2">
       {% call(part) ui.dropdown(align='start', width='w-full', classes='w-full') %}
         {% if part == 'trigger' %}
         <button type="button" class="flex w-full items-center gap-3 rounded-lg bg-white/5 px-3 py-2 text-start text-sm text-white ring-1 ring-white/10 hover:bg-white/10">
@@ -29,30 +32,36 @@
       {% endcall %}
     </div>
     {% endif %}
-    <div class="tw-sb-label px-3 pb-3">
+    {% if panel.global_search_enabled %}
+    <div class="tw-sb-label relative px-3 pb-3">
       <button type="button" @click="$dispatch('tw-open-search')" class="flex w-full items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-sidebar-400 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-sidebar-200">
         {{ icon('search', 'h-4 w-4') }}<span class="flex-1 text-start">{{ __('Search menu...') }}</span><kbd class="rounded border border-white/10 px-1.5 text-xs">⌘K</kbd>
       </button>
     </div>
-    <nav class="flex-1 space-y-5 overflow-y-auto px-3 pb-4" aria-label="{{ __('Main') }}">
+    {% endif %}
+    <nav class="relative flex-1 space-y-5 overflow-y-auto px-3 pb-4" aria-label="{{ __('Main') }}">
       {{ panel.hooks('sidebar.nav.start', ctx) }}
       {% for group in navigation %}
-      <div x-data="{ open: true }">
-        {% if group.label %}
-        <button type="button" class="tw-sb-label mb-1 flex w-full items-center justify-between px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-500 hover:text-sidebar-300" @click="open = !open">
+      <div x-data="{ open: {{ 'true' if group.starts_open else 'false' }} }">
+        {% if group.label and group.collapsible %}
+        <button type="button" class="tw-sb-label mb-1 flex w-full items-center justify-between px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-500 hover:text-sidebar-300" @click="open = !open" :aria-expanded="open">
           <span class="flex items-center gap-2">{{ icon(group.icon, 'h-4 w-4') }}{{ __(group.label) }}</span>
           <span class="transition" :class="open ? '' : '-rotate-90'">{{ icon('chevron-down', 'h-3.5 w-3.5') }}</span>
         </button>
+        {% elif group.label %}
+        <p class="tw-sb-label mb-1 flex w-full items-center px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-500">
+          <span class="flex items-center gap-2">{{ icon(group.icon, 'h-4 w-4') }}{{ __(group.label) }}</span>
+        </p>
         {% endif %}
-        <ul class="space-y-0.5" x-show="open">
+        <ul class="space-y-0.5" x-show="open" {% if not group.starts_open %}x-cloak{% endif %}>
           {% for item in group.items %}
           <li x-data="{ expanded: {{ 'true' if item.expanded else 'false' }} }">
             <div class="relative flex items-center">
-              {% if item.active %}<span class="absolute inset-y-1 start-0 w-0.5 rounded-full bg-primary-500"></span>{% endif %}
               <a href="{{ item.url }}" {% if item.new_tab %}target="_blank"{% endif %}
                  class="tw-nav-item flex-1 {{ 'tw-nav-item-active' if item.active }}" {% if item.active %}aria-current="page"{% endif %} title="{{ __(item.label) }}">
-                {{ icon(item.icon, 'h-5 w-5 shrink-0') }}<span class="tw-sb-label flex-1 truncate">{{ __(item.label) }}</span>
-                {% if item.badge is not none and item.badge != '' %}<span class="tw-sb-label contents">{{ ui.count_pill(item.badge, item.badge_color) }}</span>{% endif %}
+                {{ icon(item.current_icon, 'h-5 w-5 shrink-0') }}<span class="tw-sb-label flex-1 truncate">{{ __(item.label) }}</span>
+                {% if item.badge is not none and item.badge != '' %}<span class="tw-sb-label contents">{{ ui.count_pill(item.badge, item.badge_color) }}</span>
+                {% elif item.active and not item.children %}<span class="tw-sb-label text-primary-400 rtl:rotate-180">{{ icon('chevron-right', 'h-4 w-4') }}</span>{% endif %}
               </a>
               {% if item.children %}
               <button type="button" class="tw-sb-label absolute end-1 tw-icon-btn h-7 w-7 text-sidebar-400 hover:text-white" @click="expanded = !expanded" aria-label="{{ __('Toggle') }}">
@@ -76,13 +85,13 @@
       {% endfor %}
       {{ panel.hooks('sidebar.nav.end', ctx) }}
     </nav>
-    <div class="tw-sb-label p-3">
+    <div class="tw-sb-label relative p-3">
       {% if panel.sidebar_footer is not none %}{{ panel.sidebar_footer }}{% else %}
-      <div class="flex items-center gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
-        <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500/20 text-primary-400">{{ icon('crown', 'h-5 w-5') }}</span>
+      <div class="flex items-center gap-3 rounded-xl bg-gradient-to-br from-primary-500/20 via-white/5 to-white/[0.03] p-3 ring-1 ring-inset ring-primary-400/20">
+        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-500/20 text-primary-400 ring-1 ring-inset ring-primary-400/30">{{ icon('crown', 'h-5 w-5') }}</span>
         <div class="min-w-0 flex-1">
           <p class="truncate text-sm font-semibold text-white">{{ panel.brand_name }}</p>
-          <p class="text-xs text-sidebar-400">v{{ version }}</p>
+          <p class="truncate text-xs text-sidebar-400">{{ __(panel.brand_tagline) if panel.brand_tagline else 'v' ~ version }}</p>
         </div>
       </div>
       {% endif %}

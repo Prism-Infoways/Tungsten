@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING, Any, ClassVar
+from urllib.parse import urlencode
 
 from markupsafe import Markup
 
@@ -33,6 +34,9 @@ class Widget:
     polling_interval: ClassVar[str | None] = None
     heading: ClassVar[str | None] = None
     description: ClassVar[str | None] = None
+    #: optional icon shown in a soft colored tile next to the heading
+    icon: ClassVar[str | None] = None
+    icon_color: ClassVar[str] = "primary"
     template: ClassVar[str] = ""
 
     @classmethod
@@ -50,6 +54,18 @@ class Widget:
     @classmethod
     def view_data(cls, ctx: "Context") -> dict[str, Any]:
         return {}
+
+    @classmethod
+    def get_url(cls, ctx: "Context", **params: Any) -> str:
+        """The endpoint that draws this widget. Keeps the current query string (the page filters) and
+        the page the widget sits on; ``params`` replace values, and ``None`` drops one."""
+        page = getattr(ctx, "page", None)
+        if page is not None:
+            params.setdefault("_tw_page", page.get_slug())
+        query = [(k, v) for k, v in ctx.request.query_params.multi_items() if k not in params]
+        query += [(k, v) for k, v in params.items() if v is not None]
+        url = ctx.url("_tw", "widget", cls.get_id())
+        return f"{url}?{urlencode(query)}" if query else url
 
     @classmethod
     def render(cls, ctx: "Context") -> Markup:

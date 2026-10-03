@@ -36,7 +36,7 @@ class Group(Component):
         self.attribute = attribute
         self._label = label
         self._title: Callable | None = None
-        self._collapsible = True
+        self._collapsible = False
 
     def label(self, label: str) -> "Group":
         self._label = label
@@ -45,6 +45,11 @@ class Group(Component):
     def title(self, fn: Callable) -> "Group":
         """``title(lambda record: ...)`` for the group heading."""
         self._title = fn
+        return self
+
+    def collapsible(self, condition: bool = True) -> "Group":
+        """Let users click a group heading to hide or show its rows."""
+        self._collapsible = condition
         return self
 
     def get_label(self) -> str:
@@ -131,7 +136,6 @@ class Table(Component):
         self._filters_layout = "panel"
         self._selectable: bool | None = None
         self._toolbar = True
-        self._export: Any = None
         self._limit: int | None = None
         self._reorder_column: str | None = None
         self._tabs: list = []
@@ -381,10 +385,24 @@ class Table(Component):
                 return g
         return None
 
+    @property
+    def column_searches(self) -> dict[str, str]:
+        """Terms typed in the per-column search boxes (``searchable(is_individual=True)``)."""
+        out = {}
+        for c in self._columns:
+            if c._searchable and c._individual_searchable:
+                term = (self.param(f"col_search.{c.name}") or "").strip()
+                if term:
+                    out[c.name] = term
+        return out
+
     def is_searchable(self) -> bool:
         if self._searchable is not None:
             return self._searchable
-        return any(c._searchable for c in self._columns)
+        return any(c._searchable and c._global_searchable for c in self._columns)
+
+    def has_individual_search(self, columns: list[Column]) -> bool:
+        return any(c._searchable and c._individual_searchable for c in columns)
 
     @property
     def is_reordering(self) -> bool:
@@ -459,6 +477,9 @@ class Table(Component):
         for f in self._filters:
             for label in f.indicators(self.filter_data.get(f.name, {}), self):
                 out.append({"filter": f.name, "label": label})
+        labels = {c.name: c.get_label() for c in self._columns}
+        for name, term in self.column_searches.items():
+            out.append({"filter": None, "label": f"{labels[name]}: “{term}”"})
         return out
 
     def inline_filters(self) -> list[Filter]:
@@ -573,9 +594,15 @@ class Table(Component):
         for f in self._filters:
             query = f.apply(query, self.filter_data.get(f.name, {}), self)
         if self.search:
-            cond = self._search_condition(self.search, self._columns)
+            cond = self._search_condition(self.search, [c for c in self._columns if c._global_searchable])
             if cond is not None:
                 query = query.where(cond)
+        searches = self.column_searches
+        for col in self._columns:
+            if col.name in searches:
+                cond = self._search_condition(searches[col.name], [col])
+                if cond is not None:
+                    query = query.where(cond)
         return query
 
     def sorted_query(self, query):
@@ -613,15 +640,49 @@ class Table(Component):
     def summaries(self, query) -> dict[str, list[dict]]:
         out: dict[str, list[dict]] = {}
         sub = None
+        records = None
         for col in self.visible_columns():
-            if not col._summarizers or "." in col.name:
+            if not col._summarizers or ("." in col.name and col._state is None):
                 continue
             if sub is None:
                 sub = query.order_by(None).subquery()
+            if col._state is None and col.name in sub.c:
+                for s in col._summarizers:
+                    value = self.ctx.db.scalar(select(s.expression(sub.c[col.name])))
+                    out.setdefault(col.name, []).append({"label": s.get_label(), "value": s.format(value)})
+                continue
+            # computed (``state()``) or non-column values: summarise in Python over every matching row
+            if records is None:
+                records = list(self.ctx.db.scalars(self._eager_loads(query)).unique().all())
+            ev = self.ev()
+            values = [col.get_state(r, ev) for r in records]
+            values = [x for v in values for x in (v if isinstance(v, list) else [v])]
             for s in col._summarizers:
-                value = self.ctx.db.scalar(select(s.expression(sub.c[col.name])))
+                try:
+                    value = s.compute(values)
+                except TypeError:  # e.g. a sum over text
+                    value = None
                 out.setdefault(col.name, []).append({"label": s.get_label(), "value": s.format(value)})
         return out
+
+    def reorder(self, keys: list[str]) -> None:
+        """Save a dragged order. ``keys`` are the rows on screen, in their new order.
+
+        The rows on screen may be only some of the records (a filter, search or tab is
+        active), so every record is renumbered: the moved rows take the slots they held
+        before, and the rows not on screen keep their place.
+        """
+        column = self._reorder_column
+        query = self.host.scoped_query(self.ctx).order_by(getattr(self.model, column), self.host.primary_key())
+        records = list(self.ctx.db.scalars(query).all())
+        by_key = {self.host.record_key(r): r for r in records}
+        moved = [by_key[k] for k in dict.fromkeys(keys) if k in by_key]
+        moved_ids = {id(r) for r in moved}
+        new_order = iter(moved)
+        records = [next(new_order) if id(r) in moved_ids else r for r in records]
+        for position, record in enumerate(records, start=1):
+            if getattr(record, column) != position:
+                setattr(record, column, position)
 
     # ---- urls
     def state_params(self, **overrides: Any) -> list[tuple[str, Any]]:
@@ -637,6 +698,7 @@ class Table(Component):
         }
         params.update(overrides)
         items = [(k, v) for k, v in params.items() if v not in (None, "")]
+        items.extend((f"col_search.{name}", term) for name, term in self.column_searches.items())
         if self.params.get("_f") is not None:
             items.append(("_f", "1"))
             builders = {f.name: f for f in self._filters if hasattr(f, "field")}
@@ -742,15 +804,18 @@ class Table(Component):
         group = None if self.is_reordering else self.group
         rows = []
         last_group = object()
+        group_index = -1
         start = (page - 1) * per_page if paginated else 0
         for i, record in enumerate(records):
             if group is not None:
                 title = group.get_title(record)
                 if title != last_group:
-                    rows.append({"group": title})
+                    group_index += 1
+                    rows.append({"group": title, "group_index": group_index})
                     last_group = title
             rows.append({
                 "record": record,
+                "group_index": group_index,
                 "key": self.host.record_key(record),
                 "index": start + i + 1,
                 "url": self.get_record_url(record),
@@ -788,12 +853,14 @@ class Table(Component):
             "toggleable": self.toggleable_columns(),
             "groups": self._groups,
             "group": group,
+            "individual_search": self.has_individual_search(columns),
+            "column_searches": self.column_searches,
             "heading": maybe(evaluate(self._heading, **self.ev())),
             "description": maybe(evaluate(self._description, **self.ev())),
             "empty_heading": maybe(evaluate(self._empty_heading, **self.ev()))
             or __("No :records", records=self.host.title().lower() or __("records")),
             "empty_description": maybe(evaluate(self._empty_description, **self.ev())) or (
-                __("Try a different search or filter.") if (self.search or self.active_indicators())
+                __("Try a different search or filter.") if (self.search or self.column_searches or self.active_indicators())
                 else __("Create one to get started.")),
             "empty_icon": self._empty_icon,
             "search_placeholder": maybe(self._search_placeholder)

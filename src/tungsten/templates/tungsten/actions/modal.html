@@ -34,14 +34,18 @@
       {% if form %}{{ form.render() }}{% endif %}
     </div>
     {% endif %}
-    <div class="flex {{ 'justify-center' if m.confirm_only else 'justify-end border-t border-gray-100 dark:border-white/10' }} gap-3 px-6 py-4">
-      <button type="button" class="{{ ui.button_classes('gray') }} {{ 'flex-1' if m.confirm_only }}" @click="open = false; $nextTick(() => $el.closest('#tw-modal').innerHTML = '')">{{ m.cancel_label }}</button>
+    {# submit comes first in the markup so Enter runs the main action; flex-row-reverse keeps it on the right #}
+    <div class="flex flex-row-reverse {{ 'justify-center' if m.confirm_only else 'justify-start border-t border-gray-100 dark:border-white/10' }} gap-3 px-6 py-4">
       {% if m.submit_label %}
       <button type="submit" class="{{ ui.button_classes(m.color) }} {{ 'flex-1' if m.confirm_only }}">
         <svg class="htmx-indicator h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity=".25"/><path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3"/></svg>
         {{ m.submit_label }}
       </button>
       {% endif %}
+      {% if m.create_another_label %}
+      <button type="submit" name="_tw_another" value="1" class="{{ ui.button_classes('gray') }}">{{ m.create_another_label }}</button>
+      {% endif %}
+      <button type="button" class="{{ ui.button_classes('gray') }} {{ 'flex-1' if m.confirm_only }}" @click="open = false; $nextTick(() => $el.closest('#tw-modal').innerHTML = '')">{{ m.cancel_label }}</button>
     </div>
   </form>
 </div>

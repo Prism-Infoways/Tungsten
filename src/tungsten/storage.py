@@ -24,12 +24,32 @@ class Storage:
 
 
 class LocalStorage(Storage):
-    """Store files under ``root`` and serve them from ``<panel>/storage/...``."""
+    """Store files under ``root`` and serve them from ``<panel>/storage/...``.
 
-    def __init__(self, root: str | Path = "storage/tungsten", base_url: str | None = None) -> None:
+    The panel only serves files to signed-in users. ``public=True`` serves
+    them to anyone with the link (for images on a public site), except files
+    in ``private_directories`` such as import uploads and failed-row reports.
+    """
+
+    #: folders that always need a signed-in user, even when ``public=True``
+    private_directories: tuple[str, ...] = ("imports",)
+
+    def __init__(self, root: str | Path = "storage/tungsten", base_url: str | None = None,
+                 public: bool = False) -> None:
         self.root = Path(root)
         self.base_url = base_url
+        self.public = public
         self.panel: Any = None
+
+    def is_public(self, path: str) -> bool:
+        """True when ``path`` may be downloaded without signing in."""
+        if not self.public:
+            return False
+        try:  # check the real location, so "x/../imports/..." can't sneak past
+            parts = self.path(path).relative_to(self.root.resolve()).parts
+        except ValueError:
+            return False
+        return bool(parts) and parts[0].lower() not in {d.lower() for d in self.private_directories}
 
     def safe_name(self, filename: str) -> str:
         ext = os.path.splitext(filename or "")[1].lower()[:10]

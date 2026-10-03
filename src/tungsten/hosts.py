@@ -65,6 +65,10 @@ class Host:
     def is_trashed(self, record: Any) -> bool:
         return bool(self.soft_delete_column and getattr(record, self.soft_delete_column, None) is not None)
 
+    def tenant_resource(self) -> Any:
+        """The resource whose tenancy settings apply to ``model`` (None: the panel's resource for it)."""
+        return None
+
     # ------------------------------------------------------------------ ui
     def get_table(self, ctx: "Context") -> "Table | None":
         return None
@@ -117,7 +121,7 @@ class Host:
         record = self.new_record(ctx)
         self.hook("before_create", ctx, record=record, data=data, form=form)
         form.fill_record(record, data)
-        ctx.panel.tenancy.assign(ctx, self.model, record)
+        ctx.panel.tenancy.assign(ctx, self.model, record, self.tenant_resource())
         self.attach_new(ctx, record)
         ctx.db.flush()
         form.record = record
@@ -180,7 +184,10 @@ class ResourceHost(Host):
 
     def base_query(self, ctx: "Context"):
         query = self.resource.query(ctx)
-        return ctx.panel.tenancy.scope(ctx, self.model, query)
+        return ctx.panel.tenancy.scope(ctx, self.model, query, self.resource)
+
+    def tenant_resource(self) -> Any:
+        return self.resource
 
     def get_table(self, ctx: "Context") -> "Table":
         from .tables.table import Table

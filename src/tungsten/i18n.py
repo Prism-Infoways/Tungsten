@@ -225,9 +225,19 @@ def _python_strings(source: str) -> set[str]:
                 value = node.value
                 if isinstance(value, ast.BoolOp):  # login_hero or {...}
                     value = value.values[-1]
-                for v in (value.values if isinstance(value, ast.Dict) else
-                          value.elts if isinstance(value, (ast.Tuple, ast.List)) else []):
-                    add(v)
+
+                def add_nested(v: Any) -> None:  # dict values and list items, skipping icon names
+                    if isinstance(v, ast.Dict):
+                        for k, item in zip(v.keys, v.values):
+                            if not (isinstance(k, ast.Constant) and k.value == "icon"):
+                                add_nested(item)
+                    elif isinstance(v, (ast.Tuple, ast.List)):
+                        for item in v.elts:
+                            add_nested(item)
+                    else:
+                        add(v)
+
+                add_nested(value)
         elif isinstance(node, ast.Tuple) and len(node.elts) == 2:
             # ("Contains", "text") style operator tables
             first, second = node.elts

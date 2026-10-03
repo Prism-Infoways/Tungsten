@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import enum
+import html
 import re
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any, Callable, Iterator
@@ -24,6 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 URL_RE = re.compile(r"^https?://[^\s/$.?#].[^\s]*$", re.I)
 HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}){1,2}$")
+TAG_RE = re.compile(r"<[^>]*>")
 
 
 def is_blank(value: Any) -> bool:
@@ -34,6 +36,8 @@ class Field(SchemaComponentMixin, Component):
     """Base class for all form fields."""
 
     template = "tungsten/forms/fields/text-input.html"
+    #: the user types the value (text, dates): ``live(on_blur=True)`` and ``debounce`` apply
+    live_typed = True
 
     def __init__(self, name: str) -> None:
         super().__init__()
@@ -260,6 +264,7 @@ class Field(SchemaComponentMixin, Component):
             return None
         column = getattr(model, self._unique["column"])
         query = select(func.count()).select_from(model).where(column == value)
+        query = form.ctx.panel.tenancy.scope(form.ctx, model, query)  # unique within the current tenant
         if self._unique["ignore_record"] and form.record is not None and form.operation != "create" \
                 and isinstance(form.record, model):
             pk = sa_inspect(model).primary_key[0]
@@ -318,16 +323,24 @@ class Field(SchemaComponentMixin, Component):
             call(fn, **self.field_ev(form, base))
 
     # ------------------------------------------------------------------ render
+    def live_trigger(self) -> str:
+        """The htmx trigger for ``live()``. Typed inputs can refresh on blur or while
+        typing; inputs that are picked (``live_typed = False``) refresh on change."""
+        delay = f" delay:{self._live_debounce}ms" if self._live_debounce else ""
+        if not self.live_typed:
+            # checkboxes and radios keep the same value, so "input changed" never fires
+            return "change" + delay
+        if self._live_on_blur:
+            return "blur" + delay
+        if self._live_debounce:
+            return "input changed" + delay
+        return "change"
+
     def live_attrs(self, form: "Form", trigger: str | None = None) -> Markup:
         if not self._live or form.is_disabled:
             return Markup("")
         if trigger is None:
-            if self._live_on_blur:
-                trigger = "change"
-            elif self._live_debounce:
-                trigger = f"input changed delay:{self._live_debounce}ms"
-            else:
-                trigger = "change"
+            trigger = self.live_trigger()
         return attrs({
             "hx-post": form.refresh_url,
             "hx-trigger": trigger,
@@ -632,6 +645,8 @@ def normalize_options(options: Any) -> list[tuple[Any, str]]:
 class HasOptions(Field):
     """Shared logic for fields that pick from a list of options."""
 
+    live_typed = False
+
     def __init__(self, name: str) -> None:
         super().__init__(name)
         self._options: Any = None
@@ -696,6 +711,8 @@ class HasOptions(Field):
 
         rel, target, pk = self._rel_info(form)
         query = select(target)
+        if form.ctx is not None:  # only the current tenant's records
+            query = form.ctx.panel.tenancy.scope(form.ctx, target, query)
         attr = self._relationship.get("title")
         if attr:
             if search:
@@ -721,7 +738,8 @@ class HasOptions(Field):
                 from sqlalchemy import select
 
                 _, target, pk = self._rel_info(form)
-                rows = form.ctx.db.scalars(select(target).where(pk.in_(keys))).all()
+                query = form.ctx.panel.tenancy.scope(form.ctx, target, select(target).where(pk.in_(keys)))
+                rows = form.ctx.db.scalars(query).all()
             else:
                 rows = form.ctx.db.scalars(self.relationship_query(form)).all()
             return [(getattr(r, pk.key), self._title_of(r)) for r in rows]
@@ -795,6 +813,14 @@ class HasOptions(Field):
     def validate_value(self, form: "Form", base: str, value: Any) -> list[str]:
         label = self.get_label(form, base).lower()
         if self._relationship and self._options is None and getattr(self, "_searchable", False):
+            if form.ctx is not None and form.ctx.panel.tenancy.enabled:  # refuse another tenant's records
+                from sqlalchemy import func, select
+
+                _, target, pk = self._rel_info(form)
+                keys = {self._match_key(form, base, v) for v in (value if self._multiple else [value])}
+                query = select(func.count()).select_from(target).where(pk.in_(keys))
+                if form.ctx.db.scalar(form.ctx.panel.tenancy.scope(form.ctx, target, query)) < len(keys):
+                    return [__("The selected :attribute is invalid.", attribute=label)]
             return []
         allowed = {str(k) for k, _ in self.get_options(form, base)}
         values = value if self._multiple else [value]
@@ -813,7 +839,8 @@ class HasOptions(Field):
 
             _, target, pk = self._rel_info(form)
             keys = data[self.name]
-            objs = form.ctx.db.scalars(select(target).where(pk.in_(keys))).all() if keys else []
+            query = form.ctx.panel.tenancy.scope(form.ctx, target, select(target).where(pk.in_(keys)))
+            objs = form.ctx.db.scalars(query).all() if keys else []
             setattr(record, self.name, list(objs))
         super().save_relationships(form, record, data)
 
@@ -906,12 +933,53 @@ class CheckboxList(HasOptions):
         self._bulk_toggleable = condition
         return self
 
+    def grouped(self, fn: Callable) -> "CheckboxList":
+        """Show the options under group headings. ``fn`` gets ``value`` and ``label``
+        and returns the group name. Options given as ``{"Group": {value: label}}``
+        are grouped without this."""
+        self._grouped = fn
+        return self
+
+    def get_option_groups(self, form: "Form", base: str = "") -> list[tuple[str | None, list[tuple[Any, str]]]] | None:
+        """The options as ``[(group, [(value, label), ...]), ...]``, or ``None`` when not grouped."""
+        raw = evaluate(self._options, **form.ev(base)) if self._options is not None else None
+        if isinstance(raw, dict) and any(isinstance(o, dict) for o in raw.values()):
+            groups: list[tuple[str | None, list[tuple[Any, str]]]] = []
+            for key, value in raw.items():
+                if isinstance(value, dict):
+                    groups.append((str(key), normalize_options(value)))
+                elif groups and groups[-1][0] is None:
+                    groups[-1][1].append((key, str(value)))
+                else:  # a plain option between groups
+                    groups.append((None, [(key, str(value))]))
+            return groups
+        if self._grouped is not None:
+            by_group: dict[Any, list[tuple[Any, str]]] = {}
+            for key, label in super().get_options(form, base):
+                group = call(self._grouped, **{**form.ev(base), "value": key, "label": label})
+                by_group.setdefault(group, []).append((key, label))
+            return [(None if g in (None, "") else str(g), opts) for g, opts in by_group.items()]
+        return None
+
+    def get_options(self, form: "Form", base: str = "") -> list[tuple[Any, str]]:
+        groups = self.get_option_groups(form, base)
+        if groups is None:
+            return super().get_options(form, base)
+        return [option for _, options in groups for option in options]
+
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
         from .base import GRID_COLUMNS
 
         v = super().view_data(form, base)
         v["grid"] = GRID_COLUMNS.get(self._columns, "grid-cols-1")
         v["bulk"] = self._bulk_toggleable
+        groups = self.get_option_groups(form, base)
+        if groups is not None:
+            # v["options"] holds the same options in the same order: cut it into groups
+            options, v["groups"] = iter(v["options"]), []
+            for label, items in groups:
+                v["groups"].append({"label": maybe(label) if label else None,
+                                    "options": [next(options) for _ in items]})
         return v
 
 
@@ -1022,6 +1090,7 @@ class ToggleButtons(HasOptions):
 # ---------------------------------------------------------------------- booleans
 class Checkbox(Field):
     template = "tungsten/forms/fields/checkbox.html"
+    live_typed = False
 
     def __init__(self, name: str) -> None:
         super().__init__(name)
@@ -1094,8 +1163,8 @@ class Toggle(Checkbox):
 
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
         v = super().view_data(form, base)
-        v.update(on_color=self._on_color, on_label=self._on_label, off_label=self._off_label,
-                 on_icon=self._on_icon, off_icon=self._off_icon)
+        v.update(on_color=self._on_color, off_color=self._off_color, on_label=self._on_label,
+                 off_label=self._off_label, on_icon=self._on_icon, off_icon=self._off_icon)
         return v
 
 
@@ -1144,16 +1213,24 @@ class DatePicker(Field):
         except ValueError:
             raise ValueError("The :attribute is not a valid date.") from None
 
-    def _bound(self, form: "Form", base: str, bound: Any) -> Any:
+    def _bound(self, form: "Form", base: str, bound: Any, upper: bool = False) -> Any:
         value = evaluate(bound, **form.ev(base))
+        if value is None or value == "":
+            return None  # e.g. a closure reading an empty field: no limit
         if isinstance(value, str):
             value = self.parse(value)
+        return self.coerce_bound(value, upper)
+
+    def coerce_bound(self, value: Any, upper: bool) -> Any:
+        """Make a min/max value comparable with this field's values."""
+        if isinstance(value, dt.datetime):
+            return value.date()
         return value
 
     def validate_value(self, form: "Form", base: str, value: Any) -> list[str]:
         label = self.get_label(form, base).lower()
         lo = self._bound(form, base, self._min_date)
-        hi = self._bound(form, base, self._max_date)
+        hi = self._bound(form, base, self._max_date, upper=True)
         if lo is not None and value < lo:
             return [__("The :attribute must be a date after or equal to :date.", attribute=label, date=self.to_state(lo))]
         if hi is not None and value > hi:
@@ -1163,7 +1240,7 @@ class DatePicker(Field):
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
         v = super().view_data(form, base)
         lo = self._bound(form, base, self._min_date)
-        hi = self._bound(form, base, self._max_date)
+        hi = self._bound(form, base, self._max_date, upper=True)
         v.update(input_type=self.input_type, min=self.to_state(lo) if lo else None,
                  max=self.to_state(hi) if hi else None, step=1 if self._seconds else None)
         return v
@@ -1177,7 +1254,21 @@ class DateTimePicker(DatePicker):
         return self
 
     def parse(self, value: str) -> Any:
+        if len(value) == 10:  # a plain date such as "2024-01-31"
+            return dt.date.fromisoformat(value)
         return dt.datetime.fromisoformat(value)
+
+    def cast(self, state: Any) -> Any:
+        value = super().cast(state)
+        if isinstance(value, dt.date) and not isinstance(value, dt.datetime):
+            value = dt.datetime.combine(value, dt.time.min)
+        return value
+
+    def coerce_bound(self, value: Any, upper: bool) -> Any:
+        # a plain date as min means the start of that day, as max the end of it
+        if isinstance(value, dt.date) and not isinstance(value, dt.datetime):
+            return dt.datetime.combine(value, dt.time.max if upper else dt.time.min)
+        return value
 
 
 class TimePicker(DatePicker):
@@ -1209,21 +1300,40 @@ class RichEditor(Field):
         self._max_length: int | None = None
 
     def max_length(self, n: int) -> "RichEditor":
+        """Limit the text length. Only the text counts, not the HTML tags."""
         self._max_length = n
         return self
+
+    @staticmethod
+    def text_length(value: Any) -> int:
+        """Length of the text in an HTML value (tags removed, entities decoded)."""
+        return len(html.unescape(TAG_RE.sub("", str(value or ""))))
 
     def cast(self, state: Any) -> Any:
         value = super().cast(state)
         return sanitize(value) if value else None
 
+    def validate_value(self, form: "Form", base: str, value: Any) -> list[str]:
+        if self._max_length is not None and self.text_length(value) > self._max_length:
+            label = self.get_label(form, base).lower()
+            return [__("The :attribute may not be greater than :max characters.", attribute=label, max=self._max_length)]
+        return []
+
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
         v = super().view_data(form, base)
         v["safe_html"] = Markup(sanitize(v["state"] or ""))
+        v["maxlength"] = self._max_length
+        v["length"] = self.text_length(v["safe_html"])
+        # the editor sends "change" to the hidden input itself (after a pause or on blur)
+        v["live"] = self.live_attrs(form, "change")
+        v["live_delay"] = self._live_debounce
+        v["live_on_blur"] = self._live_on_blur
         return v
 
 
 class TagsInput(Field):
     template = "tungsten/forms/fields/tags-input.html"
+    live_typed = False  # a hidden input gets "change" when a tag is added or removed
 
     def __init__(self, name: str) -> None:
         super().__init__(name)

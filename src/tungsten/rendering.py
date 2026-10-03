@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
-from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PackageLoader, select_autoescape
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PackageLoader, Template, select_autoescape
 from markupsafe import Markup
 
 from .forms.base import grid_class, span_class
@@ -31,17 +31,43 @@ def _format_number(value: Any, decimals: int = 0) -> str:
         return str(value)
 
 
+class _PackageLoader(PackageLoader):
+    """Built-in templates never change while the app runs, so skip the per-render file check."""
+
+    def get_source(self, environment: Environment, template: str) -> tuple[str, str, Any]:
+        source, filename, _ = super().get_source(environment, template)
+        return source, filename, lambda: True
+
+
+class _Template(Template):
+    """Faster ``{% import %}``: Jinja diffs the globals against a slow ChainMap on every import."""
+
+    _tw_keys: frozenset | None = None
+
+    def _get_default_module(self, ctx: Any = None) -> Any:
+        if ctx is not None:
+            if self._tw_keys is None:
+                self._tw_keys = frozenset(self.globals)
+            if ctx.globals_keys - self._tw_keys:  # rare: fall back to Jinja's own handling
+                return super()._get_default_module(ctx)
+        if self._module is None:
+            self._module = self.make_module()
+        return self._module
+
+
 class Renderer:
     def __init__(self, template_dirs: Iterable[str | Path] = ()) -> None:
         loaders = [FileSystemLoader([str(p) for p in template_dirs])] if template_dirs else []
-        loaders.append(PackageLoader("tungsten", "templates"))
+        loaders.append(_PackageLoader("tungsten", "templates"))
         self.env = Environment(
             loader=ChoiceLoader(loaders),
             autoescape=select_autoescape(["html", "xml"], default_for_string=True),
             trim_blocks=True,
             lstrip_blocks=True,
             extensions=["jinja2.ext.do"],
+            cache_size=1000,
         )
+        self.env.template_class = _Template
         self.env.globals.update(
             icon=icon,
             attrs=attrs,

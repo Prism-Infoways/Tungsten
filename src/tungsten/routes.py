@@ -4,6 +4,7 @@ DB session: in a thread pool for a sync engine, or inside
 
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 import time
@@ -14,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import String, cast, func, or_, select, update
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import QueryParams
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
@@ -41,6 +43,15 @@ class Forbidden(Exception):
     pass
 
 
+class CachedStaticFiles(StaticFiles):
+    """Asset URLs carry a content hash (``?v=``), so browsers may keep them for a year."""
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
 
@@ -53,11 +64,11 @@ def build_app(panel: "Panel") -> FastAPI:
         same_site="lax",
         https_only=panel.https_only_cookies,
     )
-    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
+    # compress pages, CSS and JS (a list page shrinks from ~130 KB to ~15 KB)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
+    app.mount("/assets", CachedStaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
     routes = Routes(panel)
     routes.register(app)
-    for fn in panel._extra_routes:
-        fn(app, panel)
     return app
 
 
@@ -250,18 +261,10 @@ class Routes:
         g, p = app.get, app.post
 
         @g("/storage/{path:path}")
-        async def storage(path: str):
-            storage = r.panel.storage
-            if not hasattr(storage, "path"):
-                return Response(status_code=404)
-            try:
-                full = storage.path(path)
-            except ValueError:
-                return Response(status_code=404)
-            if not full.is_file():
-                return Response(status_code=404)
-            return FileResponse(full, headers={"X-Content-Type-Options": "nosniff",
-                                               "Content-Security-Policy": "sandbox"})
+        async def storage(request: Request, path: str):
+            # uploads need a signed-in user, unless the storage is explicitly public
+            public = bool(getattr(r.panel.storage, "is_public", lambda p: False)(path))
+            return await r.run(request, r.storage_file, public=public, path=path)
 
         # auth
         @g("/login")
@@ -393,6 +396,10 @@ class Routes:
         async def export(request: Request):
             return await r.run(request, r.export)
 
+        @g("/_tw/import-example")
+        async def import_example(request: Request):
+            return await r.run(request, r.import_example)
+
         @p("/_tw/tenant")
         async def tenant(request: Request):
             return await r.run(request, r.switch_tenant, read_form=True)
@@ -400,6 +407,10 @@ class Routes:
         @p("/_tw/locale")
         async def locale(request: Request):
             return await r.run(request, r.switch_locale, public=True, read_form=True)
+
+        # your own routes (panel.routes) come before the page catch-alls below, so short paths reach them
+        for fn in r.panel._extra_routes:
+            fn(app, r.panel)
 
         # pages & resources
         @g("/")
@@ -438,6 +449,19 @@ class Routes:
         async def edit_post(request: Request, slug: str, key: str):
             return await r.run(request, r.record_page, read_form=True, slug=slug, key=key, operation="edit")
 
+    def storage_file(self, ctx: Context, fd: Any, path: str) -> Response:
+        storage = self.panel.storage
+        if not hasattr(storage, "path"):
+            return Response(status_code=404)
+        try:
+            full = storage.path(path)
+        except ValueError:
+            return Response(status_code=404)
+        if not full.is_file():
+            return Response(status_code=404)
+        return FileResponse(full, headers={"X-Content-Type-Options": "nosniff",
+                                           "Content-Security-Policy": "sandbox"})
+
     # ------------------------------------------------------------------ auth
     def _auth_form(self, ctx: Context, fields: list) -> Form:
         form = Form().schema(fields).columns(1)
@@ -452,11 +476,20 @@ class Routes:
             return ctx.go(panel.url())
         if ctx.user is not None:
             return ctx.go(panel.url())
+        forgot = None
+        if panel.auth.password_reset:
+            from markupsafe import Markup
+
+            from .i18n import translate
+            from .support import colors
+
+            forgot = Markup('<a href="{}" class="font-medium {}">{}</a>').format(
+                panel.url("forgot-password"), colors.LINK["primary"], translate("Forgot password?"))
         form = self._auth_form(ctx, [
-            TextInput("email").label("Email").email().required().placeholder("you@company.com").autofocus()
-            .autocomplete("username"),
+            TextInput("email").label("Email address").email().required().placeholder("you@company.com").autofocus()
+            .autocomplete("username").prefix_icon("mail"),
             TextInput("password").label("Password").password().revealable().required().autocomplete("current-password")
-            .hint(None),
+            .placeholder("Enter your password").prefix_icon("lock").hint(forgot),
         ])
         error = None
         if fd is not None:
@@ -674,7 +707,7 @@ class Routes:
                 user = panel.auth.find_by_email(ctx.db, data["email"])
                 if user is not None:
                     token = panel.auth.create_reset_token(ctx.db, data["email"])
-                    url = f"{ctx.request.url.scheme}://{ctx.request.url.netloc}{panel.url('reset-password', token)}"
+                    url = panel.absolute_url(ctx, panel.url("reset-password", token))
                     call(panel.auth.mailer, to=getattr(user, panel.auth.email_field),
                          subject=__("Reset your :app password", app=panel.brand_name),
                          body=__("Hello,\n\nUse this link to set a new password:\n:url\n\n"
@@ -757,6 +790,7 @@ class Routes:
     def custom_page(self, ctx: Context, fd: Any, page: Any) -> Response:
         if not page.can_access(ctx):
             raise Forbidden()
+        ctx.page = page  # its widgets get this page's filters
         host = page.host()
         form = host.form(ctx, "edit")
         if form is not None:
@@ -977,11 +1011,7 @@ class Routes:
         column = table._reorder_column
         if not column:
             raise NotFound()
-        keys = list(dict.fromkeys(fd.getlist("keys")))
-        by_key = {host.record_key(r): r for r in host.find_records(ctx, keys)}
-        for position, key in enumerate(keys, start=1):
-            if key in by_key:
-                setattr(by_key[key], column, position)
+        table.reorder(fd.getlist("keys"))
         ctx.db.commit()
         Notification("Order saved").success().duration(2000).send(ctx)
         return ctx.finalize(Response(status_code=204))
@@ -1036,6 +1066,7 @@ class Routes:
             None if getattr(action, "operation", None) == "view" else (__("Confirm") if confirm_only else __("Submit")))
         if hasattr(action, "operation") and action._modal_submit_label is None:
             submit = {"create": __("Create"), "edit": __("Save changes"), "view": None}.get(action.operation, submit)
+        another = form is not None and getattr(action, "_create_another", False)
         color = evaluate(action._color, **ev) or "primary"
         m = {
             "endpoint": ctx.url("_tw", "action"),
@@ -1051,6 +1082,7 @@ class Routes:
             "confirm_only": confirm_only,
             "content": evaluate(action._modal_content, **ev),
             "multipart": False,
+            "create_another_label": __("Create & create another") if another else None,
         }
         hidden = {"_tw_host": host.key, "_tw_scope": scope, "_tw_name": action.name,
                   "_tw_record": host.record_key(record) if record is not None else ""}
@@ -1088,11 +1120,34 @@ class Routes:
                 form.errors = exc.errors
                 return self._modal(ctx, host, action, record, records, scope, form)
             raise
+        except (NotFound, Forbidden, PermissionError):
+            raise
+        except Exception:
+            if action._failure_title is None:
+                raise
+            # a failure toast is set: show it instead of an error page
+            ctx.db.rollback()
+            logging.getLogger("tungsten").exception("Action %r failed", action.name)
+            result = False
         if isinstance(result, Response):
             return result
+        if result is False:  # the action failed
+            note = action.failure_notification(ctx, record, records)
+            if note is not None:
+                note.send(ctx)
+            if form is not None:
+                return self._modal(ctx, host, action, record, records, scope, form)
+            ctx.dispatch("tw-close-modal")
+            return ctx.html("")
         note = action.success_notification(ctx, record, records)
         if note is not None:
             note.send(ctx)
+        if fd.get("_tw_another") and form is not None and getattr(action, "_create_another", False):
+            # "Create & create another": refresh the table behind and open an empty form again
+            ctx.dispatch("tw-refresh")
+            fresh = self._action_form(ctx, host, action, record, records, scope)
+            action.fill(fresh, ctx, record, records)
+            return self._modal(ctx, host, action, record, records, scope, fresh)
         redirect = ctx.redirect_to or evaluate(action._success_redirect, **action.ev(ctx, record, records, result=result))
         if redirect:
             return ctx.go(redirect)
@@ -1272,18 +1327,29 @@ class Routes:
             raise NotFound()
         if not widget.can_view(ctx):
             raise Forbidden()
+        slug = ctx.request.query_params.get("_tw_page")
+        if slug is not None:  # the page the widget sits on: its filters reach the widget
+            page = self.panel.page(slug)
+            if page is not None and page.can_access(ctx):
+                ctx.page = page
         return ctx.html(widget.render(ctx))
 
     def export(self, ctx: Context, fd: Any) -> Response:
-        from .importexport import export_rows, write_csv, write_xlsx
+        from .importexport import (ExportAction, ExportBulkAction, export_rows, find_offered_action, write_csv,
+                                   write_xlsx)
 
         params = ctx.request.query_params
         host = self.resolve_host(ctx, params.get("host"))
         if host.get_table(ctx) is None:
             raise NotFound()
         keys = params.getlist("keys") or None
-        rows = export_rows(ctx, host, params, keys, params.getlist("columns") or None)
         fmt = params.get("format", "csv")
+        # only export what the table offers: an export action (bulk for selected rows) the user may run
+        action = find_offered_action(ctx, host, ExportBulkAction if keys else ExportAction, params.get("action"),
+                                     bulk=bool(keys))
+        if action is None:
+            raise Forbidden()
+        rows = export_rows(ctx, host, params, keys, params.getlist("columns") or None, action.export_columns)
         name = re.sub(r"[^a-z0-9-]+", "-", (host.title() or "export").lower()).strip("-") or "export"
         if fmt == "xlsx":
             body, media = write_xlsx(rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -1291,6 +1357,19 @@ class Routes:
             body, media, fmt = write_csv(rows), "text/csv; charset=utf-8", "csv"
         return Response(body, media_type=media,
                         headers={"Content-Disposition": f'attachment; filename="{name}.{fmt}"'})
+
+    def import_example(self, ctx: Context, fd: Any) -> Response:
+        """The sample CSV of an import action (the "Download example CSV" link in its popup)."""
+        from .importexport import ImportAction, find_offered_action
+
+        params = ctx.request.query_params
+        host = self.resolve_host(ctx, params.get("host"))
+        action = find_offered_action(ctx, host, ImportAction, params.get("action"))
+        if action is None:
+            raise Forbidden()
+        name = re.sub(r"[^a-z0-9-]+", "-", (host.title() or "import").lower()).strip("-") or "import"
+        return Response(action.importer.example_csv(), media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{name}-example.csv"'})
 
     def switch_locale(self, ctx: Context, fd: Any) -> Response:
         code = (fd.get("locale") if fd is not None else None) or ""

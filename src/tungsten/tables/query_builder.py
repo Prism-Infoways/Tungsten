@@ -355,6 +355,7 @@ class RelationshipConstraint(Constraint):
         self._title: str | None = None
         self._modify_query: Callable | None = None
         self._multiple: bool | None = None
+        self._model: Any = None  # set by the QueryBuilder when the table binds
 
     def selectable(self, title_attribute: str, modify_query: Callable | None = None) -> "RelationshipConstraint":
         """Let users pick related records by ``title_attribute``."""
@@ -370,6 +371,17 @@ class RelationshipConstraint(Constraint):
     def _rel(self, model: Any) -> Any:
         return sa_inspect(model).relationships[self.name]
 
+    def is_multiple(self) -> bool:
+        """To-many? ``multiple()`` wins; otherwise read ``uselist`` from the relationship."""
+        if self._multiple is not None:
+            return self._multiple
+        if self._model is None:
+            return True
+        try:
+            return bool(self._rel(self._model).uselist)
+        except KeyError:
+            return True
+
     def get_operators(self) -> dict[str, tuple[str, str | None]]:
         ops: dict[str, tuple[str, str | None]] = {}
         if self._title:
@@ -377,7 +389,7 @@ class RelationshipConstraint(Constraint):
             ops["not_in"] = ("Is none of", "multi")
         ops["has"] = ("Has any", None)
         ops["has_none"] = ("Has none", None)
-        if self._multiple is not False:
+        if self.is_multiple():
             ops["count_gte"] = ("Has at least", "count")
             ops["count_lte"] = ("Has at most", "count")
             ops["count_eq"] = ("Has exactly", "count")
@@ -572,6 +584,12 @@ class QueryBuilder(Filter):
     def by_name(self) -> dict[str, Constraint]:
         return {c.name: c for c in self._constraints}
 
+    def bind_options(self, table: "Table") -> None:
+        """Called when the table binds: tell relationship constraints the model."""
+        for c in self._constraints:
+            if isinstance(c, RelationshipConstraint):
+                c._model = table.model
+
     def _build_fields(self) -> list:
         return [QueryBuilderField("rules", self)]
 
@@ -580,7 +598,30 @@ class QueryBuilder(Filter):
         return self.get_fields()[0]
 
     def default_data(self) -> dict[str, Any]:
-        return {}
+        """``default([[rule, ...], ...])``: groups of rules like ``{"c": "price", "op": "gt", "v": 100}``.
+
+        A flat list of rules is one group.
+        """
+        default = self.get_default()
+        if not default:
+            return {}
+        groups = [default] if all(isinstance(r, dict) for r in default) else default
+        constraints = self.by_name()
+        state = []
+        for group in groups[:MAX_GROUPS]:
+            rules = []
+            for rule in list(group)[:MAX_RULES]:
+                if rule.get("c") not in constraints:
+                    continue
+                rules.append({
+                    "c": rule["c"], "op": str(rule.get("op") or ""),
+                    "v": "" if rule.get("v") is None else str(rule["v"]),
+                    "v2": "" if rule.get("v2") is None else str(rule["v2"]),
+                    "vs": [str(v) for v in rule.get("vs") or []],
+                })
+            if rules:
+                state.append(rules)
+        return {"rules": state} if state else {}
 
     def is_active(self, data: dict[str, Any]) -> bool:
         return bool(data.get("rules"))

@@ -1,6 +1,9 @@
 {% extends "tungsten/layout/app.html" %}
 {% block content %}
 {% set title = page.greeting(ctx) %}
+{% set eyebrow = __('Dashboard') if ctx.user else none %}
+{% set title_suffix = '👋' if ctx.user else none %}
+{% set hero = true %}
 {% set filters_form = page.build_filters_form(ctx) %}
 {% set extra_actions %}{% if filters_form %}{% include "tungsten/components/page-filters.html" %}{% endif %}{% endset %}
 {% include "tungsten/components/page-header.html" %}

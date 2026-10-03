@@ -1,9 +1,14 @@
-{% if panel.brand_logo %}
-<img src="{{ panel.brand_logo }}" alt="{{ panel.brand_name }}" class="h-8 w-auto">
+{% if panel.brand_logo and panel.brand_logo_dark %}
+<img src="{{ panel.brand_logo }}" alt="{{ panel.brand_name }}" class="h-8 w-auto dark:hidden">
+<img src="{{ panel.brand_logo_dark }}" alt="{{ panel.brand_name }}" class="hidden h-8 w-auto dark:block">
+{% elif panel.brand_logo or panel.brand_logo_dark %}
+<img src="{{ panel.brand_logo or panel.brand_logo_dark }}" alt="{{ panel.brand_name }}" class="h-8 w-auto">
 {% else %}
+{# unique gradient id: the brand can appear twice on a page (e.g. hidden hero + mobile header) #}
+{% set gid = 'tw-brand-g-' ~ (range(1, 1000000) | random) %}
 <svg viewBox="0 0 32 32" class="h-8 w-8" aria-hidden="true">
-  <defs><linearGradient id="tw-brand-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="rgb(var(--tw-c-primary-400))"/><stop offset="1" stop-color="rgb(var(--tw-c-primary-600))"/></linearGradient></defs>
-  <path d="M5 5h22a3 3 0 0 1 3 3v2.5a3 3 0 0 1-3 3h-6.5V27a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3V13.5H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z" fill="url(#tw-brand-g)"/>
+  <defs><linearGradient id="{{ gid }}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="rgb(var(--tw-c-primary-400))"/><stop offset="1" stop-color="rgb(var(--tw-c-primary-600))"/></linearGradient></defs>
+  <path d="M5 5h22a3 3 0 0 1 3 3v2.5a3 3 0 0 1-3 3h-6.5V27a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3V13.5H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z" fill="url(#{{ gid }})"/>
   <path d="M11.5 13.5h3v5.5l-3 2.5z" fill="rgb(var(--tw-c-primary-700))" opacity=".55"/>
 </svg>
 <span class="text-xl font-bold tracking-tight text-white">{{ panel.brand_name }}</span>

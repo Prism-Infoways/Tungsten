@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tungsten Promo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #09090b; --panel: #18181b; --line: rgba(255,255,255,.08);
+    --text: #fafafa; --muted: #a1a1aa; --brand: #f97316; --brand2: #fb923c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--text);
+    font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+  .bg-glow { position: absolute; width: 1400px; height: 1400px; border-radius: 50%; filter: blur(40px);
+    background: radial-gradient(circle, rgba(249,115,22,.22), rgba(249,115,22,0) 60%); pointer-events: none; }
+  .grid-bg { position: absolute; inset: 0; opacity: .5;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 80px 80px; mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%); }
+  .scene { position: absolute; inset: 0; opacity: 0; }
+  .center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+
+  .logo { width: 132px; height: 132px; }
+  .wordmark { font-size: 132px; font-weight: 800; letter-spacing: -.045em; line-height: 1; }
+  .tagline { font-size: 40px; color: var(--muted); font-weight: 500; margin-top: 28px; letter-spacing: -.01em; }
+  .tagline b { color: var(--text); font-weight: 600; }
+
+  .kicker { display: inline-flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 600; color: var(--brand2);
+    text-transform: uppercase; letter-spacing: .14em; }
+  .kicker::before { content: ""; width: 36px; height: 3px; border-radius: 3px; background: var(--brand); }
+  .h { font-size: 84px; font-weight: 800; letter-spacing: -.04em; line-height: 1.02; margin-top: 22px; }
+  .h em { font-style: normal; background: linear-gradient(90deg, var(--brand), #fbbf24); -webkit-background-clip: text; color: transparent; }
+  .sub { font-size: 30px; color: var(--muted); margin-top: 26px; line-height: 1.4; font-weight: 500; }
+
+  .copy { position: absolute; left: 120px; top: 50%; width: 620px; transform: translateY(-50%); }
+
+  /* browser window */
+  .win { position: absolute; border-radius: 18px; overflow: hidden; background: #fff;
+    box-shadow: 0 50px 120px -20px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.1); }
+  .win .bar { height: 44px; background: #27272a; display: flex; align-items: center; gap: 9px; padding: 0 18px; }
+  .win .bar i { width: 13px; height: 13px; border-radius: 50%; background: #52525b; display: block; }
+  .win .bar i:nth-child(1) { background: #ef4444; } .win .bar i:nth-child(2) { background: #eab308; } .win .bar i:nth-child(3) { background: #22c55e; }
+  .win .bar span { margin-left: 18px; flex: 1; max-width: 520px; height: 26px; border-radius: 8px; background: #3f3f46;
+    color: #d4d4d8; font-size: 14px; display: flex; align-items: center; padding: 0 14px; font-weight: 500; }
+  .win .view { position: relative; overflow: hidden; }
+  .win .view img { position: absolute; left: 0; top: 0; width: 100%; display: block; transform-origin: 0 0; }
+
+  /* code */
+  .code { position: absolute; right: 110px; top: 50%; width: 1020px; transform: translateY(-50%);
+    background: #111113; border-radius: 20px; box-shadow: 0 50px 120px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.08); overflow: hidden; }
+  .code .bar { height: 50px; display: flex; align-items: center; gap: 9px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+  .code .bar i { width: 13px; height: 13px; border-radius: 50%; background: #3f3f46; }
+  .code .bar span { margin-left: 16px; font: 500 16px "JetBrains Mono", monospace; color: var(--muted); }
+  .code pre { font: 500 22px/1.7 "JetBrains Mono", monospace; padding: 30px 36px 36px; height: 720px; color: #e4e4e7; white-space: pre; }
+  .k { color: #c084fc; } .s { color: #86efac; } .f { color: #60a5fa; } .c { color: #fdba74; } .d { color: #71717a; } .n { color: #fda4af; }
+  .caret { display: inline-block; width: 12px; height: 26px; background: var(--brand); vertical-align: -5px; margin-left: 2px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 36px; }
+  .chip { padding: 12px 22px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+    font-size: 22px; font-weight: 600; color: #e4e4e7; display: inline-flex; gap: 10px; align-items: center; }
+  .chip b { width: 9px; height: 9px; border-radius: 50%; background: var(--brand); }
+
+  .pill { position: absolute; padding: 18px 30px; border-radius: 18px; background: rgba(24,24,27,.92); border: 1px solid rgba(255,255,255,.12);
+    font-size: 30px; font-weight: 700; display: flex; align-items: center; gap: 18px; box-shadow: 0 30px 60px -10px rgba(0,0,0,.6);
+    backdrop-filter: blur(8px); }
+  .pill .arrow { color: var(--brand); }
+
+  .cards3 { position: absolute; left: 0; right: 0; top: 330px; display: flex; justify-content: center; gap: 44px; }
+  .card { width: 540px; border-radius: 22px; background: var(--panel); border: 1px solid rgba(255,255,255,.08); overflow: hidden;
+    box-shadow: 0 40px 90px -20px rgba(0,0,0,.7); }
+  .card .shot { height: 400px; position: relative; overflow: hidden; background: #fff; }
+  .card .shot img { position: absolute; width: auto; }
+  .card .t { padding: 26px 30px 30px; }
+  .card .t h3 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
+  .card .t p { font-size: 21px; color: var(--muted); margin-top: 8px; }
+
+  .wall { position: absolute; left: 160px; right: 160px; top: 400px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px; }
+  .tile { border-radius: 20px; background: var(--panel); border: 1px solid rgba(255,255,255,.08); padding: 30px 30px 32px; }
+  .tile .ic { width: 54px; height: 54px; border-radius: 14px; background: rgba(249,115,22,.14); color: var(--brand2);
+    display: flex; align-items: center; justify-content: center; }
+  .tile .ic svg { width: 28px; height: 28px; }
+  .tile h4 { font-size: 27px; font-weight: 700; margin-top: 22px; letter-spacing: -.015em; }
+  .tile p { font-size: 19px; color: var(--muted); margin-top: 6px; }
+
+  .cmd { margin-top: 52px; font: 600 30px "JetBrains Mono", monospace; padding: 22px 36px; border-radius: 16px; background: #18181b;
+    border: 1px solid rgba(255,255,255,.12); color: #e4e4e7; display: inline-flex; gap: 18px; }
+  .cmd span { color: var(--brand); }
+  .url { margin-top: 30px; font-size: 28px; color: var(--muted); font-weight: 500; }
+
+  .progress { position: absolute; left: 0; bottom: 0; height: 5px; background: linear-gradient(90deg, var(--brand), #fbbf24); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="grid-bg" id="grid"></div>
+  <div class="bg-glow" id="glow"></div>
+
+  <!-- 1. intro -->
+  <section class="scene center" id="s-intro">
+    <div style="display:flex;align-items:center;gap:36px">
+      <svg class="logo" id="intro-logo" viewBox="0 0 32 32"><path d="M5 5h22a3 3 0 0 1 3 3v2.5a3 3 0 0 1-3 3h-6.5V27a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3V13.5H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z" fill="#f97316"/></svg>
+      <div class="wordmark" id="intro-word">Tungsten</div>
+    </div>
+    <div class="tagline" id="intro-tag">The <b>admin panel</b> for <b>FastAPI</b></div>
+  </section>
+
+  <!-- 2. code -->
+  <section class="scene" id="s-code">
+    <div class="copy">
+      <div class="kicker">Step 1</div>
+      <div class="h">Write one<br><em>Python class.</em></div>
+      <div class="sub">Describe your form and your table. No HTML, no JavaScript.</div>
+    </div>
+    <div class="code" id="code-card">
+      <div class="bar"><i></i><i></i><i></i><span>app/admin.py</span></div>
+      <pre id="code"></pre>
+    </div>
+  </section>
+
+  <!-- 3. dashboard -->
+  <section class="scene" id="s-dash">
+    <div class="center" style="position:absolute;left:0;right:0;top:70px">
+      <div class="kicker">Step 2</div>
+      <div class="h" style="font-size:76px">Get a <em>full admin panel.</em></div>
+    </div>
+    <div class="win" id="dash-win" style="left:260px;top:300px;width:1400px">
+      <div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin</span></div>
+      <div class="view" style="height:875px"><img src="shots/dashboard.png" id="dash-img"></div>
+    </div>
+  </section>
+
+  <!-- 4. tables -->
+  <section class="scene" id="s-table">
+    <div class="copy" style="width:600px">
+      <div class="kicker">Tables</div>
+      <div class="h">Find any record <em>fast.</em></div>
+      <div class="chips" id="table-chips">
+        <span class="chip"><b></b>Search</span><span class="chip"><b></b>Sort</span><span class="chip"><b></b>Filters</span>
+        <span class="chip"><b></b>List tabs</span><span class="chip"><b></b>Bulk actions</span><span class="chip"><b></b>Export</span>
+      </div>
+    </div>
+    <div class="win" id="table-win" style="left:800px;top:150px;width:1300px">
+      <div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin/products</span></div>
+      <div class="view" style="height:812px"><img src="shots/products.png" id="table-img"></div>
+    </div>
+  </section>
+
+  <!-- 5. query builder -->
+  <section class="scene" id="s-qb">
+    <div class="copy" style="width:620px">
+      <div class="kicker">Query builder</div>
+      <div class="h">Users build <em>their own filters.</em></div>
+      <div class="sub">“Price is greater than 3000 <b style="color:#fff">and</b> Featured is true.” Saved in the link, ready to share.</div>
+    </div>
+    <div class="win" id="qb-win" style="left:820px;top:120px;width:1000px">
+      <div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin/products</span></div>
+      <div class="view" style="height:840px"><img src="shots/query_builder.png" id="qb-img"></div>
+    </div>
+  </section>
+
+  <!-- 6. forms -->
+  <section class="scene" id="s-form">
+    <div class="copy" style="width:600px">
+      <div class="kicker">Forms</div>
+      <div class="h">Rich forms <em>in minutes.</em></div>
+      <div class="sub">Tabs, wizards, uploads, rich text, repeaters, live fields and validation built in.</div>
+    </div>
+    <div class="win" id="form-win2" style="left:900px;top:90px;width:1100px">
+      <div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin/users/create</span></div>
+      <div class="view" style="height:520px"><img src="shots/wizard.png" id="form-img2"></div>
+    </div>
+    <div class="win" id="form-win" style="left:760px;top:430px;width:1100px">
+      <div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin/products/1/edit</span></div>
+      <div class="view" style="height:560px"><img src="shots/form.png" id="form-img"></div>
+    </div>
+  </section>
+
+  <!-- 7. dark mode -->
+  <section class="scene" id="s-dark">
+    <div class="center" style="position:absolute;left:0;right:0;top:70px">
+      <div class="kicker">Theming</div>
+      <div class="h" style="font-size:76px">Dark mode. <em>Your colors.</em></div>
+    </div>
+    <div class="win" style="left:260px;top:300px;width:1400px">
+      <div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin</span></div>
+      <div class="view" style="height:875px">
+        <img src="shots/dashboard.png">
+        <img src="shots/dark_dashboard.png" id="dark-img">
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. hindi -->
+  <section class="scene" id="s-lang">
+    <div class="copy" style="width:620px">
+      <div class="kicker">Translations</div>
+      <div class="h">Speaks your <em>users’ language.</em></div>
+      <div class="sub">Hindi built in. Add any language with one JSON file.</div>
+    </div>
+    <div class="win" id="lang-win" style="left:800px;top:150px;width:1300px">
+      <div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin</span></div>
+      <div class="view" style="height:812px">
+        <img src="shots/dashboard.png">
+        <img src="shots/hindi_dashboard.png" id="lang-img">
+      </div>
+    </div>
+    <div class="pill" id="lang-pill" style="left:1290px;top:880px">English <span class="arrow">→</span> हिन्दी</div>
+  </section>
+
+  <!-- 9. security -->
+  <section class="scene" id="s-sec">
+    <div class="center" style="position:absolute;left:0;right:0;top:90px">
+      <div class="kicker">Auth</div>
+      <div class="h" style="font-size:76px">Secure <em>out of the box.</em></div>
+    </div>
+    <div class="cards3">
+      <div class="card" id="sec-1"><div class="shot"><img src="shots/login.png" style="height:700px;left:-575px;top:-110px"></div>
+        <div class="t"><h3>Login &amp; sign-up</h3><p>Password reset and profile page included.</p></div></div>
+      <div class="card" id="sec-2"><div class="shot"><img src="shots/two_factor.png" style="height:800px;left:-135px;top:-15px"></div>
+        <div class="t"><h3>Two-factor login</h3><p>Authenticator apps and recovery codes.</p></div></div>
+      <div class="card" id="sec-3"><div class="shot"><img src="shots/verify.png" style="height:700px;left:-592px;top:-100px"></div>
+        <div class="t"><h3>Email verification</h3><p>Plus roles and permissions for every screen.</p></div></div>
+    </div>
+  </section>
+
+  <!-- 10. feature wall -->
+  <section class="scene" id="s-wall">
+    <div class="center" style="position:absolute;left:0;right:0;top:110px">
+      <div class="kicker">And much more</div>
+      <div class="h" style="font-size:76px">Everything an admin needs.</div>
+    </div>
+    <div class="wall" id="wall"></div>
+  </section>
+
+  <!-- 11. outro -->
+  <section class="scene center" id="s-outro">
+    <div style="display:flex;align-items:center;gap:32px" id="outro-brand">
+      <svg class="logo" style="width:110px;height:110px" viewBox="0 0 32 32"><path d="M5 5h22a3 3 0 0 1 3 3v2.5a3 3 0 0 1-3 3h-6.5V27a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3V13.5H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z" fill="#f97316"/></svg>
+      <div class="wordmark" style="font-size:112px">Tungsten</div>
+    </div>
+    <div class="tagline" id="outro-tag">Build admin panels for <b>FastAPI</b> in minutes.</div>
+    <div class="cmd" id="outro-cmd"><span>$</span>pip install tungsten-admin</div>
+    <div class="url" id="outro-url">github.com/Prism-Infoways/Tungsten</div>
+  </section>
+
+  <div class="progress" id="progress"></div>
+</div>
+
+<script>
+// ---------- helpers
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const easeInOut = (t) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const back = (t) => { const c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+
+// scene timeline (seconds)
+const SCENES = [
+  ["s-intro", 0, 4], ["s-code", 4, 10.5], ["s-dash", 10.5, 15.5], ["s-table", 15.5, 20.5], ["s-qb", 20.5, 25.5],
+  ["s-form", 25.5, 30.5], ["s-dark", 30.5, 35], ["s-lang", 35, 39.5], ["s-sec", 39.5, 44.5], ["s-wall", 44.5, 50],
+  ["s-outro", 50, 56],
+];
+const DURATION = 56;
+const FADE = 0.5;
+const OVERLAP = 0.4;
+
+// enter: rise + fade in; exit: fade + slight scale
+function sceneAlpha(t, a, b, first, last) {
+  const i = first ? 1 : easeOut(prog(t, a, a + FADE));
+  const o = last ? 1 : 1 - easeInOut(prog(t, b - FADE, b));
+  return Math.min(i, o);
+}
+function appear(el, t, start, dur = .7, dy = 40) {
+  const p = easeOut(prog(t, start, start + dur));
+  el.style.opacity = p;
+  el.style.transform = `translateY(${(1 - p) * dy}px)`;
+  return p;
+}
+function stagger(children, t, start, gap, dur = .6, dy = 30) {
+  [...children].forEach((c, i) => appear(c, t, start + i * gap, dur, dy));
+}
+
+// ---------- code typing
+const CODE = [
+  [["class ", "k"], ["ProductResource", "f"], ["(Resource):", ""]],
+  [["    model = ", ""], ["Product", "n"]],
+  [["    icon = ", ""], ['"package"', "s"]],
+  [["", ""]],
+  [["    @classmethod", "c"]],
+  [["    def ", "k"], ["form", "f"], ["(cls, form):", ""]],
+  [["        return ", "k"], ["form.schema([", ""]],
+  [["            TextInput", "f"], ["(", ""], ['"name"', "s"], [").required(),", ""]],
+  [["            Select", "f"], ["(", ""], ['"category_id"', "s"], [").relationship(", ""], ['"category"', "s"], [", ", ""], ['"name"', "s"], ["),", ""]],
+  [["            RichEditor", "f"], ["(", ""], ['"description"', "s"], ["),", ""]],
+  [["        ])", ""]],
+  [["", ""]],
+  [["    @classmethod", "c"]],
+  [["    def ", "k"], ["table", "f"], ["(cls, table):", ""]],
+  [["        return ", "k"], ["table.columns([", ""]],
+  [["            TextColumn", "f"], ["(", ""], ['"name"', "s"], [").searchable().sortable(),", ""]],
+  [["            TextColumn", "f"], ["(", ""], ['"price"', "s"], [").money(", ""], ['"₹"', "s"], ["),", ""]],
+  [["        ])", ""]],
+];
+const CODE_LEN = CODE.reduce((n, line) => n + line.reduce((m, [s]) => m + s.length, 0) + 1, 0);
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+function renderCode(chars, caretOn) {
+  let left = chars, html = "";
+  for (const line of CODE) {
+    if (left <= 0) break;
+    for (const [s, cls] of line) {
+      if (left <= 0) break;
+      const part = s.slice(0, left); left -= part.length;
+      html += cls ? `<span class="${cls}">${esc(part)}</span>` : esc(part);
+    }
+    if (left > 0) { html += "\n"; left -= 1; }
+  }
+  return html + (caretOn ? '<span class="caret"></span>' : "");
+}
+
+// ---------- feature wall
+const ICON = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const WALL = [
+  ["Async database", "SQLAlchemy sync or async engines", '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>'],
+  ["Widgets & charts", "Stats, sparklines, line, bar, pie", '<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>'],
+  ["Relation managers", "Edit related records in place", '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M10 6.5h4a3 3 0 0 1 3 3V14"/>'],
+  ["⌘K global search", "Jump to any record or page", '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'],
+  ["Roles & permissions", "Control every screen and action", '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>'],
+  ["Notifications", "Toasts and an in-app bell", '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'],
+  ["Import & export", "CSV and Excel in one click", '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>'],
+  ["CLI generators", "make:resource, make:user and more", '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>'],
+];
+$("wall").innerHTML = WALL.map(([h, p, d]) => `<div class="tile"><div class="ic">${ICON(d)}</div><h4>${h}</h4><p>${p}</p></div>`).join("");
+
+// ---------- main render
+function render(t) {
+  // background drift
+  $("glow").style.left = `${260 + Math.sin(t * .35) * 220}px`;
+  $("glow").style.top = `${-420 + Math.cos(t * .27) * 160}px`;
+  $("grid").style.backgroundPosition = `${-t * 12}px ${-t * 8}px`;
+  $("progress").style.width = `${(t / DURATION) * 100}%`;
+
+  for (const [id, a0, b] of SCENES) {
+    // each scene starts a little early so it fades in while the last one fades out
+    const first = id === "s-intro", last = id === "s-outro";
+    const a = first ? a0 : a0 - OVERLAP;
+    const el = $(id);
+    const visible = t >= a && t < b + (last ? 1 : 0);
+    el.style.visibility = visible ? "visible" : "hidden";
+    if (!visible) continue;
+    el.style.opacity = sceneAlpha(t, a, b, first, last);
+    SCENE_FN[id](t - a, b - a);
+  }
+}
+
+const SCENE_FN = {
+  "s-intro"(t) {
+    const p = back(prog(t, .2, 1.1));
+    $("intro-logo").style.transform = `scale(${p}) rotate(${(1 - p) * -40}deg)`;
+    $("intro-logo").style.opacity = prog(t, .2, .5);
+    const w = easeOut(prog(t, .6, 1.4));
+    $("intro-word").style.opacity = w;
+    $("intro-word").style.transform = `translateX(${(1 - w) * -40}px)`;
+    $("intro-word").style.clipPath = `inset(0 ${(1 - w) * 100}% 0 0)`;
+    appear($("intro-tag"), t, 1.5, .8, 24);
+  },
+  "s-code"(t, d) {
+    const copy = document.querySelector("#s-code .copy");
+    appear(copy, t, .2, .8, 30); copy.style.transform += " translateY(-50%)";
+    const card = $("code-card");
+    const c = easeOut(prog(t, .3, 1.1));
+    card.style.opacity = c;
+    card.style.transform = `translateY(-50%) translateX(${(1 - c) * 80}px)`;
+    const chars = Math.floor(prog(t, 1, d - 1.1) * CODE_LEN);
+    const blink = chars >= CODE_LEN ? Math.floor(t * 2.2) % 2 === 0 : true;
+    $("code").innerHTML = renderCode(chars, blink);
+  },
+  "s-dash"(t, d) {
+    appear(document.querySelector("#s-dash .center"), t, .1, .7, 24);
+    const w = $("dash-win");
+    const p = easeOut(prog(t, .2, 1.2));
+    w.style.opacity = p;
+    w.style.transform = `translateY(${(1 - p) * 160}px) perspective(2400px) rotateX(${(1 - p) * 14}deg)`;
+    // slow pan down over the dashboard
+    const pan = easeInOut(prog(t, 1.4, d - .2));
+    $("dash-img").style.transform = `translateY(${-pan * 0}px) scale(${1 + pan * .05})`;
+  },
+  "s-table"(t, d) {
+    const copy = document.querySelector("#s-table .copy");
+    appear(copy, t, .1, .7, 30); copy.style.transform += " translateY(-50%)";
+    stagger($("table-chips").children, t, .7, .14, .5, 16);
+    const w = $("table-win"), p = easeOut(prog(t, .2, 1.1));
+    w.style.opacity = p; w.style.transform = `translateX(${(1 - p) * 140}px)`;
+    const z = easeInOut(prog(t, 1.3, d - .2));
+    // zoom toward the table rows
+    $("table-img").style.transform = `translate(${-z * 230}px, ${-z * 190}px) scale(${1 + z * .18})`;
+  },
+  "s-qb"(t, d) {
+    const copy = document.querySelector("#s-qb .copy");
+    appear(copy, t, .1, .7, 30); copy.style.transform += " translateY(-50%)";
+    const w = $("qb-win"), p = easeOut(prog(t, .2, 1.1));
+    w.style.opacity = p; w.style.transform = `translateX(${(1 - p) * 140}px)`;
+    // start on the whole page, then move in to the filter panel on the right
+    const z = easeInOut(prog(t, 1.0, d - .6));
+    $("qb-img").style.width = "1000px";
+    $("qb-img").style.transform = `translate(${lerp(-172, -900, z)}px, ${lerp(0, -348, z)}px) scale(${lerp(1.344, 1.9, z)})`;
+  },
+  "s-form"(t, d) {
+    const copy = document.querySelector("#s-form .copy");
+    appear(copy, t, .1, .7, 30); copy.style.transform += " translateY(-50%)";
+    const a = easeOut(prog(t, .2, 1.1)), b = easeOut(prog(t, .7, 1.6));
+    $("form-win2").style.opacity = a; $("form-win2").style.transform = `translateY(${(1 - a) * -80}px)`;
+    $("form-win").style.opacity = b; $("form-win").style.transform = `translateY(${(1 - b) * 120}px)`;
+    const z = easeInOut(prog(t, 1.6, d));
+    $("form-img").style.transform = `translateY(${-z * 60}px) scale(${1 + z * .08})`;
+  },
+  "s-dark"(t, d) {
+    appear(document.querySelector("#s-dark .center"), t, .1, .7, 24);
+    const w = document.querySelector("#s-dark .win"), p = easeOut(prog(t, .1, .9));
+    w.style.opacity = p; w.style.transform = `scale(${lerp(.96, 1, p)})`;
+    // wipe from light to dark, left to right
+    const wipe = easeInOut(prog(t, 1.0, 2.6));
+    $("dark-img").style.clipPath = `inset(0 ${(1 - wipe) * 100}% 0 0)`;
+  },
+  "s-lang"(t, d) {
+    const copy = document.querySelector("#s-lang .copy");
+    appear(copy, t, .1, .7, 30); copy.style.transform += " translateY(-50%)";
+    const w = $("lang-win"), p = easeOut(prog(t, .2, 1.1));
+    w.style.opacity = p; w.style.transform = `translateX(${(1 - p) * 140}px)`;
+    const f = easeInOut(prog(t, 1.6, 2.4));
+    $("lang-img").style.opacity = f;
+    const pill = $("lang-pill"), q = back(prog(t, 1.2, 1.9));
+    pill.style.opacity = prog(t, 1.2, 1.5); pill.style.transform = `scale(${q})`;
+  },
+  "s-sec"(t) {
+    appear(document.querySelector("#s-sec .center"), t, .1, .7, 24);
+    ["sec-1", "sec-2", "sec-3"].forEach((id, i) => appear($(id), t, .5 + i * .25, .8, 70));
+  },
+  "s-wall"(t) {
+    appear(document.querySelector("#s-wall .center"), t, .1, .7, 24);
+    [...$("wall").children].forEach((c, i) => {
+      const p = easeOut(prog(t, .6 + i * .12, 1.3 + i * .12));
+      c.style.opacity = p; c.style.transform = `translateY(${(1 - p) * 40}px) scale(${lerp(.94, 1, p)})`;
+    });
+  },
+  "s-outro"(t) {
+    const p = back(prog(t, .1, .9));
+    $("outro-brand").style.opacity = prog(t, .1, .4);
+    $("outro-brand").style.transform = `scale(${lerp(.8, 1, p)})`;
+    appear($("outro-tag"), t, .8, .7, 20);
+    appear($("outro-cmd"), t, 1.3, .7, 20);
+    appear($("outro-url"), t, 1.7, .7, 20);
+  },
+};
+
+window.DURATION = DURATION;
+window.render = render;
+// preview mode: play in real time when opened directly
+if (!location.hash.includes("capture")) {
+  const t0 = performance.now();
+  const loop = () => { render(((performance.now() - t0) / 1000) % (DURATION + 1)); requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+} else {
+  render(0);
+}
+</script>
+</body>
+</html>
