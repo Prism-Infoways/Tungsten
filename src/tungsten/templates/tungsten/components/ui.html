@@ -68,15 +68,27 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {% endmacro %}
 
 {# ---------------------------------------------------------------- cards #}
-{% macro card(heading=None, description=None, padding='p-6', classes='', link=None, link_label='View all') %}
+{# Card title block: optional icon tile, heading and a muted line under it. #}
+{% macro card_heading(heading, description=None, icon_name=None, icon_color='primary') %}
+<div class="flex min-w-0 items-center gap-3">
+  {% if icon_name %}<span class="tw-icon-tile h-10 w-10 {{ colors.pick(colors.SOFT_ICON, icon_color) }}">{{ icon(icon_name, 'h-5 w-5') }}</span>{% endif %}
+  <div class="min-w-0">
+    <h3 class="truncate text-base font-semibold text-gray-950 dark:text-white">{{ heading }}</h3>
+    {% if description %}<p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro card_link(url, label='View all') %}
+<a href="{{ url }}" class="tw-card-link">{{ __(label) }}<span class="rtl:rotate-180">{{ icon('arrow-right', 'h-4 w-4') }}</span></a>
+{% endmacro %}
+
+{% macro card(heading=None, description=None, padding='p-6', classes='', link=None, link_label='View all', icon_name=None, icon_color='primary') %}
 <section class="tw-card {{ classes }}">
   {% if heading %}
-  <header class="flex items-start justify-between gap-4 px-6 pt-5">
-    <div>
-      <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ heading }}</h3>
-      {% if description %}<p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
-    </div>
-    {% if link %}<a href="{{ link }}" class="flex shrink-0 items-center gap-1 text-sm font-medium {{ colors.LINK.primary }}">{{ __(link_label) }}{{ icon('arrow-right', 'h-4 w-4') }}</a>{% endif %}
+  <header class="flex items-center justify-between gap-4 px-6 pt-5">
+    {{ card_heading(heading, description, icon_name, icon_color) }}
+    {% if link %}{{ card_link(link, link_label) }}{% endif %}
   </header>
   {% endif %}
   <div class="{{ padding }}">{{ caller() }}</div>
@@ -133,7 +145,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
   {% set x = (loop.index0 / n * 100) | round(2) %}{% set y = (36 - (p - lo) / span * 32) | round(2) %}
   {% set ns.d = ns.d ~ ('M' if loop.first else ' L') ~ x ~ ' ' ~ y %}
 {% endfor %}
-<svg viewBox="0 0 100 40" preserveAspectRatio="none" class="h-11 w-20 xl:w-24" aria-hidden="true">
+<svg viewBox="0 0 100 40" preserveAspectRatio="none" class="h-10 w-20" aria-hidden="true">
   <defs><linearGradient id="{{ id }}" x1="0" x2="0" y1="0" y2="1">
     <stop offset="0%" stop-color="{{ colors.css_rgb(color) }}" stop-opacity="0.25"/>
     <stop offset="100%" stop-color="{{ colors.css_rgb(color) }}" stop-opacity="0"/>
@@ -146,25 +158,25 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 
 {% macro stat_card(label, value, icon_name=None, color='primary', description=None, trend_value=None, trend_direction='up', trend_color=None, chart=None, url=None, id='stat') %}
 {% set tag = 'a' if url else 'div' %}
-<{{ tag }} {% if url %}href="{{ url }}"{% endif %} class="tw-card relative block overflow-hidden p-5 {{ 'transition hover:ring-primary-500/40' if url }}">
-  <div class="flex items-start gap-4">
+{% set description = description or (__('vs last month') if trend_value else none) %}
+<{{ tag }} {% if url %}href="{{ url }}"{% endif %} class="tw-card group relative block overflow-hidden p-5 {{ 'transition hover:-translate-y-0.5 hover:shadow-md hover:ring-primary-500/30' if url }}">
+  <div class="flex items-start gap-3.5">
     {% if icon_name %}
-    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl {{ colors.pick(colors.SOFT_ICON, color) }}">{{ icon(icon_name, 'h-6 w-6') }}</span>
+    <span class="tw-icon-tile h-11 w-11 {{ colors.pick(colors.SOFT_ICON, color) }}">{{ icon(icon_name, 'h-5 w-5') }}</span>
     {% endif %}
     <div class="min-w-0 flex-1">
-      <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ label }}</p>
-      <p class="mt-1 text-2xl font-bold tracking-tight text-gray-950 dark:text-white">{{ value }}</p>
+      <p class="truncate text-sm font-medium text-gray-500 dark:text-gray-400" title="{{ label }}">{{ label }}</p>
+      <div class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <p class="whitespace-nowrap text-2xl font-bold tracking-tight text-gray-950 dark:text-white">{{ value }}</p>
+        {% if trend_value %}
+        {% set c = trend_color or ('success' if trend_direction == 'up' else 'danger') %}
+        <span class="tw-trend-pill {{ colors.pick(colors.BADGE, c) }}">{{ icon('arrow-up' if trend_direction == 'up' else 'arrow-down', 'h-3 w-3') }}{{ trend_value }}</span>
+        {% endif %}
+      </div>
     </div>
   </div>
-  <div class="mt-3 flex items-end justify-between gap-2">
-    <div class="min-w-0 whitespace-nowrap text-sm">
-      {% if trend_value %}
-      {% set c = trend_color or ('success' if trend_direction == 'up' else 'danger') %}
-      <p class="flex items-center gap-x-1 font-semibold {{ colors.pick(colors.TEXT, c) }}">{{ icon('arrow-up' if trend_direction == 'up' else 'arrow-down', 'h-4 w-4') }}{{ trend_value }}</p>
-      {% set description = description or __('vs last month') %}
-      <p class="truncate text-gray-500 dark:text-gray-400" title="{{ description }}">{{ description }}</p>
-      {% elif description %}<p class="truncate text-gray-500 dark:text-gray-400" title="{{ description }}">{{ description }}</p>{% endif %}
-    </div>
+  <div class="mt-3 flex min-h-[2.75rem] items-end justify-between gap-3">
+    {% if description %}<p class="line-clamp-2 min-w-0 flex-1 break-words text-sm leading-snug text-gray-500 dark:text-gray-400" title="{{ description }}">{{ description }}</p>{% else %}<span></span>{% endif %}
     {% if chart %}<div class="shrink-0">{{ sparkline(chart, trend_color or color, id) }}</div>{% endif %}
   </div>
 </{{ tag }}>

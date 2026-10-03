@@ -26,14 +26,14 @@
 
     {% if tabs %}
     {# ------------------------------------------------------------ list tabs #}
-    <nav class="flex gap-1 overflow-x-auto border-b border-gray-100 px-4 dark:border-white/10" aria-label="{{ __('Tabs') }}">
+    <nav class="flex gap-2 overflow-x-auto border-b border-gray-100 px-4 dark:border-white/10" aria-label="{{ __('Tabs') }}">
       {% for t in tabs %}
       <button type="button" hx-get="{{ t.url }}" hx-target="#{{ table.id }}" hx-swap="outerHTML"
               class="-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition
                      {{ 'border-primary-500 text-primary-600 dark:text-primary-400' if t.active else 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}"
               {% if t.active %}aria-current="page"{% endif %}>
         {{ icon(t.icon, 'h-4 w-4') }}{{ t.label }}
-        {% if t.badge is not none %}<span class="rounded-full px-2 py-0.5 text-xs {{ colors.pick(colors.BADGE, 'primary' if t.active else t.color) }}">{{ t.badge }}</span>{% endif %}
+        {% if t.badge is not none %}<span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ colors.pick(colors.BADGE, 'primary' if t.active else t.color) }}">{{ t.badge }}</span>{% endif %}
       </button>
       {% endfor %}
     </nav>
@@ -113,7 +113,7 @@
     {% if rows %}
     <div class="overflow-x-auto border-t border-gray-100 dark:border-white/10">
       <table class="w-full table-auto divide-y divide-gray-100 text-start dark:divide-white/5">
-        <thead class="bg-gray-50/80 dark:bg-white/5">
+        <thead class="bg-gray-50/70 dark:bg-white/[0.03]">
           <tr>
             {% if reordering %}<th class="w-1 px-4 py-3"></th>{% endif %}
             {% if selectable %}
@@ -194,26 +194,27 @@
     <nav class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 dark:border-white/10">
       <p class="text-sm text-gray-600 dark:text-gray-400">{{ __('Showing') }} <span class="font-medium">{{ from }}</span> {{ __('to') }} <span class="font-medium">{{ to }}</span> {{ __('of') }} <span class="font-medium">{{ total | number }}</span> {{ __('results') }}</p>
       <div class="flex flex-wrap items-center gap-3">
+        {% if pages > 1 %}
+        {% set pbtn = 'inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg px-2 text-sm font-medium transition' %}
+        {% set pidle = pbtn ~ ' bg-white ring-1 ring-inset ring-gray-950/10 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white dark:bg-white/5 dark:ring-white/10 dark:text-gray-300 dark:hover:bg-white/10' %}
+        <div class="flex items-center gap-1.5">
+          <button type="button" class="{{ pidle }}" {% if page == 1 %}disabled{% endif %}
+                  hx-get="{{ table.url(page=page - 1) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML" aria-label="{{ __('Previous') }}"><span class="rtl:rotate-180">{{ icon('chevron-left', 'h-4 w-4') }}</span></button>
+          {% for n in page_links %}
+            {% if n is none %}<span class="px-1 text-gray-400">…</span>
+            {% elif n == page %}<span class="{{ pbtn }} bg-primary-600 text-white shadow-sm shadow-primary-600/25 dark:bg-primary-500" aria-current="page">{{ n }}</span>
+            {% else %}<button type="button" class="{{ pidle }}"
+                      hx-get="{{ table.url(page=n) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML">{{ n }}</button>
+            {% endif %}
+          {% endfor %}
+          <button type="button" class="{{ pidle }}" {% if page == pages %}disabled{% endif %}
+                  hx-get="{{ table.url(page=page + 1) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML" aria-label="{{ __('Next') }}"><span class="rtl:rotate-180">{{ icon('chevron-right', 'h-4 w-4') }}</span></button>
+        </div>
+        {% endif %}
         {% if table._per_page_options | length > 1 %}
         <select name="per_page" class="tw-input w-auto pe-9" aria-label="{{ __('Per page') }}">
           {% for n in table._per_page_options %}<option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ __(':count per page', count=n) }}</option>{% endfor %}
         </select>
-        {% endif %}
-        {% if pages > 1 %}
-        {% set pbtn = 'inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg px-2 text-sm font-medium ring-1 transition' %}
-        <div class="flex items-center gap-1">
-          <button type="button" class="{{ pbtn }} ring-gray-950/10 text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:ring-white/10 dark:text-gray-300 dark:hover:bg-white/5" {% if page == 1 %}disabled{% endif %}
-                  hx-get="{{ table.url(page=page - 1) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML" aria-label="{{ __('Previous') }}">{{ icon('chevrons-left', 'h-4 w-4') }}</button>
-          {% for n in page_links %}
-            {% if n is none %}<span class="px-1 text-gray-400">…</span>
-            {% elif n == page %}<span class="{{ pbtn }} ring-primary-500 text-primary-600 bg-primary-50/50 dark:bg-primary-500/10 dark:text-primary-400" aria-current="page">{{ n }}</span>
-            {% else %}<button type="button" class="{{ pbtn }} ring-gray-950/10 text-gray-600 hover:bg-gray-50 dark:ring-white/10 dark:text-gray-300 dark:hover:bg-white/5"
-                      hx-get="{{ table.url(page=n) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML">{{ n }}</button>
-            {% endif %}
-          {% endfor %}
-          <button type="button" class="{{ pbtn }} ring-gray-950/10 text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:ring-white/10 dark:text-gray-300 dark:hover:bg-white/5" {% if page == pages %}disabled{% endif %}
-                  hx-get="{{ table.url(page=page + 1) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML" aria-label="{{ __('Next') }}">{{ icon('chevrons-right', 'h-4 w-4') }}</button>
-        </div>
         {% endif %}
       </div>
     </nav>

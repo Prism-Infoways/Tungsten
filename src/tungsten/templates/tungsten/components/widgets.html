@@ -5,7 +5,7 @@
   {% for w in widgets %}
   <div class="{{ w.span_class() }}">
     {% if w.lazy %}
-    <div hx-get="{{ panel.url('_tw', 'widget', w.get_id()) }}{{ '?' ~ ctx.request.query_params if ctx.request.query_params }}"
+    <div class="h-full" hx-get="{{ panel.url('_tw', 'widget', w.get_id()) }}{{ '?' ~ ctx.request.query_params if ctx.request.query_params }}"
          hx-trigger="load{% if w.polling_interval %}, every {{ w.polling_interval }}{% endif %}" hx-swap="innerHTML">
       <div class="tw-card animate-pulse p-6"><div class="h-4 w-1/3 rounded bg-gray-200 dark:bg-white/10"></div><div class="mt-4 h-8 w-1/2 rounded bg-gray-200 dark:bg-white/10"></div></div>
     </div>

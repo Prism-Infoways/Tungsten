@@ -452,11 +452,20 @@ class Routes:
             return ctx.go(panel.url())
         if ctx.user is not None:
             return ctx.go(panel.url())
+        forgot = None
+        if panel.auth.password_reset:
+            from markupsafe import Markup
+
+            from .i18n import translate
+            from .support import colors
+
+            forgot = Markup('<a href="{}" class="font-medium {}">{}</a>').format(
+                panel.url("forgot-password"), colors.LINK["primary"], translate("Forgot password?"))
         form = self._auth_form(ctx, [
-            TextInput("email").label("Email").email().required().placeholder("you@company.com").autofocus()
-            .autocomplete("username"),
+            TextInput("email").label("Email address").email().required().placeholder("you@company.com").autofocus()
+            .autocomplete("username").prefix_icon("mail"),
             TextInput("password").label("Password").password().revealable().required().autocomplete("current-password")
-            .hint(None),
+            .placeholder("Enter your password").prefix_icon("lock").hint(forgot),
         ])
         error = None
         if fd is not None:

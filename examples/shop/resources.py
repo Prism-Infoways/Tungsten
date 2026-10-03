@@ -82,7 +82,7 @@ from tungsten.tables import (
 )
 
 from .models import Brand, Category, Customer, Order, OrderStatus, Post, Product, User
-from .widgets import ProductStats, UserStats
+from .widgets import OrderStats, ProductStats, UserStats
 
 INR = "₹"
 
@@ -387,7 +387,7 @@ class ProductResource(Resource):
     def form(cls, form):
         return form.columns(3).schema([
             Tabs().column_span(2).tabs([
-                Tab("General").schema([
+                Tab("General").icon("file-text").schema([
                     TextInput("name").label("Product name").required().max_length(150).column_span("full"),
                     TextInput("short_description").max_length(255).column_span("full"),
                     RichEditor("description").column_span("full"),
@@ -417,13 +417,13 @@ class ProductResource(Resource):
                 ]),
             ]),
             Group([
-                Section("Status").schema([
+                Section("Status").icon("circle-dot").schema([
                     Radio("status").options({"draft": "Draft", "published": "Published", "archived": "Archived"})
                     .descriptions({"draft": "Only admins can see it", "published": "Visible in the store"})
                     .default("draft").required().column_span("full"),
                     Toggle("is_featured").label("Featured").column_span("full"),
                 ]),
-                Section("Details").schema([
+                Section("Details").icon("info").schema([
                     Placeholder("created").label("Created").content(
                         lambda record: record.created_at.strftime("%d %b %Y, %H:%M") if record else "Not saved yet"),
                     Placeholder("in_stock").label("Stock status").content(
@@ -590,13 +590,13 @@ class CustomerResource(Resource):
     @classmethod
     def form(cls, form):
         return form.schema([
-            Section("Customer").description("Contact details.").schema([
+            Section("Customer").icon("user").description("Contact details.").schema([
                 TextInput("name").required(),
                 TextInput("email").email().required().unique(),
                 TextInput("phone").tel().prefix("+91"),
                 FileUpload("avatar").avatar().directory("customers"),
             ]),
-            Section("Address").description("Pick a state to see its cities (a dependent field).").schema([
+            Section("Address").icon("map-pin").description("Pick a state to see its cities (a dependent field).").schema([
                 Select("state").options(list(STATES)).live().after_state_updated(lambda set: set("city", "")),
                 Select("city").options(lambda get: STATES.get(get("state"), []))
                 .visible(lambda get: bool(get("state"))).required(lambda get: bool(get("state"))),
@@ -640,6 +640,7 @@ class OrderResource(Resource):
     navigation_sort = 3
     record_title_attribute = "number"
     description = "Track orders from checkout to delivery."
+    widgets = [OrderStats]
     global_search_attributes = ["number", "customer.name"]
 
     @classmethod
@@ -651,18 +652,18 @@ class OrderResource(Resource):
     @classmethod
     def form(cls, form):
         return form.columns(3).schema([
-            Section("Order details").column_span(2).schema([
+            Section("Order details").icon("receipt").column_span(2).schema([
                 TextInput("number").required().unique().default(lambda: f"ORD-{dt.datetime.now():%y%m%d%H%M%S}"),
                 Select("customer_id").label("Customer").relationship("customer", "name").searchable().preload(False).required(),
                 Select("status").options(OrderStatus).required().default("pending"),
                 Textarea("shipping_address").rows(2),
                 Textarea("notes").rows(2),
             ]),
-            Section("Summary").column_span(1).schema([
+            Section("Summary").icon("calculator").column_span(1).schema([
                 Placeholder("items_total").label("Order total").content(lambda get: f"{INR}{items_total(get):,.2f}"),
                 Placeholder("items_count").label("Items").content(lambda get: len(get("/items") or [])),
             ]).columns(1),
-            Section("Items").column_span("full").schema([
+            Section("Items").icon("package").column_span("full").schema([
                 Repeater("items").relationship("items", order_column="sort").table().hidden_label()
                 .schema([
                     Select("product_id").label("Product").relationship("product", "name").required().live()
@@ -693,7 +694,8 @@ class OrderResource(Resource):
         return (
             table.columns([
                 TextColumn("number").label("Order").weight("medium").searchable().sortable().copyable(),
-                TextColumn("customer.name").label("Customer").avatar("customer.avatar").searchable().sortable(),
+                TextColumn("customer.name").label("Customer").avatar("customer.avatar").searchable().sortable()
+                .description(lambda record: record.customer.email if record.customer else None),
                 TextColumn("status").badge().sortable(),
                 TextColumn("items").label("Items").state(lambda record: sum(i.quantity for i in record.items)),
                 TextColumn("total").money(INR, 0).sortable().summarize(Sum().money(INR, 0)),

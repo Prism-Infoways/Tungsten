@@ -358,5 +358,13 @@
   "You're all caught up.": "सब देख लिया गया है।",
   "Your account was created.": "आपका खाता बन गया है।",
   "Your account was created. An administrator needs to give you access before you can sign in.": "आपका खाता बन गया है। साइन इन करने से पहले एडमिन को आपको अनुमति देनी होगी।",
-  "Your changes were saved.": "आपके बदलाव सेव हो गए।"
+  "Your changes were saved.": "आपके बदलाव सेव हो गए।",
+  "Python projects": "Python प्रोजेक्ट्स",
+  "Scalable architecture": "बढ़ने लायक ढाँचा",
+  "Beautiful UI components": "सुंदर UI कंपोनेंट",
+  "Powerful • Modern • Scalable": "दमदार • आधुनिक • बढ़ने लायक",
+  "Fast development": "तेज़ डेवलपमेंट",
+  "Secure & role based": "सुरक्षित और रोल आधारित",
+  "Enter your password": "अपना पासवर्ड डालें",
+  "Save": "सेव करें"
 }

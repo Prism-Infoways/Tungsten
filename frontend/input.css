@@ -25,7 +25,19 @@
       focus:ring-primary-600 focus:ring-offset-0 checked:ring-0 dark:bg-white/5 dark:ring-white/20 dark:checked:bg-primary-500;
   }
   .tw-label { @apply text-sm font-medium leading-6 text-gray-950 dark:text-white; }
-  .tw-card { @apply rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10; }
+  .tw-card {
+    @apply rounded-2xl bg-white shadow-[0_1px_2px_rgb(0_0_0/0.04),0_4px_16px_-8px_rgb(0_0_0/0.08)] ring-1 ring-gray-950/[0.06]
+      dark:bg-gray-900 dark:shadow-none dark:ring-white/10;
+  }
+  /* Soft colored square holding an icon (stat cards, card headers, sections). */
+  .tw-icon-tile { @apply flex shrink-0 items-center justify-center rounded-xl; }
+  /* Small rounded "↑ 12%" pill. */
+  .tw-trend-pill { @apply inline-flex items-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-semibold; }
+  /* Soft "View all →" link button in card headers. */
+  .tw-card-link {
+    @apply inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-600 ring-1 ring-inset
+      ring-primary-600/10 transition hover:bg-primary-100 dark:bg-primary-500/10 dark:text-primary-400 dark:ring-primary-400/20 dark:hover:bg-primary-500/20;
+  }
   .tw-btn {
     @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold outline-none transition
       duration-75 focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-70;
@@ -38,7 +50,10 @@
   .tw-nav-item {
     @apply flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-300 transition hover:bg-white/5 hover:text-white;
   }
-  .tw-nav-item-active { @apply bg-primary-500/15 text-primary-400 hover:bg-primary-500/20 hover:text-primary-300; }
+  .tw-nav-item-active {
+    @apply bg-gradient-to-r from-primary-500/25 to-primary-500/5 text-white ring-1 ring-inset ring-primary-500/50
+      hover:from-primary-500/30 hover:text-white [&>svg:first-child]:text-primary-400;
+  }
   .tw-prose { @apply prose prose-sm max-w-none dark:prose-invert; }
 
   trix-editor.tw-trix {
@@ -71,3 +86,4 @@
   .tw-sidebar-collapsed .tw-sb-aside nav > div { margin-top: 0.5rem; }
 }
 .tw-sb-aside, .tw-sb-main { transition: width .2s ease, padding .2s ease; }
+@keyframes tw-wave { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(14deg); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } }

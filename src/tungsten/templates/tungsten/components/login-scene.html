@@ -1,0 +1,57 @@
+{# Decorative scene for the login hero: the brand "T" glowing over dunes. Colors follow the primary palette. #}
+<svg class="pointer-events-none absolute inset-x-0 bottom-0 h-[52%] w-full" viewBox="0 0 800 500" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+  <defs>
+    <radialGradient id="tw-ls-glow" cx="50%" cy="66%" r="60%">
+      <stop offset="0" style="stop-color: rgb(var(--tw-c-primary-500)); stop-opacity: .85"/>
+      <stop offset=".35" style="stop-color: rgb(var(--tw-c-primary-700)); stop-opacity: .35"/>
+      <stop offset=".75" style="stop-color: rgb(var(--tw-c-primary-900)); stop-opacity: 0"/>
+    </radialGradient>
+    <linearGradient id="tw-ls-t" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a2618"/><stop offset=".55" stop-color="#1a120c"/><stop offset="1" stop-color="#0c0908"/>
+    </linearGradient>
+    <linearGradient id="tw-ls-edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color: rgb(var(--tw-c-primary-300))"/><stop offset="1" style="stop-color: rgb(var(--tw-c-primary-600)); stop-opacity: .2"/>
+    </linearGradient>
+    <linearGradient id="tw-ls-ridge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" style="stop-color: rgb(var(--tw-c-primary-400)); stop-opacity: 0"/>
+      <stop offset=".5" style="stop-color: rgb(var(--tw-c-primary-300)); stop-opacity: .95"/>
+      <stop offset="1" style="stop-color: rgb(var(--tw-c-primary-400)); stop-opacity: 0"/>
+    </linearGradient>
+    <linearGradient id="tw-ls-dune-back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b1a10"/><stop offset="1" stop-color="#0d0a08"/></linearGradient>
+    <linearGradient id="tw-ls-dune-mid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d2414"/><stop offset=".5" stop-color="#140d09"/><stop offset="1" stop-color="#0a0807"/></linearGradient>
+    <linearGradient id="tw-ls-dune-front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#24160d"/><stop offset="1" stop-color="#070605"/></linearGradient>
+    <linearGradient id="tw-ls-water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" style="stop-color: rgb(var(--tw-c-primary-600)); stop-opacity: .35"/><stop offset="1" stop-color="#050404"/>
+    </linearGradient>
+    <filter id="tw-ls-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="tw-ls-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+
+  <rect width="800" height="500" fill="url(#tw-ls-glow)"/>
+  <g fill="#fff">
+    <circle cx="96" cy="70" r="1" opacity=".35"/><circle cx="182" cy="128" r=".8" opacity=".25"/><circle cx="260" cy="46" r="1.1" opacity=".3"/>
+    <circle cx="540" cy="58" r=".9" opacity=".3"/><circle cx="612" cy="120" r="1.2" opacity=".35"/><circle cx="700" cy="40" r=".8" opacity=".25"/>
+    <circle cx="742" cy="150" r="1" opacity=".3"/><circle cx="40" cy="160" r=".9" opacity=".2"/><circle cx="458" cy="24" r=".8" opacity=".25"/>
+  </g>
+
+  {# the brand T: glow, body, lit edge #}
+  {% set t_path = 'M318 150h164a16 16 0 0 1 16 16v38a16 16 0 0 1-16 16h-48v190h-68V220h-48a16 16 0 0 1-16-16v-38a16 16 0 0 1 16-16Z' %}
+  <path d="{{ t_path }}" style="fill: rgb(var(--tw-c-primary-500))" opacity=".75" filter="url(#tw-ls-blur)"/>
+  <path d="{{ t_path }}" fill="url(#tw-ls-t)" stroke="url(#tw-ls-edge)" stroke-width="2"/>
+  <path d="M318 151.5h164" style="stroke: rgb(var(--tw-c-primary-300))" stroke-width="2" stroke-linecap="round" opacity=".9" filter="url(#tw-ls-soft)"/>
+
+  {# dunes, back to front #}
+  <path d="M0 330 C 90 300 150 262 230 282 S 330 340 400 336 S 520 270 600 280 S 730 330 800 300 V500 H0Z" fill="url(#tw-ls-dune-back)"/>
+  <path d="M0 330 C 90 300 150 262 230 282 S 330 340 400 336 S 520 270 600 280 S 730 330 800 300" fill="none" stroke="url(#tw-ls-ridge)" stroke-width="1.5" opacity=".7"/>
+  <path d="M0 400 C 110 360 190 330 290 356 S 420 410 500 380 S 650 330 800 370 V500 H0Z" fill="url(#tw-ls-dune-mid)"/>
+  <path d="M0 400 C 110 360 190 330 290 356 S 420 410 500 380 S 650 330 800 370" fill="none" stroke="url(#tw-ls-ridge)" stroke-width="2"/>
+  <path d="M0 448 C 140 420 260 410 380 432 S 620 440 800 420 V500 H0Z" fill="url(#tw-ls-dune-front)"/>
+  <path d="M0 448 C 140 420 260 410 380 432 S 620 440 800 420" fill="none" stroke="url(#tw-ls-ridge)" stroke-width="1" opacity=".5"/>
+
+  {# water with a soft reflection #}
+  <rect y="462" width="800" height="38" fill="url(#tw-ls-water)"/>
+  <ellipse cx="400" cy="472" rx="90" ry="6" style="fill: rgb(var(--tw-c-primary-400))" opacity=".45" filter="url(#tw-ls-soft)"/>
+  <g style="stroke: rgb(var(--tw-c-primary-300))" stroke-linecap="round" opacity=".35">
+    <path d="M330 480h140" stroke-width="1"/><path d="M360 488h80" stroke-width="1"/><path d="M380 495h40" stroke-width=".8"/>
+  </g>
+</svg>

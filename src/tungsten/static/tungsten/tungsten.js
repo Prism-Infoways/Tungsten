@@ -119,21 +119,37 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
       if (ds.colors) {
         ds.backgroundColor = ds.colors.map(function (c) { return cssColor(c, 500); });
         ds.borderColor = dark ? "rgb(24 24 27)" : "#fff";
-        ds.borderWidth = 2;
+        ds.borderWidth = 3;
+        ds.hoverOffset = ds.hoverOffset === undefined ? 6 : ds.hoverOffset;
       } else {
         var c = ds.color || "primary";
         ds.borderColor = cssColor(c, 500);
         if (type === "bar") {
-          ds.backgroundColor = cssColor(c, 500, 0.85);
-          ds.borderRadius = ds.borderRadius === undefined ? 6 : ds.borderRadius;
+          // soft vertical gradient: lighter at the top, full color at the bottom
+          ds.backgroundColor = function (context) {
+            var area = context.chart.chartArea;
+            if (!area) return cssColor(c, 500, 0.85);
+            var g = context.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+            g.addColorStop(0, cssColor(c, 400));
+            g.addColorStop(1, cssColor(c, 600, 0.9));
+            return g;
+          };
+          ds.hoverBackgroundColor = cssColor(c, 600);
+          ds.borderRadius = ds.borderRadius === undefined ? { topLeft: 8, topRight: 8 } : ds.borderRadius;
+          ds.borderSkipped = false;
           ds.borderWidth = 0;
-          ds.maxBarThickness = ds.maxBarThickness || 28;
+          ds.maxBarThickness = ds.maxBarThickness || 30;
         } else {
+          var gray = c === "gray";
+          ds.borderColor = gray ? (dark ? "rgb(161 161 170)" : "rgb(82 82 91)") : ds.borderColor;
           ds.backgroundColor = cssColor(c, 500, 0.12);
           ds.fill = ds.fill === undefined ? true : ds.fill;
-          ds.tension = ds.tension === undefined ? 0.35 : ds.tension;
+          ds.tension = ds.tension === undefined ? 0.4 : ds.tension;
           ds.pointRadius = ds.pointRadius === undefined ? 3 : ds.pointRadius;
-          ds.pointBackgroundColor = "#fff";
+          ds.pointHoverRadius = ds.pointHoverRadius === undefined ? 5 : ds.pointHoverRadius;
+          ds.pointBackgroundColor = dark ? "rgb(24 24 27)" : "#fff";
+          ds.pointBorderColor = ds.borderColor;
+          ds.pointBorderWidth = 2;
           ds.borderWidth = 2;
         }
       }
@@ -148,16 +164,40 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
       plugins: {
         legend: { display: !round || !canvas.closest("section").querySelector("ul"), position: round ? "bottom" : "top", align: "end",
                   labels: { usePointStyle: true, boxWidth: 8, color: text } },
-        tooltip: { backgroundColor: "#18181b", padding: 10, cornerRadius: 8, boxPadding: 4 },
+        tooltip: {
+          backgroundColor: "rgba(24,24,27,0.95)", padding: 10, cornerRadius: 8, boxPadding: 4, usePointStyle: true,
+          titleFont: { weight: "500" }, titleColor: "#a1a1aa", bodyFont: { weight: "600" },
+          callbacks: {
+            // a dataset's "prefix"/"suffix" (e.g. "₹") is shown with its values
+            label: function (item) {
+              var ds = item.dataset, v = item.parsed;
+              if (v && typeof v === "object") v = item.chart.options.indexAxis === "y" ? v.x : (v.r !== undefined ? v.r : v.y);
+              if (v === null || v === undefined) v = item.raw;
+              var n = typeof v === "number" ? v.toLocaleString() : v;
+              return " " + (ds.label ? ds.label + ": " : "") + (ds.prefix || "") + n + (ds.suffix || "");
+            },
+          },
+        },
       },
-      cutout: cfg.type === "doughnut" ? "68%" : undefined,
+      cutout: cfg.type === "doughnut" ? "70%" : undefined,
       scales: round ? {} : {
         x: { grid: { display: false }, ticks: { color: text }, border: { display: false } },
         y: { grid: { color: grid }, ticks: { color: text }, border: { display: false }, beginAtZero: true },
         y1: { display: false },
       },
     };
-    canvas._twChart = new window.Chart(canvas, { type: cfg.type, data: cfg.data, options: merge(options, cfg.options || {}) });
+    options = merge(options, cfg.options || {});
+    // axis ticks: { prefix: "₹", compact: true } -> ₹300K
+    Object.keys(options.scales || {}).forEach(function (k) {
+      var t = (options.scales[k] || {}).ticks;
+      if (!t || (!t.prefix && !t.suffix && !t.compact) || t.callback) return;
+      var fmt = t.compact ? new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }) : null;
+      t.callback = function (v) {
+        var n = typeof v === "number" ? (fmt ? fmt.format(v) : v.toLocaleString()) : v;
+        return (v === 0 ? "" : (t.prefix || "")) + n + (v === 0 ? "" : (t.suffix || ""));
+      };
+    });
+    canvas._twChart = new window.Chart(canvas, { type: cfg.type, data: cfg.data, options: options });
   }
 
   function initSelect(el) {
