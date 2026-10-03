@@ -12,6 +12,11 @@ search/filters. Import uses an :class:`Importer` that lists the columns::
         ]
 
     table.header_actions([ImportAction(ProductImporter), ExportAction()])
+
+An export action can list its own :class:`ExportColumn` s instead of using the
+table's columns::
+
+    ExportAction(columns=[ExportColumn("sku"), ExportColumn("price", format=lambda state: f"{state:.2f}")])
 """
 
 from __future__ import annotations
@@ -35,20 +40,39 @@ if TYPE_CHECKING:  # pragma: no cover
 
 # ---------------------------------------------------------------------- export
 class ExportColumn:
+    """One column of an export file: a (dotted) attribute path, a header and an optional ``format(state, record)``."""
+
     def __init__(self, name: str, label: str | None = None, format: Callable | None = None) -> None:
         self.name = name
         self.label = label or headline(name.replace(".", " "))
         self.format = format
 
+    def get_label(self) -> str:
+        return __(self.label)
 
-def export_rows(ctx: "Context", host: "Host", params: Any, keys: list[str] | None, columns: list[str] | None):
-    """Yield the header row and then one row per record."""
+    def get_value(self, record: Any) -> Any:
+        from .tables.columns import read_path
+
+        state = read_path(record, self.name)
+        if isinstance(state, list):
+            state = ", ".join(str(s) for s in state)
+        return call(self.format, state=state, record=record) if self.format else state
+
+
+def export_rows(ctx: "Context", host: "Host", params: Any, keys: list[str] | None, columns: list[str] | None,
+                export_columns: list[ExportColumn] | None = None):
+    """Yield the header row and then one row per record.
+
+    Uses the table's columns, or ``export_columns`` when the export action lists its own.
+    """
     from .tables.columns import Column, ImageColumn, ToggleColumn, read_path
     from .tables.table import Table
 
     table: Table = host.get_table(ctx)
     table.bind(ctx, host, params=params)
-    cols = [c for c in table._columns if isinstance(c, Column) and not isinstance(c, ImageColumn)]
+    cols: list = [c for c in table._columns if isinstance(c, Column) and not isinstance(c, ImageColumn)]
+    if export_columns:
+        cols = list(export_columns)
     if columns:
         cols = [c for c in cols if c.name in columns]
     yield [c.get_label() for c in cols]
@@ -59,6 +83,9 @@ def export_rows(ctx: "Context", host: "Host", params: Any, keys: list[str] | Non
         records = ctx.db.scalars(query).unique().all()
     ev = table.ev()
     for record in records:
+        if export_columns:
+            yield [_plain(c.get_value(record)) for c in cols]
+            continue
         row = []
         for c in cols:
             state = c.get_state(record, {**ev, "record": record}) if c._state else read_path(record, c.name)
@@ -106,7 +133,7 @@ def write_xlsx(rows) -> bytes:
         from openpyxl import Workbook
         from openpyxl.styles import Font
     except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("Excel export needs openpyxl: pip install 'tungsten[excel]'") from exc
+        raise RuntimeError("Excel export needs openpyxl: pip install 'tungsten-admin[excel]'") from exc
     wb = Workbook()
     ws = wb.active
     for i, row in enumerate(rows):
@@ -122,15 +149,36 @@ def write_xlsx(rows) -> bytes:
     return out.getvalue()
 
 
-class ExportAction(Action):
-    """Download the table (current search & filters) as CSV or Excel."""
+def find_offered_action(ctx: "Context", host: "Host", kind: type, name: str | None = None, bulk: bool = False):
+    """The first ``kind`` action that the host's table (bulk or header actions) or page header offers
+    and the user may run, or None. Endpoints use it so they only do what the UI offers."""
+    from .actions.action import flatten_actions
 
-    def __init__(self, name: str = "export", formats: tuple[str, ...] = ("csv", "xlsx")) -> None:
+    table = host.get_table(ctx)
+    pool = list(table._bulk_actions if bulk else table._header_actions) if table is not None else []
+    if not bulk:
+        getter = getattr(host, "all_page_actions", None) or host.page_actions
+        pool += list(getter(ctx, None) or [])
+    for a in flatten_actions(pool):
+        if isinstance(a, kind) and (not name or a.name == name) and a.is_available(host, ctx):
+            return a
+    return None
+
+
+class ExportAction(Action):
+    """Download the table (current search & filters) as CSV or Excel.
+
+    ``columns`` (a list of :class:`ExportColumn`) replaces the table's columns in the file.
+    """
+
+    def __init__(self, name: str = "export", formats: tuple[str, ...] = ("csv", "xlsx"),
+                 columns: list[ExportColumn] | None = None) -> None:
         super().__init__(name)
         self._label = "Export"
         self._icon = "download"
         self._color = "gray"
         self._formats = formats
+        self.export_columns = list(columns) if columns else None
         self._modal_heading = "Export records"
         self._modal_description = "Download the records that match your current search and filters."
         self._modal_submit_label = "Download"
@@ -144,8 +192,11 @@ class ExportAction(Action):
         from .forms.form import Form
         from .tables.columns import ImageColumn
 
-        table = host.get_table(ctx)
-        cols = {c.name: c.get_label() for c in table._columns if not isinstance(c, ImageColumn)}
+        if self.export_columns:
+            cols = {c.name: c.get_label() for c in self.export_columns}
+        else:
+            table = host.get_table(ctx)
+            cols = {c.name: c.get_label() for c in table._columns if not isinstance(c, ImageColumn)}
         labels = {"csv": "CSV (.csv)", "xlsx": "Excel (.xlsx)"}
         return Form().columns(1).schema([
             Radio("format").options({f: labels.get(f, f) for f in self._formats}).default(self._formats[0])
@@ -162,23 +213,26 @@ class ExportAction(Action):
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
         data = data or {}
         state = parse_qsl(data.get("state") or "")
-        query = [(k, v) for k, v in state if k != "host"] + [("host", host.key), ("format", data.get("format", "csv"))]
+        query = [(k, v) for k, v in state if k not in ("host", "action")]
+        query += [("host", host.key), ("action", self.name), ("format", data.get("format", "csv"))]
         query += [("columns", c) for c in data.get("columns") or []]
         ctx.redirect(ctx.url("_tw", "export") + "?" + urlencode(query))
 
 
 class ExportBulkAction(BulkAction):
-    """Download only the selected rows."""
+    """Download only the selected rows. ``columns`` works like :class:`ExportAction`'s."""
 
-    def __init__(self, name: str = "export", format: str = "csv") -> None:
+    def __init__(self, name: str = "export", format: str = "csv", columns: list[ExportColumn] | None = None) -> None:
         super().__init__(name)
         self._label = "Export"
         self._icon = "download"
         self._format = format
+        self.export_columns = list(columns) if columns else None
         self._deselect_after = False
 
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
-        query = [("host", host.key), ("format", self._format)] + [("keys", host.record_key(r)) for r in records or []]
+        query = [("host", host.key), ("action", self.name), ("format", self._format)]
+        query += [("keys", host.record_key(r)) for r in records or []]
         ctx.redirect(ctx.url("_tw", "export") + "?" + urlencode(query))
 
 
@@ -261,7 +315,9 @@ class Importer:
         from sqlalchemy import select
 
         if cls.unique_by and data.get(cls.unique_by) not in (None, ""):
-            existing = ctx.db.scalars(select(cls.model).where(getattr(cls.model, cls.unique_by) == data[cls.unique_by])).first()
+            query = select(cls.model).where(getattr(cls.model, cls.unique_by) == data[cls.unique_by])
+            # only the current tenant's records can be updated
+            existing = ctx.db.scalars(ctx.panel.tenancy.scope(ctx, cls.model, query)).first()
             if existing is not None:
                 return existing
         return cls.model()
@@ -326,7 +382,8 @@ def run_import(ctx: "Context", importer: type[Importer], rows: list[dict[str, st
                 if col._relationship:
                     rel_name, attr = col._relationship
                     target = sa_inspect(importer.model).relationships[rel_name].mapper.class_
-                    related = ctx.db.scalars(select(target).where(func.lower(getattr(target, attr)) == str(value).lower())).first()
+                    query = select(target).where(func.lower(getattr(target, attr)) == str(value).lower())
+                    related = ctx.db.scalars(ctx.panel.tenancy.scope(ctx, target, query)).first()
                     if related is None:
                         raise ValueError(f"{col.get_label()} “{value}” was not found")
                     value = related
@@ -380,14 +437,20 @@ class ImportAction(Action):
         self._style = "button"
 
     def build_form(self, ctx, host, record=None, records=None):  # type: ignore[override]
+        from markupsafe import Markup
+
         from .forms import FileUpload, Placeholder
         from .forms.form import Form
 
         cols = ", ".join(c.get_label() + ("*" if c._required else "") for c in self.importer.get_columns())
+        example = ctx.url("_tw", "import-example", host=host.key, action=self.name)
+        link = Markup('<a href="{}" class="text-sm font-medium text-primary-600 hover:text-primary-500" '
+                      'hx-boost="false" download>{}</a>').format(example, __("Download example CSV"))
         return Form().columns(1).schema([
             FileUpload("file").label("File").accepted_file_types([".csv", ".xlsx", "text/csv"])
             .directory("imports").max_size(10240).required(),
             Placeholder("columns").label("Expected columns").content(cols),
+            Placeholder("example").hidden_label().content(link),
         ])
 
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]

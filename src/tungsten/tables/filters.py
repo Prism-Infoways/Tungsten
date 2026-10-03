@@ -54,6 +54,7 @@ class Filter(Component):
         return self
 
     def default(self, value: Any = True) -> "Filter":
+        """The value applied when the page first opens. A closure is called each time."""
         self._default = value
         return self
 
@@ -63,8 +64,14 @@ class Filter(Component):
         return self
 
     def columns(self, n: int) -> "Filter":
+        """Lay the filter's fields out in ``n`` columns in the filter panel."""
         self._columns = n
         return self
+
+    def grid_style(self) -> str:
+        """Inline style for the filter's field grid in the panel."""
+        n = max(1, int(self._columns or 1))
+        return f"grid-template-columns: repeat({n}, minmax(0, 1fr))" if n > 1 else ""
 
     def get_label(self) -> str:
         return __(str(self._label) if self._label is not None else headline(self.name))
@@ -83,12 +90,16 @@ class Filter(Component):
     def base(self) -> str:
         return f"filters.{self.name}"
 
+    def get_default(self) -> Any:
+        return evaluate(self._default)
+
     def default_data(self) -> dict[str, Any]:
-        if self._default is None:
+        default = self.get_default()
+        if default is None:
             return {}
-        if self._fields is None:
-            return {"isActive": bool(self._default)}
-        return dict(self._default) if isinstance(self._default, dict) else {}
+        if self._fields is None and type(self)._build_fields is Filter._build_fields:
+            return {"isActive": bool(default)}
+        return dict(default) if isinstance(default, dict) else {}
 
     def is_active(self, data: dict[str, Any]) -> bool:
         return any(v not in (None, "", [], False) for v in data.values())
@@ -192,12 +203,14 @@ class SelectFilter(Filter):
         self._bound_options = opts
 
     def default_data(self) -> dict[str, Any]:
-        if self._default is None:
-            return {}
+        default = self.get_default()
+        if default is None or self._fields is not None:
+            return super().default_data()
+        default = getattr(default, "value", default)  # enum members
         if self._multiple:
-            values = self._default if isinstance(self._default, (list, tuple)) else [self._default]
-            return {"values": [str(v) for v in values]}
-        return {"value": str(self._default)}
+            values = default if isinstance(default, (list, tuple, set)) else [default]
+            return {"values": [str(getattr(v, "value", v)) for v in values]}
+        return {"value": str(default)}
 
     def apply(self, query: Any, data: dict[str, Any], table: "Table") -> Any:
         if self._query is not None:
@@ -282,9 +295,10 @@ class TernaryFilter(Filter):
         ]
 
     def default_data(self) -> dict[str, Any]:
-        if self._default is None:
+        default = self.get_default()
+        if default is None:
             return {}
-        return {"value": "1" if self._default else "0"}
+        return {"value": "1" if default else "0"}
 
     def apply(self, query: Any, data: dict[str, Any], table: "Table") -> Any:
         value = data.get("value")
@@ -321,6 +335,17 @@ class TrashedFilter(TernaryFilter):
             .options({"with": "With deleted records", "only": "Only deleted records"})
         ]
 
+    def default_data(self) -> dict[str, Any]:
+        """``"with"`` / ``"only"`` / ``"without"``; ``True`` means with, ``False`` means only deleted."""
+        default = self.get_default()
+        if default is None:
+            return {}
+        if default is True:
+            default = "with"
+        elif default is False:
+            default = "only"
+        return {"value": default} if default in ("with", "only") else {}
+
     def apply(self, query: Any, data: dict[str, Any], table: "Table") -> Any:
         return query  # handled by the table, which knows the soft-delete column
 
@@ -342,6 +367,29 @@ class DateFilter(Filter):
     def _build_fields(self) -> list:
         return [DatePicker("from").label(lambda: __(":label from", label=self.get_label())),
                 DatePicker("until").label(lambda: __(":label until", label=self.get_label()))]
+
+    def default_data(self) -> dict[str, Any]:
+        """``default({"from": date, "until": date})``, ``default((from, until))`` or ``default(from)``."""
+        import datetime as dt
+
+        default = self.get_default()
+        if default is None:
+            return {}
+        if isinstance(default, dict):
+            values = {k: default.get(k) for k in ("from", "until")}
+        elif isinstance(default, (list, tuple)):
+            values = dict(zip(("from", "until"), default))
+        else:
+            values = {"from": default}
+        out = {}
+        for key, value in values.items():
+            if isinstance(value, dt.datetime):
+                value = value.date()
+            if isinstance(value, dt.date):
+                value = value.isoformat()
+            if value not in (None, ""):
+                out[key] = str(value)
+        return out
 
     def apply(self, query: Any, data: dict[str, Any], table: "Table") -> Any:
         import datetime as dt

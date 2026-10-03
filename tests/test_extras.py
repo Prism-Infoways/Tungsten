@@ -10,13 +10,12 @@ from markupsafe import Markup
 from sqlalchemy import ForeignKey, String, Table, Column, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 from sqlalchemy.pool import StaticPool
-from typer.testing import CliRunner
 
 from tungsten import Auth, NavigationItem, Page, Panel, Plugin, Resource, Tenancy, hash_password
 from tungsten.forms import TextInput
 from tungsten.tables import TextColumn
 
-from .conftest import PanelClient
+from .conftest import PanelClient, run_cli
 
 
 class Base(DeclarativeBase):
@@ -150,20 +149,17 @@ def test_brand_colors_from_hex():
     assert "--tw-c-primary-500:18 52 86;" in css and "--tw-c-gray-500:100 116 139;" in css
 
 
-def test_cli_generators(tmp_path, monkeypatch):
-    from tungsten.cli import app as cli
-
+def test_cli_generators(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
-    r = runner.invoke(cli, ["make:resource", "Project", "--model", "tests.test_extras:Project", "--generate"])
-    assert r.exit_code == 0, r.output
+    code = run_cli("make:resource", "Project", "--model", "tests.test_extras:Project", "--generate")
+    assert code == 0, capsys.readouterr()
     text = (tmp_path / "admin/resources/project_resource.py").read_text()
     assert "class ProjectResource(Resource):" in text and 'TextInput("name").required().max_length(50)' in text
-    assert runner.invoke(cli, ["make:resource", "Project"]).exit_code == 1  # exists
+    assert run_cli("make:resource", "Project") == 1  # exists
     for args in (["make:page", "Settings", "--form"], ["make:widget", "Sales", "--type", "chart"],
                  ["make:relation-manager", "Team", "projects"], ["make:plugin", "Blog"], ["init"]):
-        r = runner.invoke(cli, args)
-        assert r.exit_code == 0, (args, r.output)
+        code = run_cli(*args)
+        assert code == 0, (args, capsys.readouterr())
     compile((tmp_path / "admin/pages/settings.py").read_text(), "settings.py", "exec")
     compile((tmp_path / "admin/widgets/sales.py").read_text(), "sales.py", "exec")
     assert re.search(r"class ProjectsRelationManager", (tmp_path / "admin/resources/team_projects_relation_manager.py").read_text())

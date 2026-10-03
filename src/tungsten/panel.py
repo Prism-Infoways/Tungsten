@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import secrets
+from dataclasses import replace
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Iterable
 from urllib.parse import urlencode
@@ -13,6 +16,7 @@ from .auth import Auth
 from .i18n import LANGUAGE_NAMES, Translator
 from .i18n import translate as __
 from .navigation import NavigationGroup, NavigationItem
+from .notifications import with_icon_svg
 from .pages import Dashboard, Page
 from .rendering import Renderer
 from .resources.resource import Resource
@@ -30,7 +34,20 @@ if TYPE_CHECKING:  # pragma: no cover
     from .plugins import Plugin
 
 STATIC_DIR = Path(__file__).with_name("static")
-VERSION = "0.1.1"
+
+
+@lru_cache(maxsize=None)
+def asset_version(name: str) -> str:
+    """Short hash of a built-in asset, so browsers can cache it forever and still get new versions."""
+    try:
+        return hashlib.sha1((STATIC_DIR / "tungsten" / name).read_bytes()).hexdigest()[:10]
+    except OSError:
+        return VERSION
+
+
+VERSION = "0.1.2"
+VENDOR_FILES = ("chart.umd.min.js", "trix.umd.min.js", "trix.css", "tom-select.complete.min.js", "tom-select.css",
+                "sortable.min.js", "qrcode.js")
 
 
 class Panel:
@@ -81,6 +98,7 @@ class Panel:
         login_hero: dict[str, Any] | None = None,
         sidebar_footer: Any = None,
         https_only_cookies: bool = False,
+        app_url: str | None = None,
         activity_log: bool = False,
         locale: str = "en",
         locales: Iterable[str] | None = None,
@@ -130,6 +148,8 @@ class Panel:
         }
         self.sidebar_footer = sidebar_footer
         self.https_only_cookies = https_only_cookies
+        #: public address of the site (``https://admin.acme.example``) for links in emails
+        self.app_url = app_url.rstrip("/") if app_url else None
         self.activity_log = activity_log
         #: default language, and the languages users can pick from (switcher shows when more than one)
         self.locale = locale
@@ -177,8 +197,9 @@ class Panel:
         self._nav_items.extend(items)
         return self
 
-    def navigation_group(self, label: str, icon: str | None = None, collapsed: bool = False) -> "Panel":
-        self._nav_groups.append(NavigationGroup(label, icon=icon, collapsed=collapsed))
+    def navigation_group(self, label: str, icon: str | None = None, collapsed: bool = False,
+                         collapsible: bool = True) -> "Panel":
+        self._nav_groups.append(NavigationGroup(label, icon=icon, collapsible=collapsible, collapsed=collapsed))
         return self
 
     def user_menu_item(self, label: str, url: str, icon: str | None = None) -> "Panel":
@@ -258,8 +279,24 @@ class Panel:
             url += "?" + urlencode(query, doseq=True)
         return url
 
+    def absolute_url(self, ctx: "Context", path: str) -> str:
+        """A full link to ``path`` (from :meth:`url`) for emails.
+
+        Uses ``app_url`` when set. Otherwise it falls back to the request's
+        scheme and ``Host`` header, which a client can forge: set ``app_url``
+        in production.
+        """
+        if self.app_url:
+            return f"{self.app_url}{path}"
+        url = ctx.request.url
+        return f"{url.scheme}://{url.netloc}{path}"
+
     def asset(self, name: str) -> str:
-        return self.url("assets", name) + f"?v={VERSION}"
+        return self.url("assets", name) + f"?v={asset_version(name)}"
+
+    def vendor_assets(self) -> dict[str, str]:
+        """Big libraries that ``tungsten.js`` loads only when a page needs them."""
+        return {name: self.asset(f"vendor/{name}") for name in VENDOR_FILES}
 
     # ------------------------------------------------------------------ languages
     def resolve_locale(self, ctx: "Context") -> str:
@@ -320,7 +357,8 @@ class Panel:
             badge = call(r.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user)
             items.append(NavigationItem(r.get_navigation_label(), url, r.icon, r.navigation_group, r.navigation_sort,
                                         badge=badge, badge_color=r.navigation_badge_color, parent=r.navigation_parent,
-                                        active=current == url or current.startswith(url + "/")))
+                                        active=current == url or current.startswith(url + "/"),
+                                        active_icon=r.active_icon))
         for p in self._pages:
             if not p.show_in_navigation or not p.can_access(ctx):
                 continue
@@ -328,19 +366,15 @@ class Panel:
             badge = call(p.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user)
             items.append(NavigationItem(p.get_navigation_label(), url, p.icon, p.navigation_group, p.navigation_sort,
                                         badge=badge, badge_color=p.navigation_badge_color, parent=p.navigation_parent,
-                                        active=current == url or current.startswith(url + "/")))
+                                        active=current == url or current.startswith(url + "/"),
+                                        active_icon=getattr(p, "active_icon", None)))
         for item in self._nav_items:
-            if not evaluate(item.visible, ctx=ctx, user=ctx.user):
-                continue
-            prefix = item.active_prefix or item.url
-            item.active = bool(prefix) and prefix != "#" and (current == prefix or current.startswith(prefix.rstrip("/") + "/"))
-            items.append(item)
+            if evaluate(item.visible, ctx=ctx, user=ctx.user):
+                items.append(self._custom_nav_item(ctx, item, current))
 
         # nest children under their parent (matched by label)
         by_label = {i.label: i for i in items}
         top: list[NavigationItem] = []
-        for item in items:
-            item.children = [c for c in item.children if c not in items]
         for item in items:
             # parents are named in English in code; labels may be translated
             parent = (by_label.get(__(item.parent)) or by_label.get(item.parent)) if item.parent else None
@@ -357,6 +391,14 @@ class Panel:
                 groups[item.group] = NavigationGroup(item.group or "")
             groups[item.group].items.append(item)
         return [g for g in groups.values() if g.items]
+
+    def _custom_nav_item(self, ctx: "Context", item: NavigationItem, current: str) -> NavigationItem:
+        """A per-request copy of a custom item: the registered one is shared between requests, so never changed."""
+        prefix = item.active_prefix or item.url
+        active = bool(prefix) and prefix != "#" and (current == prefix or current.startswith(prefix.rstrip("/") + "/"))
+        children = [self._custom_nav_item(ctx, c, current) for c in item.children
+                    if evaluate(c.visible, ctx=ctx, user=ctx.user)]
+        return replace(item, active=active, children=children)
 
     # ------------------------------------------------------------------ rendering
     def hooks(self, name: str, ctx: "Context") -> Markup:
@@ -385,7 +427,7 @@ class Panel:
             "user_avatar": self.auth.avatar_url(ctx.user),
             "user_role": self._user_role_label(ctx),
             "navigation": self.build_navigation(ctx) if ctx.user is not None or not self.auth.enabled else [],
-            "flash": ctx.pop_flash(),
+            "flash": [with_icon_svg(n) for n in ctx.pop_flash()],
             "csrf_token": self.csrf_token(ctx),
             "tenant": ctx.tenant,
             "tenants": tenants,

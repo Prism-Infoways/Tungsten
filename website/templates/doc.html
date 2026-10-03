@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% set active = 'docs' %}
+{% block title %}{{ page.title }} · Tungsten docs{% endblock %}
+{% block description %}{{ page.description }}{% endblock %}
+{% block body_class %}docs{% endblock %}
+{% block menu_button %}
+<button class="icon-btn menu-btn" type="button" data-nav-toggle aria-label="Open docs menu" aria-expanded="false" aria-controls="sidebar">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+</button>
+{% endblock %}
+{% block content %}
+<div class="docs-layout">
+  <aside class="sidebar" id="sidebar" aria-label="Docs">
+    <nav>
+      {% for name, slugs in nav %}
+      <div class="nav-group">
+        <h2>{{ name }}</h2>
+        <ul>
+          {% for s in slugs if s in pages %}
+          <li><a href="{{ s }}.html" {% if s == page.slug %}aria-current="page"{% endif %}>{{ pages[s].title }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </nav>
+  </aside>
+  <div class="sidebar-scrim" data-nav-close></div>
+
+  <main id="main" class="doc">
+    <article>
+      <header class="doc-head">
+        <p class="eyebrow">{{ section }}</p>
+        <h1>{{ page.title }}</h1>
+        {% if page.description %}<p class="doc-lede">{{ page.description }}</p>{% endif %}
+      </header>
+      <div class="prose">
+        {{ page.body }}
+      </div>
+    </article>
+    <footer class="doc-foot">
+      <a class="edit" href="{{ edit_url }}" rel="noopener">Edit this page on GitHub</a>
+      <nav class="pager" aria-label="Previous and next page">
+        {% if prev %}<a class="prev" href="{{ prev.slug }}.html"><span>Previous</span>{{ prev.title }}</a>{% else %}<span></span>{% endif %}
+        {% if next %}<a class="next" href="{{ next.slug }}.html"><span>Next</span>{{ next.title }}</a>{% endif %}
+      </nav>
+    </footer>
+  </main>
+
+  <aside class="toc" aria-label="On this page">
+    {% if page.toc %}
+    <h2>On this page</h2>
+    <ul>
+      {% for t in page.toc %}
+      <li><a href="#{{ t.id }}">{{ t.name }}</a>
+        {% if t.children %}<ul>{% for c in t.children %}<li><a href="#{{ c.id }}">{{ c.name }}</a></li>{% endfor %}</ul>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

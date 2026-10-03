@@ -3,7 +3,7 @@
 {% set page_keys = rows | selectattr('key', 'defined') | map(attribute='key') | list %}
 <div id="{{ table.id }}" class="tw-card overflow-hidden" data-tw-table
      hx-get="{{ table.url() }}" hx-trigger="tw-refresh from:body{% if table._poll %}, every {{ table._poll }}{% endif %}" hx-swap="outerHTML"
-     x-data="{ selected: [], panel: {{ 'true' if table.param('_panel') else 'false' }}, keys: {{ tojson_attr(page_keys) }},
+     x-data="{ selected: [], collapsed: [], panel: {{ 'true' if table.param('_panel') else 'false' }}, keys: {{ tojson_attr(page_keys) }},
                get allSelected() { return this.keys.length > 0 && this.keys.every(k => this.selected.includes(k)); },
                toggleAll() { this.selected = this.allSelected ? [] : [...this.keys]; } }"
      @tw-deselect.window="selected = []">
@@ -138,15 +138,40 @@
             {% endfor %}
             {% if row_actions %}<th class="px-4 py-3 text-end text-sm font-medium text-gray-600 dark:text-gray-300">{{ __('Actions') }}</th>{% endif %}
           </tr>
+          {% if individual_search %}
+          {# per-column search boxes: searchable(is_individual=True) #}
+          <tr>
+            {% if reordering %}<th></th>{% endif %}
+            {% if selectable %}<th></th>{% endif %}
+            {% if table._row_index %}<th></th>{% endif %}
+            {% for c in columns %}
+            <th class="px-3 pb-3 font-normal">
+              {% if c._searchable and c._individual_searchable %}{{ ui.search_input('col_search.' ~ c.name, column_searches.get(c.name, ''), __('Search :records...', records=c.get_label() | lower)) }}{% endif %}
+            </th>
+            {% endfor %}
+            {% if row_actions %}<th></th>{% endif %}
+          </tr>
+          {% endif %}
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-white/5"
                {% if reordering %}data-tw-sortable="{{ ctx.url('_tw', 'reorder') }}" data-host="{{ host.key }}"{% endif %}>
           {% set colspan = columns | length + (1 if reordering else 0) + (1 if selectable else 0) + (1 if table._row_index else 0) + (1 if row_actions else 0) %}
           {% for row in rows %}
           {% if row.group is defined %}
-          <tr class="bg-gray-50 dark:bg-white/5"><td colspan="{{ colspan }}" class="px-4 py-2 text-sm font-semibold text-gray-950 dark:text-white">{{ row.group }}</td></tr>
+          {% if group._collapsible %}
+          <tr class="cursor-pointer bg-gray-50 dark:bg-white/5" data-tw-group="{{ row.group_index }}"
+              @click="collapsed.includes({{ row.group_index }}) ? collapsed.splice(collapsed.indexOf({{ row.group_index }}), 1) : collapsed.push({{ row.group_index }})">
+            <td colspan="{{ colspan }}" class="px-4 py-2 text-sm font-semibold text-gray-950 dark:text-white">
+              <button type="button" class="flex w-full items-center gap-2 text-start" :aria-expanded="!collapsed.includes({{ row.group_index }})">
+                <span class="text-gray-400 transition-transform" :class="collapsed.includes({{ row.group_index }}) && '-rotate-90'">{{ icon('chevron-down', 'h-4 w-4') }}</span>{{ row.group }}
+              </button>
+            </td>
+          </tr>
           {% else %}
-          <tr class="transition {{ 'odd:bg-gray-50/50 dark:odd:bg-white/[0.02]' if table._striped }} {{ 'opacity-60' if row.trashed }} {{ row.classes }} hover:bg-gray-50 dark:hover:bg-white/5"
+          <tr class="bg-gray-50 dark:bg-white/5"><td colspan="{{ colspan }}" class="px-4 py-2 text-sm font-semibold text-gray-950 dark:text-white">{{ row.group }}</td></tr>
+          {% endif %}
+          {% else %}
+          <tr {% if group and group._collapsible %}x-show="!collapsed.includes({{ row.group_index }})"{% endif %} class="transition {{ 'odd:bg-gray-50/50 dark:odd:bg-white/[0.02]' if table._striped }} {{ 'opacity-60' if row.trashed }} {{ row.classes }} hover:bg-gray-50 dark:hover:bg-white/5"
               :class="selected.includes('{{ row.key }}') && '!bg-primary-50/60 dark:!bg-primary-500/10'" data-key="{{ row.key }}">
             {% if reordering %}<td class="w-1 px-4 py-3"><span class="tw-drag-handle cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing">{{ icon('grip-vertical', 'h-5 w-5') }}</span></td>{% endif %}
             {% if selectable %}
@@ -237,7 +262,7 @@
       </div>
       <div class="grid gap-5">
         {% for f in panel_filters %}
-        <div class="grid gap-4">
+        <div class="grid gap-4" {% if f.grid_style() %}style="{{ f.grid_style() }}"{% endif %}>
           {% for field in f.get_fields() %}{{ field.render(table.filter_form, f.base()) }}{% endfor %}
         </div>
         {% endfor %}

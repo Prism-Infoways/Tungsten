@@ -4,14 +4,65 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
 (function () {
   "use strict";
 
+  // ------------------------------------------------------------------ on-demand libraries
+  // Big libraries (charts, rich editor, ...) load only on pages that use them.
+  var vendor = {};
+  try { vendor = JSON.parse(document.currentScript.getAttribute("data-tw-vendor") || "{}"); } catch (e) {}
+  var loaded = {};
+  function loadFile(name) {
+    if (!loaded[name]) {
+      loaded[name] = new Promise(function (resolve, reject) {
+        var url = vendor[name];
+        if (!url) return reject(new Error("unknown asset " + name));
+        var el;
+        if (/\.css$/.test(name)) {
+          el = document.createElement("link");
+          el.rel = "stylesheet";
+          el.href = url;
+        } else {
+          el = document.createElement("script");
+          el.src = url;
+        }
+        el.onload = function () { resolve(); };
+        el.onerror = function () { delete loaded[name]; reject(new Error("could not load " + name)); };
+        document.head.appendChild(el);
+      });
+    }
+    return loaded[name];
+  }
+  var LIBS = {
+    chart: { files: ["chart.umd.min.js"], ready: function () { return window.Chart; } },
+    trix: { files: ["trix.css", "trix.umd.min.js"], ready: function () { return window.Trix; } },
+    select: { files: ["tom-select.css", "tom-select.complete.min.js"], ready: function () { return window.TomSelect; } },
+    sortable: { files: ["sortable.min.js"], ready: function () { return window.Sortable; } },
+    qr: { files: ["qrcode.js"], ready: function () { return window.qrcode; } },
+  };
+  // twNeed("chart").then(...) — also handy for plugins
+  window.twNeed = function (lib) {
+    var def = LIBS[lib];
+    if (!def) return Promise.reject(new Error("unknown library " + lib));
+    if (def.ready()) return Promise.resolve();
+    return Promise.all(def.files.map(loadFile));
+  };
+  // run `fn` on every match of `selector` inside `root`, after `lib` has loaded
+  function withLib(root, selector, lib, fn) {
+    var found = root.querySelectorAll(selector);
+    if (!found.length) return;
+    window.twNeed(lib).then(function () { found.forEach(fn); }, function (e) { console.error(e); });
+  }
+
   // ------------------------------------------------------------------ Alpine stores
   document.addEventListener("alpine:init", function () {
     var Alpine = window.Alpine;
 
     Alpine.store("theme", {
       mode: "system",
+      // Panel(dark_mode=False): always light, whatever the OS or a stored choice says
+      allowed: document.documentElement.dataset.darkMode !== "false",
       init: function () {
-        try { this.mode = localStorage.getItem("tw-theme") || document.documentElement.dataset.defaultTheme || "system"; } catch (e) {}
+        this.mode = document.documentElement.dataset.defaultTheme || "system";
+        try { this.mode = localStorage.getItem("tw-theme") || this.mode; } catch (e) {}
+        if (!this.allowed) return;
         var self = this;
         window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { self.apply(); });
       },
@@ -22,7 +73,7 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
         document.dispatchEvent(new CustomEvent("tw-theme-changed"));
       },
       apply: function () {
-        var dark = this.mode === "dark" || (this.mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        var dark = this.allowed && (this.mode === "dark" || (this.mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches));
         document.documentElement.classList.toggle("dark", dark);
       },
     });
@@ -195,12 +246,21 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
     if (!liveId || editor._twLive) return;
     editor._twLive = true;
     var timer;
+    var changed = false;
+    function send() {
+      var input = document.getElementById(liveId);
+      if (input) input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    if (editor.hasAttribute("data-tw-live-blur")) {
+      // live(on_blur=True): refresh when the user leaves the editor
+      editor.addEventListener("trix-change", function () { changed = true; });
+      editor.addEventListener("trix-blur", function () { if (changed) { changed = false; send(); } });
+      return;
+    }
+    var delay = parseInt(editor.getAttribute("data-tw-live-delay"), 10) || 600;
     editor.addEventListener("trix-change", function () {
       clearTimeout(timer);
-      timer = setTimeout(function () {
-        var input = document.getElementById(liveId);
-        if (input) input.dispatchEvent(new Event("change", { bubbles: true }));
-      }, 600);
+      timer = setTimeout(send, delay);
     });
   }
 
@@ -228,10 +288,11 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
   }
 
   function init(root) {
-    root.querySelectorAll("[data-tw-qr]").forEach(initQr);
-    root.querySelectorAll("tbody[data-tw-sortable]").forEach(initSortable);
-    root.querySelectorAll("canvas[data-tw-chart]").forEach(initChart);
-    root.querySelectorAll("select[data-tw-select]").forEach(initSelect);
+    withLib(root, "[data-tw-qr]", "qr", initQr);
+    withLib(root, "tbody[data-tw-sortable]", "sortable", initSortable);
+    withLib(root, "canvas[data-tw-chart]", "chart", initChart);
+    withLib(root, "select[data-tw-select]", "select", initSelect);
+    withLib(root, "trix-editor", "trix", function () {});
     root.querySelectorAll("trix-editor[data-tw-live]").forEach(initRichEditor);
   }
 
@@ -242,9 +303,9 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
     }
   }
 
-  // libraries load with `defer`; wait for all of them
-  if (document.readyState === "complete") boot();
-  else window.addEventListener("load", boot);
+  // this script is deferred, so the page is already parsed
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
 
   // redraw charts when the theme changes (colors differ)
   document.addEventListener("tw-theme-changed", function () {

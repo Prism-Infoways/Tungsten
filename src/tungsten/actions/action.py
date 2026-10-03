@@ -159,6 +159,8 @@ class Action(Component):
         return self
 
     def failure_notification_title(self, title: Any) -> "Action":
+        """Toast shown when the action fails: it returns ``False``, or raises an error (the database
+        changes are rolled back). Without a title an error is raised as usual."""
         self._failure_title = title
         return self
 
@@ -298,6 +300,14 @@ class Action(Component):
             return None
         body = evaluate(self._success_body, **self.ev(ctx, record, records))
         return Notification(title).body(body).success()
+
+    def failure_notification(self, ctx: "Context", record: Any = None, records: Any = None):
+        from ..notifications import Notification
+
+        title = evaluate(self._failure_title, **self.ev(ctx, record, records))
+        if not title:
+            return None
+        return Notification(title).danger()
 
     # ------------------------------------------------------------------ render
     def view_data(self, ctx: "Context", host: "Host | None", record: Any = None, *, style: str | None = None,

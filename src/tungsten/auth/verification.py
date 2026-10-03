@@ -44,8 +44,7 @@ def make_token(panel: "Panel", user: Any) -> str:
 
 def verification_url(ctx: "Context", user: Any) -> str:
     panel = ctx.panel
-    url = ctx.request.url
-    return f"{url.scheme}://{url.netloc}{panel.url('email-verification', 'verify', make_token(panel, user))}"
+    return panel.absolute_url(ctx, panel.url("email-verification", "verify", make_token(panel, user)))
 
 
 def read_token(panel: "Panel", token: str) -> dict | None:

@@ -3,18 +3,18 @@
     <div x-show="t.visible" x-transition:enter="transition duration-200" x-transition:enter-start="translate-y-2 opacity-0"
          x-transition:leave="transition duration-150" x-transition:leave-end="opacity-0"
          class="pointer-events-auto flex w-full max-w-sm gap-3 rounded-xl bg-white p-4 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" :class="$store.toasts.tone(t.color)" x-html="$store.toasts.icon(t.icon)"></span>
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" :class="$store.toasts.tone(t.color)" x-html="t.icon_svg || $store.toasts.icon(t.icon)"></span>
       <div class="min-w-0 flex-1">
         <p class="text-sm font-semibold text-gray-950 dark:text-white" x-text="t.title"></p>
         <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400" x-show="t.body" x-text="t.body"></p>
         <div class="mt-2 flex gap-3" x-show="t.actions && t.actions.length">
-          <template x-for="a in (t.actions || [])"><a :href="a.url" class="text-sm font-medium text-primary-600 hover:text-primary-500" x-text="a.label"></a></template>
+          <template x-for="a in (t.actions || [])"><a :href="a.url" class="text-sm font-medium" :class="{{ tojson_attr(colors.LINK) }}[a.color] || '{{ colors.LINK.primary }}'" x-text="a.label"></a></template>
         </div>
       </div>
       <button type="button" class="text-gray-400 hover:text-gray-600" @click="$store.toasts.dismiss(t.id)" aria-label="{{ __('Close') }}">{{ icon('x', 'h-4 w-4') }}</button>
     </div>
   </template>
-  {# icon sources for toasts #}
+  {# icons for toasts made in the browser (server toasts bring their own icon_svg) #}
   <template id="tw-toast-icons">
     {% for name in ['circle-check', 'circle-x', 'triangle-alert', 'info', 'bell', 'copy', 'check'] %}<span data-icon="{{ name }}">{{ icon(name, 'h-4 w-4') }}</span>{% endfor %}
   </template>

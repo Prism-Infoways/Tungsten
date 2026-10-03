@@ -2,6 +2,8 @@
 
 **A Filament-style admin panel for FastAPI.** Describe a model once in Python and get list, create, edit and view pages, with search, filters, bulk actions, modals, dashboards, login and roles.
 
+**[Website & docs](https://prism-infoways.github.io/Tungsten/)** · [PyPI](https://pypi.org/project/tungsten-admin/) · [1-minute video](promo/promo.mp4)
+
 Tungsten renders HTML on the server (Jinja2) and uses HTMX + Alpine.js in the browser. You write no JavaScript. It works with SQLAlchemy 2.0 models (SQLModel models work too).
 
 ![Tungsten admin panel demo](https://raw.githubusercontent.com/Prism-Infoways/Tungsten/6bc42ecc07a6e8bf2376ad8e218d1f80a91a8926/docs/images/tour.gif)
@@ -93,7 +95,7 @@ panel = Panel(
     path="/admin",
     session_factory=SessionLocal,
     secret_key="change-me",          # signs the session cookie
-    auth=Auth(User),                 # needs email + password (hash) fields
+    auth=Auth(User),                 # needs email + password (hash) fields; password_field="..." if not "password"
     brand_name="Acme",
     colors={"primary": "orange"},    # or a hex color: "#ec5b1d"
 )
@@ -155,8 +157,8 @@ class OrderResource(Resource):
     policy = None                       # object with view_any/update/delete(user, record) ...
 
     @classmethod
-    def navigation_badge(cls, db):      # number next to the menu item
-        return db.scalar(select(func.count()).where(Order.status == "pending"))
+    def navigation_badge(cls, ctx):     # number next to the menu item (may also ask for db or user)
+        return ctx.db.scalar(select(func.count()).where(Order.status == "pending"))
 
     @classmethod
     def query(cls, ctx):                # scope every page
@@ -169,7 +171,7 @@ class OrderResource(Resource):
     def after_save(cls, record, db): ...
 ```
 
-Other hooks: `mutate_form_data_before_create`, `before_create`, `mutate_form_data_before_save`, `before_save`, `before_delete`, `after_delete`. Soft deletes turn on by themselves when the model has a `deleted_at` column.
+Other hooks: `mutate_form_data_before_create`, `before_create`, `mutate_form_data_before_save`, `before_save`, `before_delete`, `after_delete`, `after_restore`. Soft deletes turn on by themselves when the model has a `deleted_at` column.
 
 Change the header buttons with `header_actions(cls, ctx, page, record)`.
 
@@ -543,14 +545,25 @@ tungsten lang:extract hi --path app                      # collect text to trans
 
 ```bash
 pip install -e ".[dev]"
-pytest                       # 91 tests
+pytest                       # 156 tests
 TUNGSTEN_TEST_ASYNC=1 pytest  # the same tests on an async engine (aiosqlite)
 
 # rebuild CSS/JS assets after changing templates or classes
 cd frontend && npm install && npm run build
 ```
 
-The built assets (Tailwind CSS, HTMX, Alpine.js, Chart.js, Trix, Tom Select, SortableJS, a QR code generator and Lucide icons) ship inside the package. Nothing loads from a CDN, except the optional Google font (`Panel(font=None)` turns it off).
+The built assets (Tailwind CSS, HTMX, Alpine.js, Chart.js, Trix, Tom Select, SortableJS, a QR code generator and Lucide icons) ship inside the package. Nothing loads from a CDN, except the optional Google font (`Panel(font=None)` turns it off). Pages load only HTMX, Alpine and `tungsten.js` up front; the bigger libraries load on the pages that use them, and everything is sent gzip-compressed with long-lived browser caching.
+
+**Website and docs** live in `website/` and `docs/` (Markdown). Build them with:
+
+```bash
+pip install -r website/requirements.txt
+python website/build.py --serve     # http://127.0.0.1:8080
+```
+
+They are published to GitHub Pages by `.github/workflows/website.yml`.
+
+**Releasing to PyPI:** bump `version` in `pyproject.toml`, then publish a GitHub Release with the tag `v<version>`. `.github/workflows/publish.yml` runs the tests and uploads the package (one-time setup: add this repo as a *trusted publisher* on pypi.org, workflow `publish.yml`, environment `pypi`).
 
 ## Roadmap
 

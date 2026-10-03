@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="{{ (current_locale() or panel.locale) | replace('_', '-') }}"{% if is_rtl(current_locale()) %} dir="rtl"{% endif %} class="h-full antialiased">
+<html lang="{{ (current_locale() or panel.locale) | replace('_', '-') }}"{% if is_rtl(current_locale()) %} dir="rtl"{% endif %} class="h-full antialiased"
+      data-default-theme="{{ panel.default_theme }}" data-dark-mode="{{ 'true' if panel.dark_mode else 'false' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -27,15 +28,9 @@
   {% endif %}
   <style>{{ panel.theme_css() }}</style>
   <link rel="stylesheet" href="{{ panel.asset('tungsten.css') }}">
-  <link rel="stylesheet" href="{{ panel.asset('vendor/trix.css') }}">
-  <link rel="stylesheet" href="{{ panel.asset('vendor/tom-select.css') }}">
   <script src="{{ panel.asset('vendor/htmx.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/trix.umd.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/tom-select.complete.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/chart.umd.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/sortable.min.js') }}"></script>
-  <script defer src="{{ panel.asset('vendor/qrcode.js') }}"></script>
-  <script defer src="{{ panel.asset('tungsten.js') }}"></script>
+  {# charts, rich editor, searchable selects, drag sorting and QR codes load only on pages that use them #}
+  <script defer src="{{ panel.asset('tungsten.js') }}" data-tw-vendor='{{ tojson_attr(panel.vendor_assets()) }}'></script>
   <script defer src="{{ panel.asset('vendor/alpine.min.js') }}"></script>
   {{ panel.hooks('head.end', ctx) }}
 </head>
