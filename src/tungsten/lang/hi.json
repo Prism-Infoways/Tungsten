@@ -37,7 +37,6 @@
   "Back to sign in": "साइन इन पर वापस",
   "Blue": "नीला",
   "Breadcrumb": "ब्रेडक्रम्ब",
-  "Build powerful internal tools, fast and beautiful.": "तेज़ और सुंदर इंटरनल टूल बनाएँ।",
   "Bulk delete": "एक साथ हटाएँ",
   "Bulk force delete": "एक साथ हमेशा के लिए हटाएँ",
   "Bulk restore": "एक साथ वापस लाएँ",
@@ -362,9 +361,10 @@
   "Python projects": "Python प्रोजेक्ट्स",
   "Scalable architecture": "बढ़ने लायक ढाँचा",
   "Beautiful UI components": "सुंदर UI कंपोनेंट",
-  "Powerful • Modern • Scalable": "दमदार • आधुनिक • बढ़ने लायक",
   "Fast development": "तेज़ डेवलपमेंट",
   "Secure & role based": "सुरक्षित और रोल आधारित",
   "Enter your password": "अपना पासवर्ड डालें",
-  "Save": "सेव करें"
+  "Save": "सेव करें",
+  "Element 74 • Built for FastAPI": "एलिमेंट 74 • FastAPI के लिए बना",
+  "The metal that glows in a bulb, now lighting up your data.": "बल्ब में चमकने वाली धातु, अब आपके डेटा को रोशन करती है।"
 }

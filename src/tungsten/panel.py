@@ -127,10 +127,10 @@ class Panel:
         #: the dark panel beside the login form. ``highlight`` is the part of the heading shown in the brand color;
         #: ``features`` is a list of ``{"icon": ..., "label": ...}`` tiles (an empty list hides them).
         self.login_hero = {
-            "eyebrow": "Powerful • Modern • Scalable",
+            "eyebrow": "Element 74 • Built for FastAPI",
             "heading": "Modern admin panel for Python projects",
             "highlight": "Python projects",
-            "text": "Build powerful internal tools, fast and beautiful.",
+            "text": "The metal that glows in a bulb, now lighting up your data.",
             "features": [
                 {"icon": "zap", "label": "Fast development"},
                 {"icon": "box", "label": "Beautiful UI components"},
