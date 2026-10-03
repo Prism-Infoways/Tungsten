@@ -30,7 +30,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .plugins import Plugin
 
 STATIC_DIR = Path(__file__).with_name("static")
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 
 class Panel:

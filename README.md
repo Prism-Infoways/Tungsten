@@ -4,6 +4,8 @@
 
 Tungsten renders HTML on the server (Jinja2) and uses HTMX + Alpine.js in the browser. You write no JavaScript. It works with SQLAlchemy 2.0 models (SQLModel models work too).
 
+![Tungsten admin panel demo](https://raw.githubusercontent.com/Prism-Infoways/Tungsten/6bc42ecc07a6e8bf2376ad8e218d1f80a91a8926/docs/images/tour.gif)
+
 ```python
 class ProductResource(Resource):
     model = Product
@@ -31,6 +33,18 @@ class ProductResource(Resource):
             .bulk_actions([DeleteBulkAction()])
         )
 ```
+
+---
+
+## Screenshots
+
+| Dashboard | Dashboard (dark mode) |
+| --- | --- |
+| ![Dashboard](https://raw.githubusercontent.com/Prism-Infoways/Tungsten/6bc42ecc07a6e8bf2376ad8e218d1f80a91a8926/docs/images/dashboard-light.png) | ![Dashboard in dark mode](https://raw.githubusercontent.com/Prism-Infoways/Tungsten/6bc42ecc07a6e8bf2376ad8e218d1f80a91a8926/docs/images/dashboard-dark.png) |
+| **Table with tabs, filters and search** | **Table (dark mode)** |
+| ![Products table](https://raw.githubusercontent.com/Prism-Infoways/Tungsten/6bc42ecc07a6e8bf2376ad8e218d1f80a91a8926/docs/images/products-light.png) | ![Products table in dark mode](https://raw.githubusercontent.com/Prism-Infoways/Tungsten/6bc42ecc07a6e8bf2376ad8e218d1f80a91a8926/docs/images/products-dark.png) |
+| **Form with tabs and rich editor** | **Orders** |
+| ![Edit product form](https://raw.githubusercontent.com/Prism-Infoways/Tungsten/6bc42ecc07a6e8bf2376ad8e218d1f80a91a8926/docs/images/product-edit-light.png) | ![Orders table](https://raw.githubusercontent.com/Prism-Infoways/Tungsten/6bc42ecc07a6e8bf2376ad8e218d1f80a91a8926/docs/images/orders-light.png) |
 
 ---
 
