@@ -2,7 +2,7 @@
 
 **A Filament-style admin panel for FastAPI.** Describe a model once in Python and get list, create, edit and view pages, with search, filters, bulk actions, modals, dashboards, login and roles.
 
-**[Website & docs](https://prism-infoways.github.io/Tungsten/)** · [PyPI](https://pypi.org/project/tungsten-admin/) · [1-minute video](promo/promo.mp4)
+**[Website & docs](https://tungsten.prisminfoways.com/)** · [PyPI](https://pypi.org/project/tungsten-admin/) · [1-minute video](promo/promo.mp4)
 
 Tungsten renders HTML on the server (Jinja2) and uses HTMX + Alpine.js in the browser. You write no JavaScript. It works with SQLAlchemy 2.0 models (SQLModel models work too).
 
