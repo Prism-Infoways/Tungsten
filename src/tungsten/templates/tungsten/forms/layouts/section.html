@@ -11,7 +11,7 @@
   {% if v.heading %}
   <header class="flex items-center gap-x-3 px-6 {{ 'py-3' if v.compact else 'py-4' }} {{ 'cursor-pointer' if v.collapsible }}"
           {% if v.collapsible %}@click="open = !open"{% endif %}>
-    {% if v.icon %}<span class="text-gray-400">{{ icon(v.icon, 'h-5 w-5') }}</span>{% endif %}
+    {% if v.icon %}<span class="tw-icon-tile {{ 'h-8 w-8' if v.compact else 'h-9 w-9' }} {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ icon(v.icon, 'h-4 w-4' if v.compact else 'h-5 w-5') }}</span>{% endif %}
     <div class="flex-1">
       <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ v.heading }}</h3>
       {% if v.description %}<p class="text-sm text-gray-500 dark:text-gray-400">{{ v.description }}</p>{% endif %}

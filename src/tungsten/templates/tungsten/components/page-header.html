@@ -1,10 +1,17 @@
-{# vars: title, subheading, breadcrumbs, header_actions, host, record (optional), eyebrow (optional) #}
+{# vars: title, subheading, breadcrumbs, header_actions, host, record (optional), eyebrow (optional),
+   title_suffix (optional, e.g. an emoji), hero (optional: soft glow behind the header) #}
 {% import "tungsten/components/ui.html" as ui %}
-<header class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+<header class="relative mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+  {% if hero is defined and hero %}
+  <div class="pointer-events-none absolute -inset-x-4 -top-10 -z-10 h-48 sm:-inset-x-6 lg:-inset-x-8 overflow-hidden" aria-hidden="true">
+    <div class="absolute -top-24 start-1/3 h-64 w-[36rem] rounded-full bg-primary-400/15 blur-3xl dark:bg-primary-500/10"></div>
+    <div class="absolute -top-16 end-0 h-48 w-80 rounded-full bg-primary-200/30 blur-3xl dark:bg-primary-500/5"></div>
+  </div>
+  {% endif %}
   <div class="min-w-0">
     {{ ui.breadcrumbs(breadcrumbs) }}
-    {% if eyebrow %}<p class="mb-1 text-xs font-semibold uppercase tracking-widest text-gray-500">{{ eyebrow }}</p>{% endif %}
-    <h1 class="truncate text-2xl font-bold tracking-tight text-gray-950 sm:text-3xl dark:text-white">{{ title }}</h1>
+    {% if eyebrow %}<p class="mb-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">{{ eyebrow }}</p>{% endif %}
+    <h1 class="truncate text-2xl font-bold tracking-tight text-gray-950 sm:text-3xl dark:text-white">{{ title }}{% if title_suffix is defined and title_suffix %} <span class="inline-block origin-[70%_70%] motion-safe:animate-[tw-wave_1.6s_ease-in-out_1]">{{ title_suffix }}</span>{% endif %}</h1>
     {% if subheading %}<p class="mt-1 text-sm text-gray-500 sm:text-base dark:text-gray-400">{{ subheading }}</p>{% endif %}
   </div>
   <div class="flex flex-wrap items-center gap-3">

@@ -142,9 +142,20 @@ class Panel:
         self.database_notifications = database_notifications
         self.notifications_polling = notifications_polling
         self.dashboard = dashboard
-        self.login_hero = login_hero or {
+        #: the dark panel beside the login form. ``highlight`` is the part of the heading shown in the brand color;
+        #: ``features`` is a list of ``{"icon": ..., "label": ...}`` tiles (an empty list hides them).
+        self.login_hero = {
+            "eyebrow": "Element 74 • Built for FastAPI",
             "heading": "Modern admin panel for Python projects",
-            "text": "Build powerful internal tools, fast and beautiful.",
+            "highlight": "Python projects",
+            "text": "The metal that glows in a bulb, now lighting up your data.",
+            "features": [
+                {"icon": "zap", "label": "Fast development"},
+                {"icon": "box", "label": "Beautiful UI components"},
+                {"icon": "shield-check", "label": "Secure & role based"},
+                {"icon": "chart-column", "label": "Scalable architecture"},
+            ],
+            **(login_hero or {}),
         }
         self.sidebar_footer = sidebar_footer
         self.https_only_cookies = https_only_cookies

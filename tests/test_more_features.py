@@ -120,9 +120,9 @@ def test_dashboard_filters_reach_widgets(admin):
     html = admin.get("/admin/?period=7").text
     assert 'name="period"' in html and '<option value="7" selected' in html
     r = admin.get("/admin/_tw/widget/shop-stats?period=7", htmx=True)
-    assert "vs previous week" in r.text
+    assert "In the last 7 days" in r.text
     r = admin.get("/admin/_tw/widget/shop-stats", htmx=True)
-    assert "vs previous 30 days" in r.text
+    assert "In the last 30 days" in r.text
 
 
 # ---------------------------------------------------------------------- auth

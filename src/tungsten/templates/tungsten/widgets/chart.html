@@ -1,20 +1,18 @@
 {% import "tungsten/components/ui.html" as ui %}
 <section class="tw-card flex h-full flex-col p-6">
-  <header class="mb-4 flex items-start justify-between gap-4">
-    <div>
-      {% if w.heading %}<h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __(w.heading) }}</h3>{% endif %}
-      {% if w.description %}<p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ __(w.description) }}</p>{% endif %}
-    </div>
+  <header class="mb-4 flex items-center justify-between gap-4">
+    {% if w.heading %}{{ ui.card_heading(__(w.heading), __(w.description) if w.description else none, w.icon, w.icon_color) }}{% else %}<span></span>{% endif %}
     {% if filters %}
-    <select class="tw-input w-auto py-1.5 pe-9 text-sm" aria-label="{{ __('Period') }}" name="filter"
+    <select class="tw-input w-auto shrink-0 py-1.5 pe-9 text-sm" aria-label="{{ __('Period') }}" name="filter"
             hx-get="{{ w.get_url(ctx, filter=None) }}" hx-target="closest section" hx-swap="outerHTML">
       {% for value, label in filters.items() %}<option value="{{ value }}" {% if value == active_filter %}selected{% endif %}>{{ __(label) }}</option>{% endfor %}
     </select>
     {% endif %}
   </header>
-  <div class="{{ 'flex flex-col items-center gap-6' ~ (' 2xl:flex-row' if w.column_span != 1 else '') if legend else '' }} flex-1">
-    <div class="relative w-full" style="height: {{ w.max_height }}">
-      <canvas data-tw-chart="{{ tojson_attr(chart) }}" aria-label="{{ w.heading or __('Chart') }}" role="img"></canvas>
+  <div class="flex flex-1 flex-col {{ 'items-center gap-6' ~ (' 2xl:flex-row' if w.column_span != 1 else '') if legend }}">
+    {# the canvas is absolutely placed so the chart can grow to fill a taller card without a resize loop #}
+    <div class="relative w-full {{ 'flex-1' if not legend }}" style="{{ 'min-height' if not legend else 'height' }}: {{ w.max_height }}">
+      <canvas class="!absolute inset-0" data-tw-chart="{{ tojson_attr(chart) }}" aria-label="{{ w.heading or __('Chart') }}" role="img"></canvas>
       {% if center %}
       <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <span class="text-2xl font-bold text-gray-950 dark:text-white">{{ center.value }}</span>
@@ -26,9 +24,9 @@
     <ul class="grid w-full gap-3">
       {% for item in legend %}
       <li class="flex items-center gap-3 text-sm">
-        <span class="h-3 w-3 rounded-full" style="background: {{ colors.css_rgb(item.color) }}"></span>
-        <span class="flex-1 font-medium text-gray-700 dark:text-gray-200">{{ __(item.label) }}</span>
-        <span class="text-gray-500 dark:text-gray-400">{{ item.percent }}% ({{ item.value | number }})</span>
+        <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background: {{ colors.css_rgb(item.color) }}"></span>
+        <span class="flex-1 truncate text-gray-700 dark:text-gray-200">{{ __(item.label) }}</span>
+        <span class="whitespace-nowrap text-gray-500 dark:text-gray-400"><span class="font-medium text-gray-950 dark:text-white">{{ item.value | number }}</span> ({{ item.percent }}%)</span>
       </li>
       {% endfor %}
     </ul>

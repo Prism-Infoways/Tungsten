@@ -98,6 +98,9 @@ panel = Panel(
     auth=Auth(User),                 # needs email + password (hash) fields; password_field="..." if not "password"
     brand_name="Acme",
     colors={"primary": "orange"},    # or a hex color: "#ec5b1d"
+    # optional: change the login page's hero (any key you leave out keeps its default)
+    login_hero={"heading": "Admin for Acme", "highlight": "Acme",
+                "features": [{"icon": "zap", "label": "Fast"}, {"icon": "shield-check", "label": "Secure"}]},
 )
 panel.resources([ProductResource, OrderResource])
 panel.widgets([StatsWidget, RevenueChart])
@@ -351,15 +354,18 @@ class Stats(StatsOverviewWidget):
 
 class Revenue(ChartWidget):
     heading = "Revenue"
+    description = "Monthly revenue"
+    icon = "chart-column"              # shown in a soft colored tile next to the heading
     type = "bar"
     filters = {"12": "Last 12 months", "3": "Last 3 months"}
+    options = {"scales": {"y": {"ticks": {"prefix": "₹", "compact": True}}}}   # axis shows ₹300K
 
     @classmethod
     def data(cls, db, filter):
-        return {"labels": [...], "datasets": [{"label": "Revenue", "data": [...], "color": "primary"}]}
+        return {"labels": [...], "datasets": [{"label": "Revenue", "data": [...], "color": "primary", "prefix": "₹"}]}
 ```
 
-Also `TableWidget` (with `model`, `query()`, `table()`), `ProgressListWidget` and `AccountWidget`. Set `column_span`, `sort`, `lazy` and `polling_interval` on any widget.
+Also `TableWidget` (with `model`, `query()`, `table()`), `ProgressListWidget` and `AccountWidget`. Set `heading`, `description`, `icon`, `icon_color`, `column_span`, `sort`, `lazy` and `polling_interval` on any widget.
 
 **Dashboard filters.** Give your dashboard a `filters_form`; the values show in the header and reach every widget as `filters`:
 

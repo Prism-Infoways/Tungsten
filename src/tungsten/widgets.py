@@ -34,6 +34,9 @@ class Widget:
     polling_interval: ClassVar[str | None] = None
     heading: ClassVar[str | None] = None
     description: ClassVar[str | None] = None
+    #: optional icon shown in a soft colored tile next to the heading
+    icon: ClassVar[str | None] = None
+    icon_color: ClassVar[str] = "primary"
     template: ClassVar[str] = ""
 
     @classmethod

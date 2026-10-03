@@ -2,20 +2,17 @@
 {% import "tungsten/components/ui.html" as ui %}
 {% block title %}Sign in · {{ panel.brand_name }}{% endblock %}
 {% block auth %}
-<h1 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">{{ __('Welcome back') }}</h1>
+<h1 class="text-3xl font-bold tracking-tight text-gray-950 dark:text-white">{{ __('Welcome back') }}</h1>
 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('Sign in to your :app account', app=panel.brand_name) }}</p>
 {% if error %}<div class="mt-6 rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 ring-1 ring-danger-600/20 dark:bg-danger-500/10 dark:text-danger-300">{{ __(error) }}</div>{% endif %}
 <form method="post" class="mt-8 grid gap-6" novalidate>
   <input type="hidden" name="_token" value="{{ csrf_token }}">
   <input type="hidden" name="next" value="{{ next }}">
   {{ form.render() }}
-  {% if panel.auth.password_reset %}
-  <div class="-mt-2 flex justify-end text-sm"><a href="{{ panel.url('forgot-password') }}" class="font-medium {{ colors.LINK.primary }}">{{ __('Forgot password?') }}</a></div>
-  {% endif %}
-  <button type="submit" class="{{ ui.button_classes('primary', size='lg') }} w-full">{{ __('Sign in') }}</button>
+  <button type="submit" class="{{ ui.button_classes('primary', size='lg') }} group w-full py-3 text-base">{{ __('Sign in') }}<span class="transition group-hover:translate-x-0.5 rtl:rotate-180">{{ icon('arrow-right', 'h-5 w-5') }}</span></button>
   {{ panel.hooks('auth.login.form.after', ctx) }}
 </form>
 {% if panel.auth.registration %}
-<p class="mt-8 text-center text-sm text-gray-500">{{ __('New here?') }} <a href="{{ panel.url('register') }}" class="font-medium {{ colors.LINK.primary }}">{{ __('Create an account') }}</a></p>
+<p class="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">{{ __('New here?') }} <a href="{{ panel.url('register') }}" class="font-medium {{ colors.LINK.primary }}">{{ __('Create an account') }}</a></p>
 {% endif %}
 {% endblock %}

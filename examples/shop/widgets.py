@@ -9,10 +9,11 @@ from sqlalchemy import func, select
 
 from tungsten import ChartWidget, Dashboard, ProgressItem, ProgressListWidget, Stat, StatsOverviewWidget, TableWidget
 from tungsten.forms import Select
+from tungsten.i18n import translate as __
 from tungsten.models import Role, RoleAssignment
 from tungsten.tables import TextColumn
 
-from .models import Category, Order, OrderItem, Product, User
+from .models import Category, Order, OrderItem, OrderStatus, Product, User
 
 INR = "₹"
 
@@ -75,7 +76,6 @@ class ShopStats(StatsOverviewWidget):
     @classmethod
     def stats(cls, db, ctx, filters):
         days = int(filters.get("period") or 30)
-        label = {7: "vs previous week", 30: "vs previous 30 days", 90: "vs previous 90 days"}.get(days, "vs previous year")
         users = db.scalar(select(func.count()).select_from(User))
         new_users = period_counts(db, User, User.created_at, days)
         orders = period_counts(db, Order, Order.created_at, days)
@@ -86,19 +86,24 @@ class ShopStats(StatsOverviewWidget):
         o = monthly_counts(db, Order, Order.created_at)
         r = monthly_counts(db, Order, Order.created_at, value=Order.total)
         p = monthly_counts(db, Product, Product.created_at)
+        new_products = period_counts(db, Product, Product.created_at, days)
         return [
             Stat("Total users", f"{users:,}").icon("users").color("primary").trend(*compare(*new_users))
-            .describe(label).chart(u).url(ctx.url("users")),
+            .describe(__("+:count new users", count=int(new_users[0]))).chart(u).url(ctx.url("users")),
             Stat("Orders", f"{int(orders[0]):,}").icon("shopping-cart").color("success").trend(*compare(*orders))
-            .describe(label).chart(o).url(ctx.url("orders")),
+            .describe(__("In the last :days days", days=days)).chart(o).url(ctx.url("orders")),
             Stat("Revenue", inr(revenue[0])).icon("indian-rupee").color("info").trend(*compare(*revenue))
-            .describe(label).chart(r),
-            Stat("Active products", f"{active:,}").icon("package").color("purple").chart(p).url(ctx.url("products")),
+            .describe(__("In the last :days days", days=days)).chart(r),
+            Stat("Active products", f"{active:,}").icon("package").color("purple").trend(*compare(*new_products))
+            .describe(__("+:count new products", count=int(new_products[0])))
+            .chart(p).url(ctx.url("products")),
         ]
 
 
 class ShopDashboard(Dashboard):
     """The dashboard with a period picker that every widget can read as ``filters["period"]``."""
+
+    subheading = "Here's what's happening with your store today."
 
     @classmethod
     def filters_form(cls, form):
@@ -111,6 +116,7 @@ class ShopDashboard(Dashboard):
 class RevenueChart(ChartWidget):
     heading = "Revenue overview"
     description = "Monthly revenue and orders."
+    icon = "chart-column"
     type = "bar"
     column_span = 2
     sort = 2
@@ -132,16 +138,21 @@ class RevenueChart(ChartWidget):
         return {
             "labels": labels,
             "datasets": [
-                {"label": "Revenue", "data": revenue, "color": "primary", "yAxisID": "y"},
+                {"label": "Revenue (₹)", "data": revenue, "color": "primary", "yAxisID": "y", "prefix": INR},
                 {"label": "Orders", "data": orders, "color": "gray", "type": "line", "yAxisID": "y1", "fill": False},
             ],
         }
 
-    options = {"scales": {"y1": {"display": True, "position": "right", "grid": {"display": False}, "beginAtZero": True}}}
+    options = {"scales": {
+        "y": {"ticks": {"prefix": INR, "compact": True}},
+        "y1": {"display": True, "position": "right", "grid": {"display": False}, "beginAtZero": True},
+    }}
 
 
 class RecentOrders(TableWidget):
     heading = "Recent orders"
+    description = "Latest orders from your store"
+    icon = "shopping-cart"
     model = Order
     column_span = 2
     sort = 3
@@ -168,6 +179,8 @@ class RecentOrders(TableWidget):
 
 class TopProducts(TableWidget):
     heading = "Top products"
+    description = "Best performing products by sales"
+    icon = "crown"
     model = Product
     column_span = 2
     sort = 4
@@ -196,6 +209,8 @@ class TopProducts(TableWidget):
 
 class UsersByRole(ChartWidget):
     heading = "Users by role"
+    description = "Users in each role"
+    icon = "users"
     type = "doughnut"
     column_span = 1
     sort = 5
@@ -216,6 +231,8 @@ class UsersByRole(ChartWidget):
 
 class SalesByCategory(ProgressListWidget):
     heading = "Sales by category"
+    description = "Share of total revenue"
+    icon = "chart-pie"
     column_span = 1
     sort = 6
 
@@ -228,8 +245,9 @@ class SalesByCategory(ProgressListWidget):
             .group_by(Category.id).order_by(func.sum(OrderItem.quantity * OrderItem.unit_price).desc())
         ).all()
         total = sum(float(r[2]) for r in rows) or 1
-        return [ProgressItem(r[0], f"{float(r[2]) / total * 100:.0f}%", float(r[2]) / total * 100, r[1] or "tag")
-                for r in rows]
+        palette = ["primary", "pink", "info", "purple", "success", "teal", "warning"]
+        return [ProgressItem(r[0], f"{float(r[2]) / total * 100:.0f}%", float(r[2]) / total * 100, r[1] or "tag",
+                             palette[i % len(palette)]) for i, r in enumerate(rows)]
 
 
 # ---------------------------------------------------------------------- list page stats
@@ -267,6 +285,31 @@ class ProductStats(StatsOverviewWidget):
             Stat("Published", f"{published:,}").icon("shopping-cart").color("success").chart([3, 4, 6, 5, 7, 8, 9]).trend("8%"),
             Stat("Drafts", f"{drafts:,}").icon("file-pen").color("danger").chart([5, 4, 6, 3, 4, 5, 4]).trend("4%", "down"),
             Stat("Out of stock", f"{out:,}").icon("eye").color("purple").chart([1, 2, 1, 3, 2, 4, 5]).trend("25%", "up", "danger"),
+        ]
+
+
+class OrderStats(StatsOverviewWidget):
+    lazy = False
+    columns = 5
+
+    @classmethod
+    def stats(cls, db):
+        def count(status=None):
+            q = select(func.count()).select_from(Order)
+            return db.scalar(q if status is None else q.where(Order.status == status)) or 0
+
+        o = monthly_counts(db, Order, Order.created_at)
+        return [
+            Stat("Total orders", f"{count():,}").icon("shopping-bag").trend(*change(o)).chart(o)
+            .describe("All time"),
+            Stat("Pending", f"{count(OrderStatus.PENDING):,}").icon("hourglass").color("danger")
+            .describe("Awaiting confirmation").chart([3, 5, 4, 6, 5, 7, 8]),
+            Stat("Processing", f"{count(OrderStatus.PROCESSING):,}").icon("settings").color("warning")
+            .describe("Being prepared").chart([4, 6, 5, 7, 4, 6, 5]),
+            Stat("Shipped", f"{count(OrderStatus.SHIPPED):,}").icon("truck").color("info")
+            .describe("On the way").chart([2, 4, 3, 6, 4, 7, 6]),
+            Stat("Paid", f"{count(OrderStatus.PAID):,}").icon("credit-card").color("success")
+            .describe("Completed").chart([3, 4, 6, 5, 8, 6, 9]),
         ]
 
 

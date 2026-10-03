@@ -5,7 +5,7 @@
             {{ 'bg-gray-50 dark:bg-transparent' if v.disabled else 'bg-white dark:bg-white/5' }}"
      {% if v.revealable %}x-data="{ show: false }"{% endif %}>
   {% if v.prefix_icon or v.prefix %}
-  <div class="flex items-center gap-x-2 border-e border-gray-200 ps-3 pe-2 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
+  <div class="flex items-center gap-x-2 ps-3 text-sm text-gray-500 dark:text-gray-400 {{ 'border-e border-gray-200 pe-2 dark:border-white/10' if v.prefix else '-me-1' }}">
     {{ icon(v.prefix_icon, 'h-5 w-5 text-gray-400') }}{% if v.prefix %}<span>{{ v.prefix }}</span>{% endif %}
   </div>
   {% endif %}
