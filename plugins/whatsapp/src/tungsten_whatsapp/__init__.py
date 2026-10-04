@@ -92,7 +92,7 @@ class WhatsAppPlugin(Plugin):
             """Meta checks the Cloud API webhook once: echo the challenge if the token matches."""
             params = request.query_params
             token = await run_in_threadpool(panel.with_session, lambda db: get_settings(db).verify_token)
-            if params.get("hub.mode") == "subscribe" and hmac.compare_digest(params.get("hub.verify_token", ""), token):
+            if params.get("hub.mode") == "subscribe" and hmac.compare_digest(params.get("hub.verify_token", "").encode(), token.encode()):
                 return PlainTextResponse(params.get("hub.challenge", ""))
             return PlainTextResponse("Wrong verify token", status_code=403)
 
@@ -104,7 +104,7 @@ class WhatsAppPlugin(Plugin):
             def process(db: Any) -> int:
                 secret = get_settings(db).app_secret or ""
                 expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-                if not secret or not hmac.compare_digest(expected, signature):
+                if not secret or not hmac.compare_digest(expected.encode(), signature.encode()):
                     return 403
                 try:
                     payload = json.loads(body or b"{}")
@@ -123,13 +123,13 @@ class WhatsAppPlugin(Plugin):
             token = request.query_params.get("token", "")
 
             def process(db: Any) -> int:
-                if not hmac.compare_digest(token, get_settings(db).web_webhook_token):
+                if not hmac.compare_digest(token.encode(), get_settings(db).web_webhook_token.encode()):
                     return 403
                 try:
                     payload = json.loads(body or b"{}")
                 except ValueError:
                     return 400
-                handle_web_webhook(db, payload)
+                handle_web_webhook(db, payload, transport=self.transport)
                 db.commit()
                 return 200
 

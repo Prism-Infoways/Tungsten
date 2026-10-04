@@ -1,0 +1,243 @@
+{#
+  "Setup guide" popup of the WhatsApp page: one tab per way of sending.
+  vars: channel, settings, webhook_url, verify_token, https, web_webhook_url
+#}
+{% macro copy(label, value) %}
+<span class="mt-2 block">
+  {% if label %}<span class="block text-xs font-medium text-gray-500 dark:text-gray-400">{{ label }}</span>{% endif %}
+  <span class="mt-1 flex items-center gap-x-2">
+    <code class="tw-input block w-full min-w-0 truncate px-3 py-1.5 text-sm">{{ value }}</code>
+    <button type="button" class="tw-icon-btn {{ colors.pick(colors.ICON_BUTTON, 'gray') }}" title="{{ __('Copy') }}"
+            onclick="navigator.clipboard.writeText({{ value | tojson | forceescape }}); window.twToast && twToast({title: twT('Copied'), status: 'success'})">{{ icon('copy', 'h-4 w-4') }}</button>
+  </span>
+</span>
+{% endmacro %}
+
+{% macro code(text) %}
+<span class="mt-2 flex items-start gap-x-2">
+  <code class="tw-input block w-full min-w-0 overflow-x-auto px-3 py-2 font-mono text-xs" style="white-space: pre">{{ text }}</code>
+  <button type="button" class="tw-icon-btn {{ colors.pick(colors.ICON_BUTTON, 'gray') }}" title="{{ __('Copy') }}"
+          onclick="navigator.clipboard.writeText({{ text | tojson | forceescape }}); window.twToast && twToast({title: twT('Copied'), status: 'success'})">{{ icon('copy', 'h-4 w-4') }}</button>
+</span>
+{% endmacro %}
+
+{% macro part(n, title, link=None, link_label='Open') %}
+<section class="rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10">
+  <header class="flex items-center gap-x-3 px-4 py-3">
+    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ n }}</span>
+    <h3 class="flex-1 text-sm font-semibold text-gray-950 dark:text-white">{{ title }}</h3>
+    {% if link %}
+    <a href="{{ link }}" target="_blank" rel="noopener" class="tw-btn px-2.5 py-1.5 text-xs bg-white ring-1 ring-gray-950/10 dark:bg-transparent dark:ring-white/20 {{ colors.pick(colors.LINK, 'gray') }}">{{ icon('external-link', 'h-3.5 w-3.5') }}<span>{{ link_label }}</span></a>
+    {% endif %}
+  </header>
+  <ol class="grid grid-cols-1 list-decimal gap-2 px-4 pb-4 ps-9 text-sm text-gray-600 dark:text-gray-300">{{ caller() }}</ol>
+</section>
+{% endmacro %}
+
+{% macro note(title, color='gray') %}
+<div class="rounded-xl p-4 text-sm {{ 'bg-gray-50 text-gray-600 dark:bg-white/5 dark:text-gray-300' if color == 'gray' else 'bg-warning-50 text-warning-700 dark:bg-warning-400/10 dark:text-warning-400' }}">
+  <p class="font-semibold {{ 'text-gray-950 dark:text-white' if color == 'gray' }}">{{ title }}</p>
+  <div class="mt-2">{{ caller() }}</div>
+</div>
+{% endmacro %}
+
+{% macro problems() %}
+<section class="rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10">
+  <header class="flex items-center gap-x-3 px-4 py-3">
+    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ colors.pick(colors.SOFT_ICON, 'warning') }}">{{ icon('life-buoy', 'h-4 w-4') }}</span>
+    <h3 class="flex-1 text-sm font-semibold text-gray-950 dark:text-white">Common problems</h3>
+  </header>
+  {{ caller() }}
+</section>
+{% endmacro %}
+
+{% macro problem(title) %}
+<details class="border-t border-gray-100 px-4 py-3 dark:border-white/10">
+  <summary class="cursor-pointer text-sm font-medium text-gray-950 dark:text-white">{{ title }}</summary>
+  <div class="mt-2 text-sm text-gray-600 dark:text-gray-300">{{ caller() }}</div>
+</details>
+{% endmacro %}
+
+{% set b = 'font-medium text-gray-950 dark:text-white' %}
+{% set tabs = [('cloud', 'Cloud API', 'badge-check'), ('web', 'WhatsApp Web', 'smartphone'), ('', 'Links only', 'link')] %}
+<div x-data="{ tab: {{ (channel or '') | tojson | forceescape }} }">
+  <nav class="flex gap-x-1 overflow-x-auto border-b border-gray-200 dark:border-white/10" role="tablist">
+    {% for key, label, tab_icon in tabs %}
+    <button type="button" role="tab" @click="tab = {{ key | tojson | forceescape }}"
+            class="-mb-px flex shrink-0 items-center gap-x-2 border-b-2 px-4 py-3 text-sm font-medium transition"
+            :class="tab === {{ key | tojson | forceescape }} ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'">
+      {{ icon(tab_icon, 'h-4 w-4') }}{{ label }}
+    </button>
+    {% endfor %}
+  </nav>
+
+  {# ---------------------------------------------------------------- Cloud API #}
+  <div class="grid grid-cols-1 gap-4 pt-5" x-show="tab === 'cloud'" {% if channel != 'cloud' %}x-cloak{% endif %} role="tabpanel">
+    {% call note('Before you start') %}
+    <ul class="grid list-disc gap-1 ps-5">
+      <li>Meta's official WhatsApp API. Best for a business number that many people message.</li>
+      <li>A phone number that is <span class="{{ b }}">not</span> on the WhatsApp app. To use a number that is, delete its WhatsApp account on the phone first (back up chats). A new SIM is easiest.</li>
+      <li>This panel online on a public <span class="{{ b }}">https</span> address, so replies can come in.</li>
+      <li>A card, or UPI funds in India, for Meta's message charges.</li>
+    </ul>
+    {% if not https %}
+    <p class="mt-3 flex items-start gap-x-2 text-danger-600 dark:text-danger-400">{{ icon('circle-alert', 'h-5 w-5 shrink-0') }}<span>This panel is open on http, not https. Meta will refuse the webhook. Open the panel on its https address, or set <code>app_url</code> in your code.</span></p>
+    {% endif %}
+    {% endcall %}
+
+    {% call part(1, 'Create a Meta app', 'https://developers.facebook.com/apps/creation/', 'Meta for Developers') %}
+      <li>Sign in at developers.facebook.com. The first time, press <span class="{{ b }}">Get started</span> and confirm your phone and email.</li>
+      <li>Press <span class="{{ b }}">Create app</span>, type a name and your email, then <span class="{{ b }}">Next</span>.</li>
+      <li>Use case: pick <span class="{{ b }}">Connect with customers through WhatsApp</span>. Pick your business portfolio (or make one), then <span class="{{ b }}">Create app</span>.</li>
+    {% endcall %}
+
+    {% call part(2, 'Add your phone number') %}
+      <li>In the app open <span class="{{ b }}">Use cases</span>, then <span class="{{ b }}">Customize</span> next to WhatsApp, then <span class="{{ b }}">API Setup</span> (older apps: WhatsApp, API Setup).</li>
+      <li>In <span class="{{ b }}">From</span>, press <span class="{{ b }}">Add phone number</span>. Type your business name and category, then your number, and enter the code Meta sends by SMS or call.</li>
+      <li>Pick your number in <span class="{{ b }}">From</span>. Copy its <span class="{{ b }}">Phone number ID</span> and the <span class="{{ b }}">WhatsApp Business Account ID</span> (Meta may call it Messaging account ID).</li>
+      <li>Adding your number makes a new WhatsApp Business Account for it. Use that account's ID here, and pick that account for billing (step 9) and templates (step 11), not the test one.</li>
+      <li>Meta also gives a free test number. It is fine for a first try, but switch to your own number for real use.</li>
+    {% endcall %}
+
+    {% call part(3, 'Make a permanent access token', 'https://business.facebook.com/latest/settings', 'Business settings') %}
+      <li>In Business settings open <span class="{{ b }}">Users</span>, then <span class="{{ b }}">System users</span>. Press <span class="{{ b }}">Add</span>, give a name, pick role <span class="{{ b }}">Admin</span>.</li>
+      <li>Press <span class="{{ b }}">Assign assets</span>. Give it <span class="{{ b }}">Full control</span> of your app and of your WhatsApp account.</li>
+      <li>Press <span class="{{ b }}">Generate token</span>. Pick your app, expiry <span class="{{ b }}">Never</span>, and tick <span class="{{ b }}">whatsapp_business_messaging</span> and <span class="{{ b }}">whatsapp_business_management</span>. Copy the token right away; Meta shows it once.</li>
+      <li>Do not use the temporary token from API Setup. It stops working within hours.</li>
+    {% endcall %}
+
+    {% call part(4, 'Copy the App secret') %}
+      <li>In your app open <span class="{{ b }}">App settings</span>, then <span class="{{ b }}">Basic</span>. Next to App secret press <span class="{{ b }}">Show</span> and copy it. It proves that messages really come from Meta.</li>
+    {% endcall %}
+
+    {% call part(5, 'Fill this page') %}
+      <li>Close this guide. In <span class="{{ b }}">How to send</span> pick <span class="{{ b }}">Cloud API (official)</span>.</li>
+      <li>Paste the Phone number ID, WhatsApp Business Account ID, Access token and App secret, then press <span class="{{ b }}">Save changes</span>. The page reloads with the buttons for the next steps.</li>
+    {% endcall %}
+
+    {% call part(6, 'Register your number') %}
+      <li>Press <span class="{{ b }}">More</span>, then <span class="{{ b }}">Register number</span>, and type a 6-digit PIN. Meta needs this once before your own number can send.</li>
+      <li>If two-step verification is already on for the number, type that PIN. Keep the PIN safe; Meta asks for it again if you move the number.</li>
+    {% endcall %}
+
+    {% call part(7, 'Connect the webhook') %}
+      <li>In your app open <span class="{{ b }}">Use cases</span>, <span class="{{ b }}">Customize</span> next to WhatsApp, then <span class="{{ b }}">Configuration</span> (older apps: WhatsApp, Configuration).</li>
+      <li>Paste these two and press <span class="{{ b }}">Verify and save</span>:
+        {{ copy('Callback URL', webhook_url) }}
+        {{ copy('Verify token', verify_token) }}
+      </li>
+      <li>Under <span class="{{ b }}">Webhook fields</span>, press <span class="{{ b }}">Subscribe</span> next to <span class="{{ b }}">messages</span>.</li>
+    {% endcall %}
+
+    {% call part(8, 'Publish the app') %}
+      <li>In <span class="{{ b }}">App settings</span>, <span class="{{ b }}">Basic</span>, fill the contact email, a Privacy Policy URL and a Terms of Service URL (pages on your website), a category and an icon, then save.</li>
+      <li>Left menu: <span class="{{ b }}">Publish</span>. The list shows anything still missing. Then press <span class="{{ b }}">Go live</span>. Some messages are not sent to apps that are still in development.</li>
+    {% endcall %}
+
+    {% call part(9, 'Add a payment method', 'https://business.facebook.com/latest/billing_hub/payment_methods/', 'Billing') %}
+      <li>In Billing, pick your WhatsApp account and add a card. In India you can add funds by UPI instead.</li>
+      <li>Choose with care: Meta does not let you switch between prepaid (UPI) and card later.</li>
+    {% endcall %}
+
+    {% call part(10, 'Check and test') %}
+      <li>Press <span class="{{ b }}">Check connection</span>. It checks your number and makes sure replies come in here.</li>
+      <li>From your own phone, send "Hi" to the business number. It shows in <span class="{{ b }}">WhatsApp chats</span>.</li>
+      <li>Press <span class="{{ b }}">Send a test</span> and send a message back to your phone.</li>
+    {% endcall %}
+
+    {% call part(11, 'Templates, to start chats', 'https://business.facebook.com/latest/whatsapp_manager/message_templates', 'WhatsApp Manager') %}
+      <li>WhatsApp only lets you send free text within 24 hours of the person's last message. To write first, or later, you need a template Meta approved.</li>
+      <li>In WhatsApp Manager, <span class="{{ b }}">Message templates</span>, press <span class="{{ b }}">Create template</span>. Use number variables like <code>{{ '{{1}}' }}</code> for the name.</li>
+      <li>When Meta approves it, press <span class="{{ b }}">More</span>, then <span class="{{ b }}">Sync templates</span>. It now shows in the WhatsApp button on leads.</li>
+    {% endcall %}
+
+    {% call problems() %}
+      {% call problem('Error 190, or the token expired') %}The temporary token from API Setup was used. Make the permanent one in step 3 and paste it again.{% endcall %}
+      {% call problem('Error 133010 or 131045, or the number is not registered') %}Do step 6, then press Check connection.{% endcall %}
+      {% call problem('Error 131047, or "re-engagement message"') %}More than 24 hours passed since the person's last message. Send a template instead.{% endcall %}
+      {% call problem('Error 132001, or the template does not exist') %}The template is not approved yet, or its language is different. Press Sync templates and pick it from the list.{% endcall %}
+      {% call problem('Error 131042, or a payment problem') %}Add a payment method or funds in step 9.{% endcall %}
+      {% call problem('Verify and save fails in Meta') %}This panel must be public https with a real certificate, and the token must match exactly. Save this page first, then copy both values again.{% endcall %}
+      {% call problem('Messages go out, but replies never show here') %}Publish the app (step 8), check that messages is subscribed (step 7), then press Check connection. If the App secret was reset in Meta, paste the new one here.{% endcall %}
+      {% call problem("A chat from a strange number appeared after Meta's Test button") %}Meta's test sends a made-up message. You can delete that chat and lead.{% endcall %}
+    {% endcall %}
+  </div>
+
+  {# ---------------------------------------------------------------- WhatsApp Web #}
+  <div class="grid grid-cols-1 gap-4 pt-5" x-show="tab === 'web'" {% if channel != 'web' %}x-cloak{% endif %} role="tabpanel">
+    {% call note('Read this first', 'warning') %}
+    <p>WhatsApp Web mode is not an official API. It links your own WhatsApp number, like WhatsApp Web on a laptop. WhatsApp may block numbers that send bulk or unwanted messages, so use it to talk with people who expect your messages.</p>
+    <p class="mt-2">You need a Linux server with Docker (a VPS with 2 CPU and 4 GB memory is safe). Shared cPanel hosting cannot run it, but this panel can stay there.</p>
+    {% endcall %}
+
+    {% call part(1, 'Install the WAHA gateway', 'https://waha.devlike.pro/blog/waha-on-docker/', 'WAHA docs') %}
+      <li>Log in to your server with SSH and install Docker:
+        {{ code('curl -fsSL https://get.docker.com | sh') }}
+      </li>
+      <li>Download WAHA's setup file:
+        {{ code('mkdir waha && cd waha\nwget -O docker-compose.yaml https://raw.githubusercontent.com/devlikeapro/waha/refs/heads/core/docker-compose.yaml\ntouch .env') }}
+      </li>
+      <li>Open <code>docker-compose.yaml</code> (for example <code>nano docker-compose.yaml</code>) and change the line <code>image: devlikeapro/waha-plus</code> to <code>image: devlikeapro/waha</code>. On an ARM server (for example Oracle Ampere or Hetzner CAX) use <code>image: devlikeapro/waha:arm</code>.</li>
+      <li>Make the passwords and the API key, then start it:
+        {{ code('docker compose run --no-deps -v "$(pwd)":/app/env waha init-waha /app/env\ndocker compose up -d') }}
+      </li>
+      <li>The first line prints <span class="{{ b }}">Use this API key in the x-api-key header</span> and a key under it. Copy that key; you paste it here soon. It is also saved in the <code>.env</code> file.</li>
+      <li>This setup keeps WAHA private on the server, keeps your phone linked after restarts, and starts again by itself.</li>
+    {% endcall %}
+
+    {% call part(2, 'Let this panel reach WAHA') %}
+      <li>Same server as this panel: the Gateway URL is <code>http://127.0.0.1:3000</code>.</li>
+      <li>Another server (for example this panel on cPanel): point a subdomain such as <code>waha.yourbusiness.in</code> at the server, and put Nginx with a free Let's Encrypt certificate in front of port 3000. The Gateway URL is then <code>https://waha.yourbusiness.in</code>.</li>
+      <li>Never open port 3000 itself to the internet. The API key goes with every call.</li>
+      <li>WAHA also calls this panel when a message comes in, at the address below, so this panel must be reachable from the WAHA server:
+        {{ copy(None, web_webhook_url) }}
+      </li>
+    {% endcall %}
+
+    {% call part(3, 'Fill this page') %}
+      <li>Close this guide. In <span class="{{ b }}">How to send</span> pick <span class="{{ b }}">WhatsApp Web (linked phone)</span>.</li>
+      <li>Type the Gateway URL and the API key. Leave the session name as <code>default</code>. Press <span class="{{ b }}">Save changes</span>.</li>
+      <li>The page reloads, and the <span class="{{ b }}">Link phone</span> button shows at the top.</li>
+    {% endcall %}
+
+    {% call part(4, 'Link your phone') %}
+      <li>Open this page on a computer, not on the phone you are linking.</li>
+      <li>Press <span class="{{ b }}">Link phone</span>. On the phone open WhatsApp, then the ⋮ menu (iPhone: Settings), <span class="{{ b }}">Linked devices</span>, <span class="{{ b }}">Link a device</span>, and scan the code.</li>
+      <li>The code renews itself every few seconds, so take your time. Once scanned, the popup says <span class="{{ b }}">Linked</span>.</li>
+      <li>Press <span class="{{ b }}">I have scanned it</span> to save it. The status turns <span class="{{ b }}">Linked</span>.</li>
+    {% endcall %}
+
+    {% call part(5, 'Test it') %}
+      <li>From a different phone, send a message to your WhatsApp number. It shows in <span class="{{ b }}">WhatsApp chats</span>, and becomes a lead if "New chats become leads" is on.</li>
+      <li>Press <span class="{{ b }}">Send a test</span> to send one back.</li>
+    {% endcall %}
+
+    {% call note('Keep it working') %}
+    <ul class="grid list-disc gap-1 ps-5">
+      <li>Open WhatsApp on the main phone at least once every 14 days, or WhatsApp logs out all linked devices.</li>
+      <li>A number can have 4 linked devices. If linking fails, remove an old one under Linked devices.</li>
+      <li>Messages you type on the phone itself do not show here.</li>
+      <li>To stay safe: reply to people who wrote first, keep first messages short and personal, and do not send the same text to many new numbers. If sending to new numbers fails with error 463 or 475, WhatsApp is limiting you for a while. Wait; linking again does not help.</li>
+    </ul>
+    {% endcall %}
+
+    {% call problems() %}
+      {% call problem('"Unauthorized" or 401') %}The API key is wrong or missing. Find it on the WAHA server with <code>cd waha &amp;&amp; grep WAHA_API_KEY .env</code>, paste it here and save.{% endcall %}
+      {% call problem('"Could not reach" the gateway') %}Check the Gateway URL, and that WAHA runs: <code>cd waha &amp;&amp; docker compose ps</code>. <code>docker compose logs -f</code> shows what it does.{% endcall %}
+      {% call problem('"pull access denied" while installing') %}The image line still says waha-plus. Change it to <code>devlikeapro/waha</code> (step 1).{% endcall %}
+      {% call problem('"env file not found", or "exec format error"') %}"env file": run <code>touch .env</code> in the waha folder, then the setup line again. "exec format error": the server is ARM; use <code>devlikeapro/waha:arm</code> (step 1).{% endcall %}
+      {% call problem('The phone must be linked again after every restart') %}The sessions folder is missing. Use WAHA's setup file from step 1; it keeps that folder.{% endcall %}
+      {% call problem('Incoming messages do not show here') %}WAHA cannot reach this panel. The address in step 2 must open from the WAHA server. Also, messages you send from the linked phone itself are not shown.{% endcall %}
+    {% endcall %}
+  </div>
+
+  {# ---------------------------------------------------------------- Links only #}
+  <div class="grid grid-cols-1 gap-4 pt-5" x-show="tab === ''" {% if channel %}x-cloak{% endif %} role="tabpanel">
+    {% call part(1, 'Nothing to set up') %}
+      <li>In <span class="{{ b }}">How to send</span> pick <span class="{{ b }}">Links only</span> and press <span class="{{ b }}">Save changes</span>.</li>
+      <li>Set the <span class="{{ b }}">Country code</span>. It is added to 10-digit numbers.</li>
+      <li>The WhatsApp button on a lead opens WhatsApp on your computer or phone with the chat ready. You press send there.</li>
+      <li>Nothing is sent by itself, and messages are not saved here. For that, use the Cloud API or WhatsApp Web.</li>
+    {% endcall %}
+  </div>
+</div>

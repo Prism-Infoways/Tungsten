@@ -182,9 +182,21 @@ Action("cancel").icon("ban").color("danger")
 | `modal_cancel_action_label("...")` | Cancel button text. Default: "Cancel". |
 | `modal_width("2xl")` | `sm`, `md`, `lg` (default), `xl`, `2xl`, `3xl`, `4xl` or `5xl`. |
 | `slide_over()` | Open as a panel from the side instead of a centered popup. |
-| `modal_content(html)` | Extra HTML in the popup (`Markup`, or a closure returning it). |
+| `modal_content(html)` | HTML in the popup (`Markup`, or a closure returning it). An action with content opens a popup by itself. |
+| `modal_submit_action(False)` | Hide the submit button, for a popup that only shows something. |
 
 The heading, description and labels can be closures too, for example `modal_heading(lambda record: f"Cancel {record.number}?")`.
+
+A popup can also just show something, like a help text or a QR code:
+
+```python
+Action("help").icon("book-open").color("gray").slide_over()
+    .modal_content(lambda ctx: ctx.panel.renderer.render("myapp/help.html", ctx=ctx))
+    .modal_submit_action(False)
+    .modal_cancel_action_label("Close")
+```
+
+If the action raises `Halt`, a popup with content stays open and is drawn again, so a QR code or a status in it is fresh.
 
 ## Modal forms
 

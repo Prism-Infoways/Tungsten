@@ -49,17 +49,22 @@ class MetaSetupPage(Page):
             message, is_error = ctx.request.query_params.get("reason") or "Facebook said no.", True
         steps = [
             {"title": "Add your Meta app keys", "done": bool(app_id and app_secret),
-             "text": "Create an app at developers.facebook.com (type Business), then copy its App ID and App "
-                     "secret below. Add this site's address to the app's Facebook Login settings."},
+             "text": "Create an app at developers.facebook.com with the use case \"Capture & manage ad leads with "
+                     "Marketing API\", then paste its App ID and App secret below. Paste the Redirect URI below "
+                     "in its Facebook Login for Business settings."},
             {"title": "Connect Facebook", "done": settings.user_token is not None,
              "text": f"Connected as {settings.user_name}." if settings.user_token else
              "Press Connect Facebook and allow access to your pages and their leads."},
-            {"title": "Receive leads", "done": settings.webhook_ok and any(p.subscribed for p in pages),
+            # Meta has no way to ask if the app is live, so this is done once a lead really arrived
+            {"title": "Receive leads", "done": bool(settings.webhook_ok and any(p.subscribed for p in pages)
+                                                    and settings.last_webhook_at),
              "error": settings.webhook_error,
-             "text": "Meta sends every new lead here the moment it is submitted."},
+             "text": "Publish the app in Meta (Publish, Go live), then send a test lead. From then on Meta sends "
+                     "every new lead here the moment it is submitted."},
         ]
         return ctx.panel.renderer.render(
             "tungsten_meta_leads/setup.html", ctx=ctx, steps=steps, message=message, message_error=is_error,
+            redirect_uri=plugin.redirect_uri(ctx.request), app_domain=plugin.app_domain(ctx.request),
             webhook_url=plugin.webhook_url(ctx.request), verify_token=settings.verify_token,
             last_webhook_at=settings.last_webhook_at.strftime("%d %b, %H:%M") if settings.last_webhook_at else None,
             pages=[{"name": p.name, "subscribed": p.subscribed, "error": p.error, "forms": counts.get(p.page_id, 0)}
@@ -97,6 +102,7 @@ class MetaSetupPage(Page):
         if data.get("app_secret"):
             settings.app_secret = data["app_secret"]
         ctx.db.commit()
+        ctx.redirect(str(ctx.request.url.path))  # reload, so Connect Facebook uses the new keys
 
     # ------------------------------------------------------------------ buttons
     @classmethod
@@ -104,6 +110,10 @@ class MetaSetupPage(Page):
         settings = get_settings(ctx.db)
         connected = settings.user_token is not None
         return [
+            Action("guide").label("Setup guide").icon("book-open").color("gray").outlined()
+            .slide_over().modal_width("2xl").modal_heading("Connect Facebook and Instagram")
+            .modal_description("Every click, from a new Meta app to your first lead.")
+            .modal_content(lambda ctx: guide(ctx)).modal_submit_action(False).modal_cancel_action_label("Close"),
             Action("connect").label("Reconnect Facebook" if connected else "Connect Facebook").icon("facebook")
             .color("gray" if connected else "primary").url(lambda ctx: connect_url(ctx)),
             Action("sync").label("Sync forms and leads").icon("refresh-cw").color("gray").outlined()
@@ -114,6 +124,20 @@ class MetaSetupPage(Page):
             .action(lambda db: (disconnect(db), db.commit()))
             .success_notification_title("Facebook disconnected"),
         ]
+
+
+def guide(ctx: Any) -> Any:
+    """The step-by-step setup guide, with this site's own addresses filled in."""
+    plugin = plugin_of(ctx)
+    settings = get_settings(ctx.db)
+    app_id, app_secret = plugin.keys(ctx.db)
+    redirect_uri = plugin.redirect_uri(ctx.request)
+    return ctx.panel.renderer.render(
+        "tungsten_meta_leads/guide.html", ctx=ctx, redirect_uri=redirect_uri, app_domain=plugin.app_domain(ctx.request),
+        webhook_url=plugin.webhook_url(ctx.request), verify_token=settings.verify_token,
+        https=redirect_uri.startswith("https://"), keys_saved=bool(app_id and app_secret),
+        connected=settings.user_token is not None, got_lead=settings.last_webhook_at is not None,
+    )
 
 
 def connect_url(ctx: Any) -> str:

@@ -1061,15 +1061,18 @@ class Routes:
         description = maybe(evaluate(action._modal_description, **ev))
         if description is None and hasattr(action, "get_modal_description"):
             description = action.get_modal_description(host)
-        confirm_only = form is None
+        content = evaluate(action._modal_content, **ev)
+        confirm_only = form is None and (content is None or bool(action._requires_confirmation))
         if description is None and confirm_only:
             description = __("Are you sure you would like to do this?")
             if scope == "bulk":
                 description = __("Are you sure you want to do this to :count selected records?", count=len(records or []))
         submit = maybe(evaluate(action._modal_submit_label, **ev)) if action._modal_submit_label is not None else (
-            None if getattr(action, "operation", None) == "view" else (__("Confirm") if confirm_only else __("Submit")))
+            None if getattr(action, "operation", None) == "view" else (__("Confirm") if form is None else __("Submit")))
         if hasattr(action, "operation") and action._modal_submit_label is None:
             submit = {"create": __("Create"), "edit": __("Save changes"), "view": None}.get(action.operation, submit)
+        if not action._modal_submit:
+            submit = None
         another = form is not None and getattr(action, "_create_another", False)
         color = evaluate(action._color, **ev) or "primary"
         m = {
@@ -1084,7 +1087,7 @@ class Routes:
             "width": action._modal_width,
             "slide_over": action._slide_over,
             "confirm_only": confirm_only,
-            "content": evaluate(action._modal_content, **ev),
+            "content": content,
             "multipart": False,
             "create_another_label": __("Create & create another") if another else None,
         }
@@ -1116,7 +1119,7 @@ class Routes:
         try:
             result = action.run(ctx, host, record, records, data, form)
         except Halt:
-            if form is not None:
+            if form is not None or action._modal_content is not None:  # keep the modal open, freshly drawn
                 return self._modal(ctx, host, action, record, records, scope, form)
             return ctx.finalize(Response(status_code=204))
         except ValidationError as exc:
