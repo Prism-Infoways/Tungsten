@@ -325,3 +325,12 @@ def test_toasts_carry_any_icon_and_action_color(admin, panel):
                                          "_tw_record": "1"})
     note = json.loads(r.headers["HX-Trigger"])["tw-notify"][0]
     assert note["icon_svg"] == str(icon("circle-check", "h-4 w-4"))
+
+
+def test_phone_sidebar_hides_off_screen_in_rtl(admin):
+    # start-0 pins the sidebar to the right edge in right-to-left, where -translate-x-full would pull it back
+    # onto the screen, so below lg it moves the other way; from lg up, lg:translate-x-0 shows it as before
+    html = admin.get("/admin").text
+    assert "-translate-x-full max-lg:rtl:translate-x-full" in html and "lg:translate-x-0" in html
+    css = admin.get("/admin/assets/tungsten.css").text
+    assert "max-lg\\:rtl\\:translate-x-full" in css

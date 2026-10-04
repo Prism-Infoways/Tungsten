@@ -4,7 +4,7 @@
 <div class="min-h-full" x-data="{ sidebar: false }"{% if panel.global_search_enabled %} @keydown.window.prevent.ctrl.k="$dispatch('tw-open-search')" @keydown.window.prevent.meta.k="$dispatch('tw-open-search')"{% endif %}>
   {# ------------------------------------------------------------ sidebar #}
   <div x-show="sidebar" x-cloak class="fixed inset-0 z-40 bg-gray-950/50 lg:hidden" @click="sidebar = false"></div>
-  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full flex-col overflow-hidden bg-sidebar-950 text-sidebar-300 transition-transform duration-200 lg:translate-x-0"
+  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full max-lg:rtl:translate-x-full flex-col overflow-hidden bg-sidebar-950 text-sidebar-300 transition-transform duration-200 lg:translate-x-0"
          :class="sidebar && '!translate-x-0'">
     {# warm glow at the bottom of the sidebar #}
     <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(ellipse_at_bottom_left,rgb(var(--tw-c-primary-600)/0.28),transparent_65%)]" aria-hidden="true"></div>
