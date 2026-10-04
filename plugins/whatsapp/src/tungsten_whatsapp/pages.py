@@ -132,8 +132,8 @@ class WhatsAppSetupPage(Page):
                 TextInput("gateway_url").label("Gateway URL").url().placeholder("http://localhost:3000")
                 .required(_is("web")),
                 TextInput("gateway_api_key").label("API key").password().revealable().placeholder(_saved("gateway_api_key"))
-                .required(lambda get, db: _is("web")(get) and not get_settings(db).gateway_api_key)
-                .helper_text("The API key WAHA printed when you set it up. Leave empty to keep the saved one."),
+                .helper_text("The API key WAHA printed when you set it up (init-waha). Leave empty to keep the "
+                             "saved one, or if your gateway runs without a key."),
                 TextInput("gateway_session").label("Session name").default("default"),
             ]),
             Section("Automation").icon("bot").column_span("full").schema([
@@ -184,6 +184,7 @@ class WhatsAppSetupPage(Page):
     def header_actions(cls, ctx):
         settings = get_settings(ctx.db)
         cloud = settings.channel == "cloud"
+        ready = cloud and bool(settings.phone_number_id and settings.access_token)
         return [
             Action("guide").label("Setup guide").icon("book-open").color("gray").outlined()
             .slide_over().modal_width("2xl").modal_heading("Set up WhatsApp")
@@ -196,7 +197,7 @@ class WhatsAppSetupPage(Page):
             .modal_content(lambda ctx, host: link_phone(ctx, host)).modal_submit_action_label("I have scanned it")
             .action(lambda ctx, db: check_web(ctx, db)),
             Action("check").label("Check connection").icon("plug-zap").color("primary")
-            .visible(cloud and bool(settings.phone_number_id and settings.access_token))
+            .visible(ready)
             .action(lambda ctx, db: check_cloud(ctx, db)),
             Action("test").label("Send a test").icon("send").color("gray").outlined()
             .visible(settings.channel in ("cloud", "web"))
@@ -206,7 +207,7 @@ class WhatsAppSetupPage(Page):
                    Textarea("text").label("Message").rows(2).required().default("Hello from Tungsten!")])
             .modal_submit_action_label("Send").action(lambda data, ctx, db: send_test(ctx, db, data)),
             ActionGroup([
-                Action("register").label("Register number").icon("badge-check").visible(cloud)
+                Action("register").label("Register number").icon("badge-check").visible(ready)
                 .modal_heading("Register your number").modal_width("md")
                 .modal_description("Meta needs this once before your own number can send. Not needed for the "
                                    "test number.")
@@ -214,7 +215,7 @@ class WhatsAppSetupPage(Page):
                        .helper_text("If two-step verification is on for this number, type that PIN. Otherwise "
                                     "this becomes its PIN. Keep it safe.")])
                 .modal_submit_action_label("Register").action(lambda data, ctx, db: register_number(ctx, db, data)),
-                Action("templates").label("Sync templates").icon("refresh-cw").visible(cloud)
+                Action("templates").label("Sync templates").icon("refresh-cw").visible(ready)
                 .action(lambda ctx, db: refresh_templates(ctx, db)),
             ]).label("More").button(),
         ]
@@ -318,9 +319,14 @@ def register_number(ctx: Any, db: Any, data: dict) -> None:
         raise Halt
     try:
         client.register(data["pin"])
-        client.subscribe_app()
     except WhatsAppError as exc:
         _fail(ctx, db, exc)
+    try:
+        client.subscribe_app()
+    except WhatsAppError as exc:
+        Notification("Number registered, replies not on yet").body(
+            f"{exc} Then press Check connection. Do not register again.").warning().send(ctx)
+        return
     Notification("Number registered").body("Your number can now send and receive messages.").success().send(ctx)
 
 

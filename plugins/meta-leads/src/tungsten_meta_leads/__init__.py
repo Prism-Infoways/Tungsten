@@ -150,7 +150,7 @@ class MetaLeadsPlugin(Plugin):
             """Meta checks the webhook once: echo the challenge if the token matches."""
             params = request.query_params
             token = await run_in_threadpool(panel.with_session, lambda db: get_settings(db).verify_token)
-            if params.get("hub.mode") == "subscribe" and hmac.compare_digest(params.get("hub.verify_token", ""), token):
+            if params.get("hub.mode") == "subscribe" and hmac.compare_digest(params.get("hub.verify_token", "").encode(), token.encode()):
                 return PlainTextResponse(params.get("hub.challenge", ""))
             return PlainTextResponse("Wrong verify token", status_code=403)
 

@@ -91,7 +91,7 @@ class LeadsPlugin(Plugin):
         @app.post("/api/leads")
         async def capture(request: Request):
             token = request.headers.get("x-leads-token", "")
-            if not hmac.compare_digest(token, plugin.capture_token or ""):
+            if not hmac.compare_digest(token.encode(), (plugin.capture_token or "").encode()):
                 return JSONResponse({"error": "Wrong token"}, status_code=401)
             if request.headers.get("content-type", "").startswith("application/json"):
                 payload = await request.json()

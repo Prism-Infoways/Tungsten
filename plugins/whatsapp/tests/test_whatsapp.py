@@ -264,7 +264,7 @@ def test_setup_page_keeps_secrets(admin, panel):
     r = admin.post("/admin/whatsapp", {"channel": "web", "gateway_url": "http://waha:3000", "gateway_api_key": "",
                                        "gateway_session": "default"})
     with panel.db() as db:
-        assert db.scalars(select(WhatsAppSettings)).one().channel is None  # the WAHA API key is required
+        assert db.scalars(select(WhatsAppSettings)).one().channel == "web"  # some gateways run without a key
     configure(panel, channel="cloud")
     page = admin.get("/admin/whatsapp").text
     assert "KEEP" not in page and "/admin/whatsapp/webhook" in page
@@ -296,11 +296,17 @@ def test_setup_guide_and_cloud_checks(admin, panel, http):
     register = next(c for c in http.calls if c[1] == "PN1/register")
     assert register[2] == {"messaging_product": "whatsapp", "pin": "123456"}
 
+    # registered, but replies could not be turned on: say both, so nobody registers again
+    http.routes["POST WABA1/subscribed_apps"] = (400, {"error": {"message": "No permission"}})
+    r = admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "register", "pin": "123456"})
+    assert 'type="submit"' not in r.text and "Number registered, replies not on yet" in admin.get("/admin/whatsapp").text
+    http.routes["POST WABA1/subscribed_apps"] = {"success": True}
+
     http.routes["GET PN1"] = {"display_phone_number": "+91 98765 00000", "verified_name": "Prism",
                               "status": "CONNECTED", "platform_type": "CLOUD_API"}
     admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "check"})
     assert "WhatsApp is connected" in admin.get("/admin/whatsapp").text  # flashed for the reloaded page
-    assert [c[1] for c in http.calls].count("WABA1/subscribed_apps") == 3
+    assert [c[1] for c in http.calls].count("WABA1/subscribed_apps") == 4
 
 
 def test_link_phone_opens_a_popup(admin, panel, http):

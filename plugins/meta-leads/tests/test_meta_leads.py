@@ -92,6 +92,7 @@ def test_webhook_verify_and_signed_lead(admin, panel, graph, client):
     r = client.client.get(f"/admin/meta/webhook?hub.mode=subscribe&hub.verify_token={token}&hub.challenge=42")
     assert r.text == "42"
     assert client.client.get("/admin/meta/webhook?hub.mode=subscribe&hub.verify_token=no&hub.challenge=1").status_code == 403
+    assert client.client.get("/admin/meta/webhook?hub.mode=subscribe&hub.verify_token=%C3%A9").status_code == 403
 
     body = json.dumps({"object": "page", "entry": [{"id": "P1", "changes": [
         {"field": "leadgen", "value": {"leadgen_id": "L1", "page_id": "P1", "form_id": "F1"}}]}]}).encode()

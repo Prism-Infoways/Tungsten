@@ -1062,7 +1062,7 @@ class Routes:
         if description is None and hasattr(action, "get_modal_description"):
             description = action.get_modal_description(host)
         content = evaluate(action._modal_content, **ev)
-        confirm_only = form is None and content is None
+        confirm_only = form is None and (content is None or bool(action._requires_confirmation))
         if description is None and confirm_only:
             description = __("Are you sure you would like to do this?")
             if scope == "bulk":

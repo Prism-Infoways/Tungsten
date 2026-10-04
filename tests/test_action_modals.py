@@ -33,6 +33,8 @@ class HelpPage(Page):
             Action("link").label("Link phone").modal_description("Scan this code.")
             .modal_content(lambda ctx: Markup("<img alt='QR code'>")).modal_submit_action_label("I have scanned it")
             .action(not_yet),
+            Action("publish").requires_confirmation().modal_content(Markup("<p>3 people get an email</p>"))
+            .action(lambda: None),
         ]
 
 
@@ -67,3 +69,9 @@ def test_halt_keeps_a_content_modal_open(tmp_path):
     client, _ = make_client(tmp_path)
     r = client.post(ACTION, {"_tw_host": "page:help", "_tw_scope": "page", "_tw_name": "link"})
     assert r.status_code == 200 and "QR code" in r.text and "Not linked yet" in r.headers["HX-Trigger"]
+
+
+def test_confirmation_with_content_still_asks(tmp_path):
+    client, _ = make_client(tmp_path)
+    modal = client.get(f"{ACTION}?_tw_host=page:help&_tw_scope=page&_tw_name=publish", htmx=True).text
+    assert "3 people get an email" in modal and "Are you sure" in modal and "Confirm" in modal
