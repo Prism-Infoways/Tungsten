@@ -41,7 +41,7 @@ def message_fields(ctx: Any, many: bool = False) -> list:
             .placeholder("No template, write a message").helper_text(
                 "Text messages reach a lead only within 24 hours of their last message. Use a template otherwise."),
             TextInput("params").label("Template values").visible(lambda get: bool(get("template")))
-            .helper_text("For {{1}}, {{2}}... separated by |. Leave empty to use the first name."),
+            .helper_text("One value for each {{...}} in the template, in order, separated by |. Leave empty to use the first name."),
         ]
     fields.append(Textarea("message").rows(4).required(lambda get: not get("template"))
                   .visible(lambda get: not get("template"))

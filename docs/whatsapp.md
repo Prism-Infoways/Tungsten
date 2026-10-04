@@ -160,8 +160,8 @@ In **How to send** pick **WhatsApp Web (linked phone)**. Type the Gateway URL an
 
 1. Open the setup page on a computer, not on the phone you are linking.
 2. Press **Link phone**. On the phone open WhatsApp, then the ⋮ menu (iPhone: Settings), **Linked devices**, **Link a device**, and scan the code.
-3. The code changes every 20 to 60 seconds. If it stops working, close the popup and press Link phone again.
-4. Press **I have scanned it**. The status turns **Linked**.
+3. The code renews itself every few seconds, so take your time. Once scanned, the popup says **Linked**.
+4. Press **I have scanned it** to save it. The status turns **Linked**.
 
 ### 5. Test it
 

@@ -129,7 +129,7 @@ class WhatsAppPlugin(Plugin):
                     payload = json.loads(body or b"{}")
                 except ValueError:
                     return 400
-                handle_web_webhook(db, payload)
+                handle_web_webhook(db, payload, transport=self.transport)
                 db.commit()
                 return 200
 

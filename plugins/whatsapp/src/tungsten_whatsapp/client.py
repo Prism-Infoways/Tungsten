@@ -10,8 +10,11 @@ import re
 import urllib.error
 import urllib.request
 from typing import Any, Callable
+from urllib.parse import urlsplit
 
 GRAPH_HOST = "https://graph.facebook.com"
+#: events the WAHA gateway sends us
+WEB_EVENTS = ("message", "session.status", "message.ack")
 #: Graph API version for the Cloud API (Meta keeps each version for about two years)
 GRAPH_VERSION = "v25.0"
 
@@ -21,6 +24,10 @@ Transport = Callable[[str, str, dict, "bytes | None"], "tuple[int, str]"]
 
 class WhatsAppError(Exception):
     """Sending failed. ``str(error)`` says why, in WhatsApp's own words when it gave any."""
+
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status  # the HTTP status, when the server answered
 
 
 def urllib_transport(method: str, url: str, headers: dict, body: bytes | None) -> tuple[int, str]:
@@ -48,9 +55,9 @@ def _call(transport: Transport, method: str, url: str, headers: dict, payload: A
         error = data.get("error") if isinstance(data, dict) else None
         if isinstance(error, dict):
             detail = (error.get("error_data") or {}).get("details")
-            raise WhatsAppError(detail or error.get("message") or f"HTTP {status}")
+            raise WhatsAppError(detail or error.get("message") or f"HTTP {status}", status)
         message = (data.get("message") or data.get("error")) if isinstance(data, dict) else None
-        raise WhatsAppError(str(message or f"HTTP {status}"))
+        raise WhatsAppError(str(message or f"HTTP {status}"), status)
     return data
 
 
@@ -98,11 +105,16 @@ class CloudClient:
         })
         return data["messages"][0]["id"]
 
-    def send_template(self, to: str, name: str, language: str = "en", params: list[str] | None = None) -> str:
+    def send_template(self, to: str, name: str, language: str = "en", params: list[str] | None = None,
+                      names: list[str] | None = None) -> str:
+        """``names``: the template's variable names, for templates with ``{{first_name}}`` style variables."""
         template: dict[str, Any] = {"name": name, "language": {"code": language}}
         if params:
-            template["components"] = [{"type": "body",
-                                       "parameters": [{"type": "text", "text": str(p)} for p in params]}]
+            parameters = [{"type": "text", "text": str(p)} for p in params]
+            if names and not all(n.isdigit() for n in names):
+                for parameter, key in zip(parameters, names):
+                    parameter["parameter_name"] = key
+            template["components"] = [{"type": "body", "parameters": parameters}]
         data = _call(self.transport, "POST", self._url(f"{self.phone_number_id}/messages"), self._headers(), {
             "messaging_product": "whatsapp", "to": f"+{to}", "type": "template", "template": template,
         })
@@ -111,10 +123,16 @@ class CloudClient:
     def templates(self) -> list[dict]:
         if not self.business_account_id:
             raise WhatsAppError("Add the WhatsApp Business Account ID to read templates.")
-        data = _call(self.transport, "GET", self._url(
-            f"{self.business_account_id}/message_templates?fields=name,language,status,category,components&limit=200"),
-            self._headers())
-        return data.get("data", [])
+        url = self._url(f"{self.business_account_id}/message_templates"
+                        "?fields=name,language,status,category,components&limit=200")
+        rows: list[dict] = []
+        for _ in range(50):  # pages of 200
+            data = _call(self.transport, "GET", url, self._headers())
+            rows += data.get("data", [])
+            url = (data.get("paging") or {}).get("next")
+            if not url:
+                break
+        return rows
 
     def phone_info(self) -> dict:
         """The number as Meta sees it: ``status`` is CONNECTED and ``platform_type`` CLOUD_API once registered."""
@@ -151,14 +169,31 @@ class WebClient:
         return _call(self.transport, method, f"{self.base_url}{path}", self._headers(), payload)
 
     def start(self, webhook_url: str) -> dict:
-        """Create (or restart) the session and send its messages to ``webhook_url``."""
-        config = {"webhooks": [{"url": webhook_url, "events": ["message", "session.status", "message.ack"]}]}
+        """Make sure the session exists, runs, and sends its messages to ``webhook_url``.
+
+        A session that already runs with our webhook is left alone: changing it restarts the session.
+        """
+        hook = {"url": webhook_url, "events": list(WEB_EVENTS)}
         try:
-            return self._call("POST", "/api/sessions", {"name": self.session, "start": True, "config": config})
-        except WhatsAppError:
-            # the session is already there: update its webhook and start it
-            self._call("PUT", f"/api/sessions/{self.session}", {"name": self.session, "config": config})
+            info = self.status()
+        except WhatsAppError as exc:
+            if exc.status != 404:
+                raise
+            return self._call("POST", "/api/sessions", {"name": self.session, "start": True,
+                                                         "config": {"webhooks": [hook]}})
+        config = dict(info.get("config") or {})
+        hooks = list(config.get("webhooks") or [])
+        ours = next((h for h in hooks if h.get("url") == webhook_url), None)
+        if ours is None or set(ours.get("events") or []) != set(WEB_EVENTS):
+            # keep other webhooks; replace ours (also when this site's address changed)
+            path = urlsplit(webhook_url).path
+            config["webhooks"] = [h for h in hooks if urlsplit(str(h.get("url", ""))).path != path] + [hook]
+            info = self._call("PUT", f"/api/sessions/{self.session}", {"name": self.session, "config": config})
+        if info.get("status") == "STOPPED":
             return self._call("POST", f"/api/sessions/{self.session}/start")
+        if info.get("status") == "FAILED":
+            return self._call("POST", f"/api/sessions/{self.session}/restart")
+        return info
 
     def status(self) -> dict:
         """``{"status": "WORKING" | "SCAN_QR_CODE" | "STARTING" | "STOPPED" | "FAILED", "me": {...}}``."""
@@ -170,6 +205,12 @@ class WebClient:
 
     def logout(self) -> None:
         self._call("POST", f"/api/sessions/{self.session}/logout")
+
+    def phone_for_lid(self, lid: str) -> str | None:
+        """WhatsApp hides some numbers behind a ``…@lid`` id. Ask the gateway for the real number."""
+        data = self._call("GET", f"/api/{self.session}/lids/{lid.split('@')[0]}")
+        pn = data.get("pn") if isinstance(data, dict) else None
+        return str(pn).split("@")[0] if pn else None
 
     def send_text(self, to: str, text: str) -> str:
         data = self._call("POST", "/api/sendText", {"session": self.session, "chatId": f"{to}@c.us", "text": text})

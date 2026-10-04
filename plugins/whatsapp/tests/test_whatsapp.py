@@ -124,20 +124,43 @@ def test_cloud_webhook_verify_incoming_and_ticks(admin, panel, http, client):
         assert db.scalars(select(WhatsAppMessage).where(WhatsAppMessage.external_id == wamid)).one().status == "read"
 
 
-def test_web_link_phone_and_incoming(admin, panel, http, client):
-    web(panel, http)
+def gateway(http, status="SCAN_QR_CODE"):
+    """A fake WAHA gateway that remembers its one session."""
+    state: dict = {"session": None}
+
+    def create(body):
+        state["session"] = {"name": body["name"], "status": status, "config": body["config"]}
+        return state["session"]
+
+    def update(body):
+        state["session"] = {**state["session"], "config": body["config"]}
+        return state["session"]
+
     http.routes.update({
-        "POST /api/sessions": {"name": "default", "status": "STARTING"},
-        "GET /api/sessions/default": {"name": "default", "status": "SCAN_QR_CODE"},
+        "POST /api/sessions": create,
+        "PUT /api/sessions/default": update,
+        "GET /api/sessions/default": lambda body: state["session"] or (404, {"message": "Session not found"}),
         "GET /api/default/auth/qr": {"mimetype": "image/png", "data": "QRDATA"},
     })
-    modal = admin.get(f"{ACTION}?_tw_host=page:whatsapp&_tw_scope=page&_tw_name=link", headers={"HX-Request": "true"})
+    return state
+
+
+def test_web_link_phone_and_incoming(admin, panel, http, client):
+    web(panel, http)
+    state = gateway(http)
+    link = f"{ACTION}?_tw_host=page:whatsapp&_tw_scope=page&_tw_name=link"
+    modal = admin.get(link, headers={"HX-Request": "true"})
     assert "data:image/png;base64,QRDATA" in modal.text
+    assert 'hx-trigger="every 15s"' in modal.text and 'hx-select="#tw-wa-qr"' in modal.text  # a fresh code by itself
     start = next(c for c in http.calls if c[1] == "/api/sessions")
     hook = start[2]["config"]["webhooks"][0]["url"]
     assert hook.startswith("https://crm.example.com/admin/whatsapp/web-webhook?token=") and start[3]["X-Api-Key"] == "k"
 
-    http.routes["GET /api/sessions/default"] = {"status": "WORKING", "me": {"id": "919900001111@c.us"}}
+    admin.get(link, headers={"HX-Request": "true"})  # the code refreshing must not restart the session
+    assert [c[0] for c in http.calls if c[1].startswith("/api/sessions")] == ["GET", "POST", "GET", "GET", "GET"]
+
+    state["session"].update(status="WORKING", me={"id": "919900001111@c.us"})
+    assert "Linked to +919900001111" in admin.get(link, headers={"HX-Request": "true"}).text
     admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "link"})
     with panel.db() as db:
         settings = db.scalars(select(WhatsAppSettings)).one()
@@ -154,6 +177,50 @@ def test_web_link_phone_and_incoming(admin, panel, http, client):
     with panel.db() as db:
         lead = db.scalars(select(Lead)).one()
         assert (lead.name, lead.phone) == ("Rahul", "+919822223333")
+
+    # WhatsApp hides many numbers behind an @lid id: the number comes from the event, or else from the gateway
+    hidden = {"event": "message", "payload": {"id": "L1", "from": "123456789@lid", "body": "Hello",
+                                              "_data": {"key": {"remoteJidAlt": "919833334444@s.whatsapp.net"},
+                                                        "pushName": "Sita"}}}
+    client.client.post(path, json=hidden)
+    http.routes["GET /api/default/lids/987654321"] = {"lid": "987654321@lid", "pn": "919855556666@c.us"}
+    gows = {"event": "message", "payload": {"id": "L2", "from": "987654321@lid", "body": "Hi",
+                                            "_data": {"Info": {"PushName": "Gita"}}}}
+    client.client.post(path, json=gows)
+    with panel.db() as db:
+        phones = {lead.name: lead.phone for lead in db.scalars(select(Lead))}
+        assert phones["Sita"] == "+919833334444" and phones["Gita"] == "+919855556666"
+
+    lead_id = add_lead(panel, name="Ravi Kumar", phone="9000000009")
+    admin.post(ACTION, {"_tw_host": "resource:leads", "_tw_scope": "row", "_tw_name": "whatsapp",
+                        "_tw_record": str(lead_id), "message": "Hello"})
+    with panel.db() as db:
+        sent = db.scalars(select(WhatsAppMessage).where(WhatsAppMessage.direction == "out")).one()
+    client.client.post(path, json={"event": "message.ack", "payload": {"id": sent.external_id, "ack": -1,
+                                                                        "ackName": "ERROR"}})
+    with panel.db() as db:
+        assert db.scalars(select(WhatsAppMessage).where(WhatsAppMessage.direction == "out")).one().status == "failed"
+
+
+def test_gateway_session_is_only_changed_when_needed(http):
+    from tungsten_whatsapp.client import WEB_EVENTS, WebClient
+
+    client = WebClient("http://waha:3000", "k", "default", transport=http)
+    hook = "https://crm.example.com/admin/whatsapp/web-webhook?token=t"
+    other = {"url": "https://n8n.example.com/hook", "events": ["message"]}
+    session = {"name": "default", "status": "WORKING", "config": {"webhooks": [other, {"url": hook, "events": list(WEB_EVENTS)}]}}
+    http.routes["GET /api/sessions/default"] = session
+    assert client.start(hook)["status"] == "WORKING"
+    assert [c[0] for c in http.calls] == ["GET"]  # a linked phone is left alone
+
+    old = {"url": "http://old-address/admin/whatsapp/web-webhook?token=t", "events": ["message"]}
+    http.routes["GET /api/sessions/default"] = {**session, "status": "STOPPED", "config": {"webhooks": [other, old]}}
+    http.routes["PUT /api/sessions/default"] = lambda body: {"status": "STOPPED", "config": body["config"]}
+    http.routes["POST /api/sessions/default/start"] = {"status": "STARTING"}
+    client.start(hook)
+    put = next(c for c in http.calls if c[0] == "PUT")
+    assert put[2]["config"]["webhooks"] == [other, {"url": hook, "events": list(WEB_EVENTS)}]
+    assert http.calls[-1][1] == "/api/sessions/default/start"
 
 
 def test_welcome_message_for_new_leads(panel, http):
@@ -241,3 +308,39 @@ def test_link_phone_opens_a_popup(admin, panel, http):
     page = admin.get("/admin/whatsapp").text
     button = page[page.index('"_tw_name": "link"') - 300:page.index('"_tw_name": "link"')]
     assert 'hx-get="/admin/_tw/action"' in button
+
+
+def test_cloud_templates_and_usernames(admin, panel, http, client):
+    cloud(panel, http)
+    pages = iter([
+        {"data": [{"name": "hello", "language": "en_US", "status": "APPROVED", "components": [
+            {"type": "BODY", "text": "Hi {{first_name}}, your order {{order}} is ready"}]}],
+         "paging": {"next": "https://graph.facebook.com/v25.0/WABA1/message_templates?after=X"}},
+        {"data": [{"name": "promo", "language": "hi", "status": "APPROVED", "components": [
+            {"type": "BODY", "text": "Namaste {{1}}"}]}]},
+    ])
+    http.routes["GET WABA1/message_templates"] = lambda body: next(pages)
+    admin.get("/admin/whatsapp")
+    r = admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "templates"})
+    assert "2 templates" in r.headers.get("HX-Trigger", "") + admin.get("/admin/whatsapp").text  # both pages read
+
+    lead_id = add_lead(panel)
+    admin.post(ACTION, {"_tw_host": "resource:leads", "_tw_scope": "row", "_tw_name": "whatsapp",
+                        "_tw_record": str(lead_id), "template": "hello", "params": "Amit | 42"})
+    template = http.calls[-1][2]["template"]
+    assert template["language"] == {"code": "en_US"}  # the template's own language
+    assert template["components"][0]["parameters"] == [
+        {"type": "text", "text": "Amit", "parameter_name": "first_name"},
+        {"type": "text", "text": "42", "parameter_name": "order"}]
+    with panel.db() as db:
+        assert db.scalars(select(WhatsAppMessage)).one().body == "Hi Amit, your order 42 is ready"
+
+    # people with a WhatsApp username may come without their number: keep the message, make no lead
+    body = json.dumps({"object": "whatsapp_business_account", "entry": [{"changes": [{"field": "messages", "value": {
+        "contacts": [{"user_id": "IN.123", "profile": {"name": "Anon"}}],
+        "messages": [{"from_user_id": "IN.123", "id": "wamid.U1", "type": "text", "text": {"body": "Hey"}}]}}]}]}).encode()
+    sig = "sha256=" + hmac.new(b"shh", body, hashlib.sha256).hexdigest()
+    assert client.client.post("/admin/whatsapp/webhook", content=body, headers={"X-Hub-Signature-256": sig}).status_code == 200
+    with panel.db() as db:
+        assert db.scalars(select(WhatsAppMessage).where(WhatsAppMessage.direction == "in")).one().body == "Hey"
+        assert len(db.scalars(select(Lead)).all()) == 1

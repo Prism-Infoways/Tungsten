@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from markupsafe import Markup, escape
+from markupsafe import Markup
 from tungsten import Notification, Page
 from tungsten.actions import Action, ActionGroup, Halt
 from tungsten.forms import (
@@ -151,7 +152,8 @@ class WhatsAppSetupPage(Page):
                 .visible(lambda get: bool(get("welcome_enabled")) and get("channel") == "cloud")
                 .helper_text("The Cloud API needs an approved template to start a chat. {{1}} gets the first name."),
                 TextInput("welcome_language").label("Template language").default("en")
-                .visible(lambda get: bool(get("welcome_enabled")) and get("channel") == "cloud"),
+                .visible(lambda get: bool(get("welcome_enabled")) and get("channel") == "cloud")
+                .helper_text("Only matters when the template has more than one language, like en or hi."),
                 Textarea("welcome_text").label("Message").rows(3).column_span("full")
                 .default("Hi {first_name}, thanks for your interest! How can we help you?")
                 .visible(lambda get: bool(get("welcome_enabled")) and get("channel") != "cloud")
@@ -191,7 +193,7 @@ class WhatsAppSetupPage(Page):
             .visible(settings.channel == "web" and bool(settings.gateway_url))
             .modal_heading("Link your phone").modal_width("md")
             .modal_description("On your phone open WhatsApp, then Linked devices, Link a device, and scan this code.")
-            .modal_content(lambda ctx: link_phone(ctx)).modal_submit_action_label("I have scanned it")
+            .modal_content(lambda ctx, host: link_phone(ctx, host)).modal_submit_action_label("I have scanned it")
             .action(lambda ctx, db: check_web(ctx, db)),
             Action("check").label("Check connection").icon("plug-zap").color("primary")
             .visible(cloud and bool(settings.phone_number_id and settings.access_token))
@@ -236,13 +238,18 @@ def _fail(ctx: Any, db: Any, exc: Exception) -> None:
     raise Halt from exc
 
 
-def link_phone(ctx: Any) -> Markup:
-    """Start the gateway session and show its QR code (or say it is already linked)."""
+def link_phone(ctx: Any, host: Any = None) -> Markup:
+    """Start the gateway session and show its QR code (or say it is already linked).
+
+    The code box asks for itself again every 15 seconds, so a new code shows before the old one
+    expires, and the box says "Linked" by itself once the phone is scanned.
+    """
     plugin = plugin_of(ctx)
     settings = get_settings(ctx.db)
     client = client_for(settings, plugin.transport)
     if not isinstance(client, WebClient):
         return Markup("")
+    box = Markup('<div id="tw-wa-qr">{}</div>')
     try:
         client.start(plugin.webhook_url(ctx.request, "web-webhook", token=settings.web_webhook_token))
         info = client.status()
@@ -251,12 +258,18 @@ def link_phone(ctx: Any) -> Markup:
             phone = str((info.get("me") or {}).get("id", "")).split("@")[0]
             settings.web_phone = phone or settings.web_phone
             ctx.db.commit()
-            return Markup('<p class="text-sm text-success-600">{}</p>').format(f"Already linked to +{phone}.")
+            return box.format(Markup('<p class="text-sm text-success-600">{}</p>').format(
+                f"Linked to +{settings.web_phone}. You can close this." if settings.web_phone else "Linked."))
         qr = client.qr_data_uri()
         ctx.db.commit()
     except WhatsAppError as exc:
-        return Markup('<p class="text-sm text-danger-600">{}</p>').format(f"The gateway said: {exc}")
-    return Markup('<img src="{}" alt="QR code" class="mx-auto h-64 w-64 rounded-lg bg-white p-2">').format(escape(qr))
+        return box.format(Markup('<p class="text-sm text-danger-600">{}</p>').format(f"The gateway said: {exc}"))
+    img = Markup('<img src="{}" alt="QR code" class="mx-auto h-64 w-64 rounded-lg bg-white p-2">').format(qr)
+    if host is None:
+        return box.format(img)
+    vals = json.dumps({"_tw_host": host.key, "_tw_scope": "page", "_tw_name": "link"})
+    return Markup('<div id="tw-wa-qr" hx-get="{}" hx-vals="{}" hx-trigger="every 15s" hx-target="this" '
+                  'hx-select="#tw-wa-qr" hx-swap="outerHTML">{}</div>').format(ctx.url("_tw", "action"), vals, img)
 
 
 def check_web(ctx: Any, db: Any) -> None:
