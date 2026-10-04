@@ -6,9 +6,10 @@ from typing import Any
 
 from markupsafe import Markup, escape
 from tungsten import Notification, Page
-from tungsten.actions import Action, Halt
+from tungsten.actions import Action, ActionGroup, Halt
 from tungsten.forms import (
     CheckboxList,
+    Placeholder,
     Section,
     Select,
     Textarea,
@@ -71,20 +72,22 @@ class WhatsAppSetupPage(Page):
             ready = bool(settings.phone_number_id and settings.access_token and settings.app_secret)
             data = {
                 "channel_label": "WhatsApp Cloud API",
-                "channel_text": "The official way. Free text within 24 hours of the lead's last message, "
-                                "templates any time.",
+                "channel_text": "The official way. Free-form replies only within 24 hours of the lead's last "
+                                "message; after that, use an approved template. Meta charges per message.",
                 "state_label": "Ready" if ready else "Keys missing", "state_color": "success" if ready else "warning",
                 "urls": [("Callback URL", plugin.webhook_url(ctx.request, "webhook")),
                          ("Verify token", settings.verify_token)],
-                "help": "In your Meta app: WhatsApp, Configuration, Webhook. Paste these two, then subscribe to "
-                        "the messages field.",
+                "help": "In your Meta app: Use cases, Connect with customers through WhatsApp, Customize, "
+                        "Configuration (older apps: WhatsApp, Configuration). Paste these two, press Verify and "
+                        "save, then subscribe to messages. The Setup guide has every step.",
             }
         elif settings.channel == "web":
             working = settings.web_status == "WORKING"
             data = {
                 "channel_label": "WhatsApp Web",
                 "channel_text": f"Linked to +{settings.web_phone}." if working and settings.web_phone else
-                "Sends from your own WhatsApp number through a WAHA gateway. Press Link phone and scan the QR code.",
+                "Sends from your own WhatsApp number through a WAHA gateway. Save the gateway below, then press "
+                "Link phone and scan the QR code.",
                 "state_label": "Linked" if working else (settings.web_status or "Not linked").replace("_", " ").title(),
                 "state_color": "success" if working else "warning",
                 "urls": [("Webhook URL (set for you by Link phone)",
@@ -110,22 +113,26 @@ class WhatsAppSetupPage(Page):
                 .helper_text("Added to 10-digit numbers."),
             ]),
             Section("Cloud API keys").icon("key-round").visible(_is("cloud")).description(
-                "From developers.facebook.com, your app, WhatsApp, API setup.").schema([
-                TextInput("phone_number_id").label("Phone number ID").required(_is("cloud")),
-                TextInput("business_account_id").label("WhatsApp Business Account ID")
-                .helper_text("Needed for templates."),
+                "From your Meta app: Use cases, Connect with customers through WhatsApp, Customize, API Setup. "
+                "Press Setup guide at the top for every step.").schema([
+                TextInput("phone_number_id").label("Phone number ID").required(_is("cloud"))
+                .helper_text("Pick your own number in From on API Setup, then copy its ID."),
+                TextInput("business_account_id").label("WhatsApp Business Account ID").required(_is("cloud"))
+                .helper_text("Meta may call it Messaging account ID. Needed for templates and replies."),
                 TextInput("access_token").label("Access token").password().revealable().placeholder(_saved("access_token"))
-                .helper_text("A permanent System User token. Leave empty to keep the saved one."),
+                .required(lambda get, db: _is("cloud")(get) and not get_settings(db).access_token)
+                .helper_text("A permanent System User token, not the temporary one. Leave empty to keep the saved one."),
                 TextInput("app_secret").label("App secret").password().revealable().placeholder(_saved("app_secret"))
                 .helper_text("Checks that messages really come from Meta. Leave empty to keep the saved one."),
             ]),
             Section("WhatsApp Web gateway").icon("server").visible(_is("web")).description(
-                "A WAHA gateway (waha.devlike.pro) keeps your phone linked. Run it on a server with Docker: "
-                "docker run -p 3000:3000 devlikeapro/waha").schema([
+                "A WAHA gateway (waha.devlike.pro) keeps your phone linked. It runs on a server with Docker, "
+                "not on shared hosting. Press Setup guide at the top to install it.").schema([
                 TextInput("gateway_url").label("Gateway URL").url().placeholder("http://localhost:3000")
                 .required(_is("web")),
                 TextInput("gateway_api_key").label("API key").password().revealable().placeholder(_saved("gateway_api_key"))
-                .helper_text("WAHA_API_KEY of the gateway, if set. Leave empty to keep the saved one."),
+                .required(lambda get, db: _is("web")(get) and not get_settings(db).gateway_api_key)
+                .helper_text("The API key WAHA printed when you set it up. Leave empty to keep the saved one."),
                 TextInput("gateway_session").label("Session name").default("default"),
             ]),
             Section("Automation").icon("bot").column_span("full").schema([
@@ -133,6 +140,10 @@ class WhatsAppSetupPage(Page):
                 .helper_text("When someone new messages you, add them to Leads."),
                 Toggle("welcome_enabled").label("Welcome new leads").live()
                 .helper_text("Send a WhatsApp message as soon as a lead is added."),
+                Placeholder("welcome_warning").hidden_label().column_span("full")
+                .visible(lambda get: bool(get("welcome_enabled")) and get("channel") == "web")
+                .content("Careful: WhatsApp limits messages to people who never wrote to you first. On WhatsApp Web, "
+                         "welcome messages to many new leads can get your number blocked."),
                 CheckboxList("welcome_sources").label("Only for leads from").options(source_options).columns(3)
                 .visible(lambda get: bool(get("welcome_enabled"))).column_span("full")
                 .helper_text("Pick none to welcome every lead."),
@@ -170,21 +181,53 @@ class WhatsAppSetupPage(Page):
     @classmethod
     def header_actions(cls, ctx):
         settings = get_settings(ctx.db)
+        cloud = settings.channel == "cloud"
         return [
+            Action("guide").label("Setup guide").icon("book-open").color("gray").outlined()
+            .slide_over().modal_width("2xl").modal_heading("Set up WhatsApp")
+            .modal_description("Pick how you want to send, then follow the steps.")
+            .modal_content(lambda ctx: guide(ctx)).modal_submit_action(False).modal_cancel_action_label("Close"),
             Action("link").label("Link phone").icon("qr-code").color("primary")
             .visible(settings.channel == "web" and bool(settings.gateway_url))
             .modal_heading("Link your phone").modal_width("md")
-            .modal_description("On your phone: WhatsApp, Linked devices, Link a device. Then scan this code.")
+            .modal_description("On your phone open WhatsApp, then Linked devices, Link a device, and scan this code.")
             .modal_content(lambda ctx: link_phone(ctx)).modal_submit_action_label("I have scanned it")
             .action(lambda ctx, db: check_web(ctx, db)),
-            Action("templates").label("Sync templates").icon("refresh-cw").color("gray").outlined()
-            .visible(settings.channel == "cloud").action(lambda ctx, db: refresh_templates(ctx, db)),
+            Action("check").label("Check connection").icon("plug-zap").color("primary")
+            .visible(cloud and bool(settings.phone_number_id and settings.access_token))
+            .action(lambda ctx, db: check_cloud(ctx, db)),
             Action("test").label("Send a test").icon("send").color("gray").outlined()
             .visible(settings.channel in ("cloud", "web"))
-            .form([TextInput("phone").label("To").tel().required().placeholder("+91 98765 43210"),
+            .form([TextInput("phone").label("To").tel().required().placeholder("+91 98765 43210")
+                   .helper_text("Free text needs a chat opened in the last 24 hours: first send Hi to your "
+                                "business number from this phone." if cloud else None),
                    Textarea("text").label("Message").rows(2).required().default("Hello from Tungsten!")])
             .modal_submit_action_label("Send").action(lambda data, ctx, db: send_test(ctx, db, data)),
+            ActionGroup([
+                Action("register").label("Register number").icon("badge-check").visible(cloud)
+                .modal_heading("Register your number").modal_width("md")
+                .modal_description("Meta needs this once before your own number can send. Not needed for the "
+                                   "test number.")
+                .form([TextInput("pin").label("6-digit PIN").required().regex(r"^\d{6}$", "Type 6 digits.")
+                       .helper_text("If two-step verification is on for this number, type that PIN. Otherwise "
+                                    "this becomes its PIN. Keep it safe.")])
+                .modal_submit_action_label("Register").action(lambda data, ctx, db: register_number(ctx, db, data)),
+                Action("templates").label("Sync templates").icon("refresh-cw").visible(cloud)
+                .action(lambda ctx, db: refresh_templates(ctx, db)),
+            ]).label("More").button(),
         ]
+
+
+def guide(ctx: Any) -> Markup:
+    """The step-by-step setup guide, with this site's own addresses filled in."""
+    plugin = plugin_of(ctx)
+    settings = get_settings(ctx.db)
+    webhook = plugin.webhook_url(ctx.request, "webhook")
+    return ctx.panel.renderer.render(
+        "tungsten_whatsapp/guide.html", ctx=ctx, channel=settings.channel or "cloud", settings=settings,
+        webhook_url=webhook, verify_token=settings.verify_token, https=webhook.startswith("https://"),
+        web_webhook_url=plugin.webhook_url(ctx.request, "web-webhook", token=settings.web_webhook_token),
+    )
 
 
 def _fail(ctx: Any, db: Any, exc: Exception) -> None:
@@ -232,6 +275,40 @@ def check_web(ctx: Any, db: Any) -> None:
     db.commit()
     Notification("Not linked yet").body("Scan the QR code, then press the button again.").warning().send(ctx)
     raise Halt
+
+
+def check_cloud(ctx: Any, db: Any) -> None:
+    """Read the number from Meta, and make sure Meta sends this WhatsApp account's messages to us."""
+    settings = get_settings(db)
+    client = client_for(settings, plugin_of(ctx).transport)
+    if not isinstance(client, CloudClient):
+        raise Halt
+    try:
+        info = client.phone_info()
+        client.subscribe_app()
+    except WhatsAppError as exc:
+        _fail(ctx, db, exc)
+    number = f"{info.get('display_phone_number') or settings.phone_number_id} ({info.get('verified_name') or '?'})"
+    if info.get("platform_type") not in (None, "CLOUD_API"):
+        Notification("Number not registered yet").body(
+            f"{number} is not on the Cloud API yet. Press More, then Register number.").warning().send(ctx)
+        raise Halt
+    if info.get("status") not in (None, "CONNECTED"):
+        Notification("Number not ready").body(f"Meta says {number} is {info['status'].lower()}.").warning().send(ctx)
+        raise Halt
+    Notification("WhatsApp is connected").body(f"{number} is ready, and replies will come in here.").success().send(ctx)
+
+
+def register_number(ctx: Any, db: Any, data: dict) -> None:
+    client = client_for(get_settings(db), plugin_of(ctx).transport)
+    if not isinstance(client, CloudClient):
+        raise Halt
+    try:
+        client.register(data["pin"])
+        client.subscribe_app()
+    except WhatsAppError as exc:
+        _fail(ctx, db, exc)
+    Notification("Number registered").body("Your number can now send and receive messages.").success().send(ctx)
 
 
 def refresh_templates(ctx: Any, db: Any) -> None:

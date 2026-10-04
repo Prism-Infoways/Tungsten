@@ -11,6 +11,8 @@ import urllib.request
 from typing import Any, Callable, Iterator
 
 GRAPH_HOST = "https://graph.facebook.com"
+#: Graph API version (Meta keeps each version for about two years)
+GRAPH_VERSION = "v25.0"
 DIALOG_HOST = "https://www.facebook.com"
 
 #: ``transport(method, url, body) -> (status, text)``; swap it in tests
@@ -41,7 +43,7 @@ def signature_ok(app_secret: str, body: bytes, header: str | None) -> bool:
 
 
 class Graph:
-    def __init__(self, version: str = "v21.0", app_secret: str | None = None,
+    def __init__(self, version: str = GRAPH_VERSION, app_secret: str | None = None,
                  transport: Transport | None = None) -> None:
         self.version = version
         self.app_secret = app_secret

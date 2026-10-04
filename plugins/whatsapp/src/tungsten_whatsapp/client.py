@@ -12,6 +12,8 @@ import urllib.request
 from typing import Any, Callable
 
 GRAPH_HOST = "https://graph.facebook.com"
+#: Graph API version for the Cloud API (Meta keeps each version for about two years)
+GRAPH_VERSION = "v25.0"
 
 #: ``transport(method, url, headers, body) -> (status, text)``
 Transport = Callable[[str, str, dict, "bytes | None"], "tuple[int, str]"]
@@ -76,7 +78,7 @@ class CloudClient:
     """WhatsApp Business Cloud API (Meta). Needs a phone number id and a permanent access token."""
 
     def __init__(self, phone_number_id: str, access_token: str, business_account_id: str | None = None,
-                 version: str = "v21.0", transport: Transport | None = None) -> None:
+                 version: str = GRAPH_VERSION, transport: Transport | None = None) -> None:
         self.phone_number_id = phone_number_id
         self.access_token = access_token
         self.business_account_id = business_account_id
@@ -91,7 +93,7 @@ class CloudClient:
 
     def send_text(self, to: str, text: str) -> str:
         data = _call(self.transport, "POST", self._url(f"{self.phone_number_id}/messages"), self._headers(), {
-            "messaging_product": "whatsapp", "recipient_type": "individual", "to": to,
+            "messaging_product": "whatsapp", "recipient_type": "individual", "to": f"+{to}",
             "type": "text", "text": {"body": text, "preview_url": True},
         })
         return data["messages"][0]["id"]
@@ -102,7 +104,7 @@ class CloudClient:
             template["components"] = [{"type": "body",
                                        "parameters": [{"type": "text", "text": str(p)} for p in params]}]
         data = _call(self.transport, "POST", self._url(f"{self.phone_number_id}/messages"), self._headers(), {
-            "messaging_product": "whatsapp", "to": to, "type": "template", "template": template,
+            "messaging_product": "whatsapp", "to": f"+{to}", "type": "template", "template": template,
         })
         return data["messages"][0]["id"]
 
@@ -115,8 +117,21 @@ class CloudClient:
         return data.get("data", [])
 
     def phone_info(self) -> dict:
+        """The number as Meta sees it: ``status`` is CONNECTED and ``platform_type`` CLOUD_API once registered."""
         return _call(self.transport, "GET", self._url(
-            f"{self.phone_number_id}?fields=display_phone_number,verified_name,quality_rating"), self._headers())
+            f"{self.phone_number_id}?fields=display_phone_number,verified_name,quality_rating,status,platform_type,"
+            "name_status"), self._headers())
+
+    def register(self, pin: str) -> None:
+        """Register the number for the Cloud API. ``pin`` becomes its two-step PIN (or must match the one set)."""
+        _call(self.transport, "POST", self._url(f"{self.phone_number_id}/register"), self._headers(),
+              {"messaging_product": "whatsapp", "pin": pin})
+
+    def subscribe_app(self) -> None:
+        """Ask Meta to send this WhatsApp account's messages to our app's webhook (safe to repeat)."""
+        if not self.business_account_id:
+            raise WhatsAppError("Add the WhatsApp Business Account ID first.")
+        _call(self.transport, "POST", self._url(f"{self.business_account_id}/subscribed_apps"), self._headers())
 
 
 class WebClient:

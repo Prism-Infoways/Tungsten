@@ -45,7 +45,7 @@ def connect_facebook(admin, graph):
     page = admin.get("/admin/meta-leads").text
     link = re.search(r'href="(https://www\.facebook\.com/[^"]+)"', page).group(1).replace("&amp;", "&")
     query = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(link).query))
-    assert query["client_id"] == "111" and "leads_retrieval" in query["scope"]
+    assert query["client_id"] == "111" and "leads_retrieval" in query["scope"] and "ads_management" in query["scope"]
     assert query["redirect_uri"] == "https://crm.example.com/admin/meta/callback"
     return admin.client.get(f"/admin/meta/callback?code=abc&state={query['state']}", follow_redirects=False)
 
@@ -150,3 +150,14 @@ def test_screens_render(admin, panel, graph):
         form_id = db.scalars(select(MetaForm)).one().id
     edit = admin.get(f"/admin/meta-forms/{form_id}/edit").text
     assert "which_course?" in edit and "Answers go to" in edit
+
+
+def test_setup_guide_shows_this_sites_addresses(admin, panel, graph):
+    page = admin.get("/admin/meta-leads").text
+    assert "https://crm.example.com/admin/meta/callback" in page and "crm.example.com" in page
+    assert '"_tw_name": "guide"' in page
+    guide = admin.get("/admin/_tw/action?_tw_host=page:meta-leads&_tw_scope=page&_tw_name=guide",
+                      headers={"HX-Request": "true"}).text
+    assert "Capture &amp; manage ad leads with Marketing API" in guide
+    assert "https://crm.example.com/admin/meta/callback" in guide and "Lead Ads Testing Tool" in guide
+    assert "open on http, not https" not in guide and 'type="submit"' not in guide

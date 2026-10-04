@@ -14,17 +14,18 @@ every new lead lands in Leads with its answers.
 
 from __future__ import annotations
 
+import hmac
 import json
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import Request
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 from tungsten import Plugin
 
-from .graph import Graph, GraphError, Transport, signature_ok
+from .graph import GRAPH_VERSION, Graph, GraphError, Transport, signature_ok
 from .models import MetaBase, MetaForm, MetaLeadLog, MetaPage, MetaSettings
 from .pages import MetaSetupPage
 from .resources import MetaFormResource, MetaLeadLogResource
@@ -57,7 +58,7 @@ class MetaLeadsPlugin(Plugin):
     templates = Path(__file__).with_name("templates")
 
     def __init__(self, app_id: str | None = None, app_secret: str | None = None, public_url: str | None = None,
-                 graph_version: str = "v21.0", auto_create_fields: bool = True, default_status: str = "new",
+                 graph_version: str = GRAPH_VERSION, auto_create_fields: bool = True, default_status: str = "new",
                  sync_limit: int = 500, transport: Transport | None = None) -> None:
         self.app_id = app_id
         self.app_secret = app_secret
@@ -95,6 +96,10 @@ class MetaLeadsPlugin(Plugin):
             return self.panel.app_url
         proto = request.headers.get("x-forwarded-proto") or request.url.scheme
         return f"{proto}://{request.headers.get('host') or request.url.netloc}"
+
+    def app_domain(self, request: Request) -> str:
+        """This site's host name, for the app's "App domains" setting."""
+        return urlsplit(self.base_url(request)).hostname or ""
 
     def redirect_uri(self, request: Request) -> str:
         return self.base_url(request) + self.panel.url("meta", "callback")
@@ -145,7 +150,7 @@ class MetaLeadsPlugin(Plugin):
             """Meta checks the webhook once: echo the challenge if the token matches."""
             params = request.query_params
             token = await run_in_threadpool(panel.with_session, lambda db: get_settings(db).verify_token)
-            if params.get("hub.mode") == "subscribe" and params.get("hub.verify_token") == token:
+            if params.get("hub.mode") == "subscribe" and hmac.compare_digest(params.get("hub.verify_token", ""), token):
                 return PlainTextResponse(params.get("hub.challenge", ""))
             return PlainTextResponse("Wrong verify token", status_code=403)
 

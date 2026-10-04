@@ -48,6 +48,7 @@ class Action(Component):
         self._modal_heading: Any = None
         self._modal_description: Any = None
         self._modal_submit_label: Any = None
+        self._modal_submit = True
         self._modal_cancel_label: Any = "Cancel"
         self._modal_icon: Any = None
         self._modal_icon_color: Any = None
@@ -111,6 +112,11 @@ class Action(Component):
 
     modal_submit_label = modal_submit_action_label
 
+    def modal_submit_action(self, condition: bool = True) -> "Action":
+        """``modal_submit_action(False)`` hides the submit button, for a popup that only shows something."""
+        self._modal_submit = condition
+        return self
+
     def modal_cancel_action_label(self, text: Any) -> "Action":
         self._modal_cancel_label = text
         return self
@@ -126,7 +132,7 @@ class Action(Component):
         return self
 
     def modal_content(self, content: Any) -> "Action":
-        """Extra HTML shown in the modal (``Markup`` or a closure returning it)."""
+        """HTML shown in the modal (``Markup`` or a closure returning it). The action then opens a modal."""
         self._modal_content = content
         return self
 
@@ -242,7 +248,7 @@ class Action(Component):
         return __(str(evaluate(self._label, **(ev or {}))))
 
     def needs_modal(self) -> bool:
-        return bool(self._requires_confirmation or self._form is not None)
+        return bool(self._requires_confirmation or self._form is not None or self._modal_content is not None)
 
     def is_url(self) -> bool:
         return self._url is not None

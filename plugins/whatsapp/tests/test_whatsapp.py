@@ -68,7 +68,7 @@ def test_send_from_lead_on_cloud_api(admin, panel, http):
                             "_tw_record": str(lead_id), "message": "Hi {first_name}, here is the brochure"})
     assert r.status_code == 200 and "WhatsApp sent" in r.headers.get("HX-Trigger", ""), r.text[:300]
     method, path, body, headers = http.calls[-1]
-    assert path == "PN1/messages" and body["to"] == "919876543210"
+    assert path == "PN1/messages" and body["to"] == "+919876543210"
     assert body["text"]["body"] == "Hi Amit, here is the brochure" and headers["Authorization"] == "Bearer TOKEN"
     with panel.db() as db:
         msg = db.scalars(select(WhatsAppMessage)).one()
@@ -184,12 +184,60 @@ def test_setup_page_keeps_secrets(admin, panel):
     assert admin.get("/admin/whatsapp").status_code == 200
     configure(panel, channel="cloud", access_token="KEEP", app_secret="KEEP2")
     r = admin.post("/admin/whatsapp", {"channel": "cloud", "country_code": "+91", "phone_number_id": "PN9",
-                                       "access_token": "", "app_secret": ""})
+                                       "business_account_id": "", "access_token": "", "app_secret": ""})
+    assert "The whatsapp business account id field is required." in r.text  # needed for replies now
+    r = admin.post("/admin/whatsapp", {"channel": "cloud", "country_code": "+91", "phone_number_id": "PN9",
+                                       "business_account_id": "WABA9", "access_token": "", "app_secret": ""})
     assert r.status_code == 200, r.text[:300]
     with panel.db() as db:
         s = db.scalars(select(WhatsAppSettings)).one()
         assert (s.phone_number_id, s.access_token, s.app_secret, s.country_code) == ("PN9", "KEEP", "KEEP2", "91")
+
+    configure(panel, channel=None, gateway_api_key=None)
+    r = admin.post("/admin/whatsapp", {"channel": "web", "gateway_url": "http://waha:3000", "gateway_api_key": "",
+                                       "gateway_session": "default"})
+    with panel.db() as db:
+        assert db.scalars(select(WhatsAppSettings)).one().channel is None  # the WAHA API key is required
+    configure(panel, channel="cloud")
     page = admin.get("/admin/whatsapp").text
     assert "KEEP" not in page and "/admin/whatsapp/webhook" in page
     for url in ("/admin/whatsapp-messages", "/admin/whatsapp-templates"):
         assert admin.get(url).status_code == 200, url
+
+
+def test_setup_guide_and_cloud_checks(admin, panel, http):
+    cloud(panel, http)
+    page = admin.get("/admin/whatsapp").text
+    for name in ("guide", "check", "register", "templates"):
+        assert f'"_tw_name": "{name}"' in page, name
+    guide = admin.get(f"{ACTION}?_tw_host=page:whatsapp&_tw_scope=page&_tw_name=guide", headers={"HX-Request": "true"})
+    assert "Connect with customers through WhatsApp" in guide.text and "init-waha" in guide.text
+    assert "https://crm.example.com/admin/whatsapp/webhook" in guide.text and 'type="submit"' not in guide.text
+
+    http.routes.update({
+        "GET PN1": {"display_phone_number": "+91 98765 00000", "verified_name": "Prism", "status": "PENDING",
+                    "platform_type": "NOT_APPLICABLE"},
+        "POST WABA1/subscribed_apps": {"success": True},
+        "POST PN1/register": {"success": True},
+    })
+    r = admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "check"})
+    assert "Number not registered yet" in r.headers["HX-Trigger"]
+
+    r = admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "register", "pin": "12ab"})
+    assert "Type 6 digits." in r.text
+    admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "register", "pin": "123456"})
+    register = next(c for c in http.calls if c[1] == "PN1/register")
+    assert register[2] == {"messaging_product": "whatsapp", "pin": "123456"}
+
+    http.routes["GET PN1"] = {"display_phone_number": "+91 98765 00000", "verified_name": "Prism",
+                              "status": "CONNECTED", "platform_type": "CLOUD_API"}
+    admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "check"})
+    assert "WhatsApp is connected" in admin.get("/admin/whatsapp").text  # flashed for the reloaded page
+    assert [c[1] for c in http.calls].count("WABA1/subscribed_apps") == 3
+
+
+def test_link_phone_opens_a_popup(admin, panel, http):
+    web(panel, http)
+    page = admin.get("/admin/whatsapp").text
+    button = page[page.index('"_tw_name": "link"') - 300:page.index('"_tw_name": "link"')]
+    assert 'hx-get="/admin/_tw/action"' in button

@@ -15,7 +15,7 @@ from .models import MetaForm, MetaLeadLog, MetaPage, MetaSettings
 
 #: what we ask the Facebook user to allow
 SCOPES = ["pages_show_list", "pages_read_engagement", "pages_manage_metadata", "pages_manage_ads",
-          "leads_retrieval", "business_management"]
+          "leads_retrieval", "business_management", "ads_management", "ads_read"]
 LEAD_FIELDS = "id,created_time,field_data,form_id,ad_id,platform,is_organic"
 
 #: targets a Meta answer can go to, besides a lead field key

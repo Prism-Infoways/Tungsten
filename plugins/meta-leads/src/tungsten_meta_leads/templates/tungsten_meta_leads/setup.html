@@ -11,7 +11,7 @@
       <span class="tw-icon-tile h-9 w-9 {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ icon('list-checks', 'h-5 w-5') }}</span>
       <div class="flex-1">
         <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Setup') }}</h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Three steps. After that, new leads arrive by themselves.') }}</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('After these steps, new leads arrive by themselves. New to this? Press Setup guide at the top.') }}</p>
       </div>
     </header>
     <ol class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/10 dark:border-white/10">
@@ -31,17 +31,20 @@
 
   <section class="tw-card">
     <header class="flex items-center gap-x-3 px-6 py-4">
-      <span class="tw-icon-tile h-9 w-9 {{ colors.pick(colors.SOFT_ICON, 'info') }}">{{ icon('webhook', 'h-5 w-5') }}</span>
+      <span class="tw-icon-tile h-9 w-9 {{ colors.pick(colors.SOFT_ICON, 'info') }}">{{ icon('link', 'h-5 w-5') }}</span>
       <div class="flex-1">
-        <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Webhook') }}</h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Set by the Connect button. If Meta refused it, paste these in your Meta app: Webhooks, Page, leadgen.') }}</p>
+        <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Addresses for your Meta app') }}</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('The Setup guide says where each one goes. Connect Facebook sets the webhook for you.') }}</p>
       </div>
       {% if last_webhook_at %}{{ ui.badge(__('Last lead :when', when=last_webhook_at), 'gray') }}{% endif %}
     </header>
     <dl class="grid gap-4 border-t border-gray-100 p-6 md:grid-cols-2 dark:border-white/10">
-      {% for label, value in [(__('Callback URL'), webhook_url), (__('Verify token'), verify_token)] %}
+      {% for label, value, hint in [(__('Redirect URI'), redirect_uri, __('Facebook Login for Business, Settings')),
+                                    (__('App domain'), app_domain, __('App settings, Basic')),
+                                    (__('Webhook callback URL'), webhook_url, __('Webhooks, Page, only if Meta refused it')),
+                                    (__('Verify token'), verify_token, __('Webhooks, Page, only if Meta refused it'))] %}
       <div>
-        <dt class="text-sm font-medium text-gray-950 dark:text-white">{{ label }}</dt>
+        <dt class="text-sm font-medium text-gray-950 dark:text-white">{{ label }} <span class="font-normal text-gray-500 dark:text-gray-400">· {{ hint }}</span></dt>
         <dd class="mt-2 flex items-center gap-x-2">
           <code class="tw-input block w-full truncate px-3 py-2 text-sm">{{ value }}</code>
           <button type="button" class="tw-icon-btn {{ colors.pick(colors.ICON_BUTTON, 'gray') }}" title="{{ __('Copy') }}"
