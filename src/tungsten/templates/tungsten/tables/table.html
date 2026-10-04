@@ -107,7 +107,8 @@
     </div>
     {% endif %}
 
-    <div class="flex">
+    {# the filter panel sits beside the table, and above it on narrow screens, where beside it would squeeze the table #}
+    <div class="flex flex-col-reverse md:flex-row">
     <div class="min-w-0 flex-1">
     {# ------------------------------------------------------------ table #}
     {% if rows %}
@@ -256,7 +257,7 @@
     {# ------------------------------------------------------------ filter panel #}
     {% if panel_filters %}
     {% set has_builder = panel_filters | selectattr('field', 'defined') | list %}
-    <aside x-show="panel" x-cloak class="{{ 'w-80' if has_builder else 'w-72' }} shrink-0 border-s border-t border-gray-100 p-4 dark:border-white/10">
+    <aside x-show="panel" x-cloak class="{{ 'md:w-80' if has_builder else 'md:w-72' }} shrink-0 border-t border-gray-100 p-4 md:border-s dark:border-white/10">
       <div class="mb-4 flex items-center justify-between">
         <h4 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Filters') }}</h4>
         <button type="button" class="tw-icon-btn text-gray-400" @click="panel = false" aria-label="{{ __('Close filters') }}">{{ icon('x', 'h-4 w-4') }}</button>

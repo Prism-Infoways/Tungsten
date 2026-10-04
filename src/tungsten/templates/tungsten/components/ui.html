@@ -96,10 +96,12 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {% endmacro %}
 
 {# ---------------------------------------------------------------- dropdown #}
+{# twDropdown (tungsten.js) floats the open panel next to its trigger, so a table's scroll box can't cut it off.
+   Picking a link or button in the panel closes it. #}
 {% macro dropdown(align='end', width='w-56', classes='') %}
-<div class="relative {{ classes }}" x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false">
+<div class="relative {{ classes }}" x-data="twDropdown('{{ align }}')" @keydown.escape.window="open = false" @click.outside="open = false">
   <div @click="open = !open">{{ caller('trigger') }}</div>
-  <div x-show="open" x-cloak x-transition.opacity.duration.100ms
+  <div x-ref="panel" x-show="open" x-cloak x-transition.opacity.duration.100ms @click="$event.target.closest('a, button:not([disabled])') && (open = false)"
        class="absolute z-30 mt-2 {{ 'end-0' if align == 'end' else 'start-0' }} {{ width }} rounded-xl bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
     {{ caller('panel') }}
   </div>
