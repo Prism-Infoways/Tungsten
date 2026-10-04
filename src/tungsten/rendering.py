@@ -59,8 +59,9 @@ class Renderer:
     def __init__(self, template_dirs: Iterable[str | Path] = ()) -> None:
         loaders = [FileSystemLoader([str(p) for p in template_dirs])] if template_dirs else []
         loaders.append(_PackageLoader("tungsten", "templates"))
+        self._loader = ChoiceLoader(loaders)
         self.env = Environment(
-            loader=ChoiceLoader(loaders),
+            loader=self._loader,
             autoescape=select_autoescape(["html", "xml"], default_for_string=True),
             trim_blocks=True,
             lstrip_blocks=True,
@@ -84,6 +85,12 @@ class Renderer:
         self.env.filters["number"] = _format_number
         self.env.filters["attr_json"] = _tojson_attr
         self.env.filters["ord_value"] = lambda ch: ord(str(ch)[0]) if ch else 0
+
+    def add_dir(self, path: str | Path) -> None:
+        """Look for templates in ``path`` too: after your own ``template_dirs``, before the built-in ones."""
+        self._loader.loaders.insert(len(self._loader.loaders) - 1, FileSystemLoader(str(path)))
+        if self.env.cache is not None:
+            self.env.cache.clear()
 
     def render(self, name: str, **context: Any) -> Markup:
         return Markup(self.env.get_template(name).render(**context))

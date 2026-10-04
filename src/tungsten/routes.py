@@ -67,6 +67,9 @@ def build_app(panel: "Panel") -> FastAPI:
     # compress pages, CSS and JS (a list page shrinks from ~130 KB to ~15 KB)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.mount("/assets", CachedStaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
+    for plugin in panel._plugins:
+        if plugin.static:
+            app.mount(f"/plugins/{plugin.id}", StaticFiles(directory=str(plugin.static)), name=f"plugin-{plugin.id}")
     routes = Routes(panel)
     routes.register(app)
     return app
