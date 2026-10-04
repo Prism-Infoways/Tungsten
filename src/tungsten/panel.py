@@ -229,8 +229,16 @@ class Panel:
 
     def plugin(self, plugin: "Plugin") -> "Panel":
         self._plugins.append(plugin)
+        if plugin.templates:
+            self.renderer.add_dir(plugin.templates)
+        if plugin.lang:
+            self.translator.add_dir(plugin.lang)
         plugin.register(self)
         return self
+
+    def plugin_asset(self, plugin_id: str, name: str) -> str:
+        """URL of a file in a plugin's ``static`` folder."""
+        return self.url("plugins", plugin_id, name)
 
     def rbac(self, roles_resource: bool = True) -> "Panel":
         """Turn on role-based permissions (and the Roles & Permissions resource)."""
@@ -493,23 +501,30 @@ class Panel:
         With an async engine, call this outside a running event loop or use
         ``await panel.acreate_tables()``.
         """
-        from .models import TungstenBase
-
         engine = self._engine(engine)
         if is_async_engine(engine):
             import asyncio
 
             asyncio.run(self.acreate_tables(engine))
             return
-        TungstenBase.metadata.create_all(engine)
+        for metadata in self._all_metadata():
+            metadata.create_all(engine)
 
     async def acreate_tables(self, engine: Any = None) -> None:
         """Async version of :meth:`create_tables` for an async engine."""
-        from .models import TungstenBase
-
         engine = self._engine(engine)
         async with engine.begin() as conn:
-            await conn.run_sync(TungstenBase.metadata.create_all)
+            for metadata in self._all_metadata():
+                await conn.run_sync(metadata.create_all)
+
+    def _all_metadata(self) -> list[Any]:
+        from .models import TungstenBase
+
+        out = [TungstenBase.metadata]
+        for plugin in self._plugins:
+            if plugin.metadata is not None and plugin.metadata not in out:
+                out.append(plugin.metadata)
+        return out
 
     def with_session(self, fn: Callable[[Any], Any]) -> Any:
         """Run ``fn(db)`` with a sync DB session, for scripts and the CLI (async engines too).

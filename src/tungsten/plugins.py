@@ -11,11 +11,22 @@
             panel.render_hook("sidebar.footer", lambda: Markup("<p>Blog v1</p>"))
 
     panel.plugin(BlogPlugin())
+
+A plugin shipped as its own package can also bring templates, static files,
+language files and database tables::
+
+    class BlogPlugin(Plugin):
+        id = "blog"
+        templates = Path(__file__).with_name("templates")   # render "blog/post.html"
+        static = Path(__file__).with_name("static")         # served at panel.plugin_asset("blog", "blog.css")
+        lang = Path(__file__).with_name("lang")             # en.json, hi.json ...
+        metadata = BlogBase.metadata                        # created by panel.create_tables()
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover
     from .panel import Panel
@@ -23,6 +34,14 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class Plugin:
     id: str = "plugin"
+    #: folder of Jinja templates; the panel looks there after your own ``template_dirs``
+    templates: str | Path | None = None
+    #: folder of static files, served at ``<panel>/plugins/<id>/...``
+    static: str | Path | None = None
+    #: folder of language files (``en.json``, ``hi.json``...)
+    lang: str | Path | None = None
+    #: SQLAlchemy ``MetaData`` of the plugin's own tables, created by ``panel.create_tables()``
+    metadata: Any = None
 
     def register(self, panel: "Panel") -> None:
         """Called when the plugin is added: register resources, pages, widgets."""

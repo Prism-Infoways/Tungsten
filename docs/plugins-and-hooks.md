@@ -115,6 +115,51 @@ panel.plugin(BlogPlugin(navigation_group="Content"))
 
 Get a plugin back by its id with `panel.get_plugin("blog")`. It returns `None` if the plugin isn't added.
 
+### Shipping a plugin as its own package
+
+A plugin can live in its own pip package, with its own templates, CSS and JS files, language files and database tables. Point the plugin at its folders:
+
+```python
+from pathlib import Path
+
+from sqlalchemy.orm import DeclarativeBase
+from tungsten import Plugin
+
+HERE = Path(__file__).parent
+
+
+class BlogBase(DeclarativeBase):
+    pass
+
+
+class BlogPlugin(Plugin):
+    id = "blog"
+    templates = HERE / "templates"   # render("blog/card.html") finds blog/card.html here
+    static = HERE / "static"         # served at /admin/plugins/blog/...
+    lang = HERE / "lang"             # en.json, hi.json ...
+    metadata = BlogBase.metadata     # tables made by panel.create_tables()
+```
+
+| Attribute | What it does |
+| --- | --- |
+| `templates` | The panel looks for templates here, after your own `template_dirs`. So an app can still override a plugin's template by putting a file with the same name in its own folder. |
+| `static` | Files are served at `<panel path>/plugins/<id>/<file>`. Get the address with `panel.plugin_asset("blog", "blog.css")`. |
+| `lang` | Translations are added to the panel's own. |
+| `metadata` | `panel.create_tables(engine)` creates these tables along with Tungsten's own. |
+
+Users then install and add it with two lines:
+
+```bash
+pip install tungsten-blog
+```
+
+```python
+panel.plugin(BlogPlugin())
+panel.create_tables(engine)
+```
+
+The Tungsten repository keeps its official plugins in the `plugins/` folder, one package per folder. See `plugins/leads` for a full example.
+
 ## Render hooks
 
 A render hook puts your HTML into a fixed spot in the layout. Register a function for a hook name. Tungsten calls it each time that spot is drawn:
