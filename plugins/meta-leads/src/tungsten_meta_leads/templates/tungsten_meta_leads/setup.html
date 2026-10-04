@@ -1,0 +1,80 @@
+{% import "tungsten/components/ui.html" as ui %}
+<div class="grid gap-6">
+  {% if message %}
+  <div class="tw-card flex items-start gap-x-3 p-4 text-sm {{ 'text-danger-600 dark:text-danger-400' if message_error else 'text-success-600 dark:text-success-400' }}">
+    {{ icon('circle-alert' if message_error else 'circle-check', 'h-5 w-5 shrink-0') }}<span>{{ message }}</span>
+  </div>
+  {% endif %}
+
+  <section class="tw-card">
+    <header class="flex items-center gap-x-3 px-6 py-4">
+      <span class="tw-icon-tile h-9 w-9 {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ icon('list-checks', 'h-5 w-5') }}</span>
+      <div class="flex-1">
+        <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Setup') }}</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Three steps. After that, new leads arrive by themselves.') }}</p>
+      </div>
+    </header>
+    <ol class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/10 dark:border-white/10">
+      {% for step in steps %}
+      <li class="flex items-start gap-x-4 px-6 py-4">
+        <span class="mt-0.5">{{ icon('circle-check' if step.done else 'circle-dashed', 'h-5 w-5 ' ~ ('text-success-600' if step.done else 'text-gray-400')) }}</span>
+        <div class="flex-1">
+          <p class="text-sm font-semibold text-gray-950 dark:text-white">{{ loop.index }}. {{ step.title }}</p>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ step.text }}</p>
+          {% if step.error %}<p class="mt-1 text-sm text-danger-600 dark:text-danger-400">{{ step.error }}</p>{% endif %}
+        </div>
+        {% if step.done %}{{ ui.badge(__('Done'), 'success') }}{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="tw-card">
+    <header class="flex items-center gap-x-3 px-6 py-4">
+      <span class="tw-icon-tile h-9 w-9 {{ colors.pick(colors.SOFT_ICON, 'info') }}">{{ icon('webhook', 'h-5 w-5') }}</span>
+      <div class="flex-1">
+        <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Webhook') }}</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Set by the Connect button. If Meta refused it, paste these in your Meta app: Webhooks, Page, leadgen.') }}</p>
+      </div>
+      {% if last_webhook_at %}{{ ui.badge(__('Last lead :when', when=last_webhook_at), 'gray') }}{% endif %}
+    </header>
+    <dl class="grid gap-4 border-t border-gray-100 p-6 md:grid-cols-2 dark:border-white/10">
+      {% for label, value in [(__('Callback URL'), webhook_url), (__('Verify token'), verify_token)] %}
+      <div>
+        <dt class="text-sm font-medium text-gray-950 dark:text-white">{{ label }}</dt>
+        <dd class="mt-2 flex items-center gap-x-2">
+          <code class="tw-input block w-full truncate px-3 py-2 text-sm">{{ value }}</code>
+          <button type="button" class="tw-icon-btn {{ colors.pick(colors.ICON_BUTTON, 'gray') }}" title="{{ __('Copy') }}"
+                  onclick="navigator.clipboard.writeText({{ value | tojson | forceescape }}); window.twToast && twToast({title: twT('Copied'), status: 'success'})">{{ icon('copy', 'h-4 w-4') }}</button>
+        </dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </section>
+
+  <section class="tw-card">
+    <header class="flex items-center gap-x-3 px-6 py-4">
+      <span class="tw-icon-tile h-9 w-9 {{ colors.pick(colors.SOFT_ICON, 'success') }}">{{ icon('flag', 'h-5 w-5') }}</span>
+      <div class="flex-1">
+        <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Connected pages') }}</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Leads from the lead forms of these pages come in.') }}</p>
+      </div>
+      {% if forms_url %}{{ ui.button(__('Lead forms'), 'gray', 'arrow-right', href=forms_url, outlined=true) }}{% endif %}
+    </header>
+    {% if pages %}
+    <ul class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/10 dark:border-white/10">
+      {% for page in pages %}
+      <li class="flex items-center gap-x-4 px-6 py-3">
+        <span class="flex-1 text-sm font-medium text-gray-950 dark:text-white">{{ page.name }}
+          <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">{{ page.forms }} {{ __('lead forms') }}</span>
+          {% if page.error %}<span class="block text-xs font-normal text-danger-600 dark:text-danger-400">{{ page.error }}</span>{% endif %}
+        </span>
+        {{ ui.badge(__('Receiving leads'), 'success', 'circle-check') if page.subscribed else ui.badge(__('Not receiving'), 'danger', 'circle-alert') }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="border-t border-gray-100 px-6 py-8 text-center text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">{{ __('No pages yet. Use Connect Facebook above.') }}</p>
+    {% endif %}
+  </section>
+</div>
