@@ -192,8 +192,9 @@ class ResourceHost(Host):
     def get_table(self, ctx: "Context") -> "Table":
         from .tables.table import Table
 
-        table = self.resource.table(Table())
-        return table
+        table = Table()
+        table.ctx = ctx  # so ``table(cls, table)`` can look at the request (bind() sets it again)
+        return self.resource.table(table)
 
     def page_actions(self, ctx: "Context", record: Any = None, page: str | None = None) -> list:
         page = page or ("edit" if record is not None else "list")

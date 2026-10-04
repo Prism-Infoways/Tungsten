@@ -532,16 +532,25 @@ class Panel:
         With an async engine this starts a private event loop, so call it
         from sync code only.
         """
+        def run(db: Any) -> Any:
+            db.info["tungsten_panel"] = self
+            return fn(db)
+
         if not self.is_async:
             with self.session_factory() as db:
-                return fn(db)
+                return run(db)
         import asyncio
 
         async def go() -> Any:
             async with self.session_factory() as adb:
-                return await adb.run_sync(fn)
+                return await adb.run_sync(run)
 
         return asyncio.run(go())
+
+    @staticmethod
+    def of(db: Any) -> "Panel | None":
+        """The panel a DB session belongs to, inside a panel request or :meth:`with_session` (plugins use this)."""
+        return getattr(db, "info", {}).get("tungsten_panel")
 
     def log_activity(self, ctx: "Context", event: str, record: Any, description: str | None = None,
                      properties: dict | None = None) -> None:

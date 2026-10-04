@@ -105,6 +105,7 @@ class Routes:
     def _handle(self, db: Any, request: Request, handler: Callable, public: bool, formdata: Any,
                 kwargs: dict) -> Response:
         panel = self.panel
+        db.info["tungsten_panel"] = panel
         ctx = Context(panel, request, db)
         tokens = set_locale(panel.resolve_locale(ctx), panel.translator)
         try:

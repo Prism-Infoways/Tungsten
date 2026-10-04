@@ -16,15 +16,33 @@ from sqlalchemy import select
 
 from .models import Lead, LeadActivity
 
-#: functions called as ``fn(db, lead)`` after a lead is added by ``create_lead``
-_listeners: list[Callable[[Any, Lead], None]] = []
+#: functions called as ``fn(db, lead)`` after any lead is added, by name
+_listener_map: dict[Any, Callable[[Any, Lead], None]] = {}
 
 
-def on_lead_created(fn: Callable[[Any, Lead], None]) -> Callable[[Any, Lead], None]:
-    """Run ``fn(db, lead)`` whenever ``create_lead`` adds a new lead (a welcome WhatsApp message...)."""
-    if fn not in _listeners:
-        _listeners.append(fn)
+def on_lead_created(fn: Callable[[Any, Lead], None], key: str | None = None) -> Callable[[Any, Lead], None]:
+    """Run ``fn(db, lead)`` whenever a new lead is added, in every panel.
+
+    Registering again with the same ``key`` replaces the earlier function. Plugins use
+    ``LeadsPlugin.on_lead_created`` instead, so they only hear about leads of their own panel.
+    """
+    _listener_map[key or fn] = fn
     return fn
+
+
+def leads_plugin(db: Any) -> Any:
+    """The ``LeadsPlugin`` of the panel this session belongs to (None in plain scripts)."""
+    from tungsten import Panel
+
+    panel = Panel.of(db)
+    return panel.get_plugin("leads") if panel is not None else None
+
+
+def lead_created(db: Any, lead: Lead) -> None:
+    """Tell the ``on_lead_created`` functions (global and the panel's) about a new lead."""
+    plugin = leads_plugin(db)
+    for fn in [*_listener_map.values(), *(plugin.listeners.values() if plugin is not None else [])]:
+        fn(db, lead)
 
 
 def normalize_phone(phone: str | None) -> str | None:
@@ -85,8 +103,7 @@ def create_lead(db: Any, *, name: str | None = None, email: str | None = None, p
     )
     db.add(lead)
     db.flush()
-    for fn in list(_listeners):
-        fn(db, lead)
+    lead_created(db, lead)
     return lead
 
 

@@ -180,16 +180,27 @@ class LeadResource(Resource):
         ])
 
     @classmethod
+    def header_actions(cls, ctx, page, record=None):
+        actions = super().header_actions(ctx, page, record)
+        plugin = _plugin(ctx)
+        if page in ("view", "edit") and plugin is not None:
+            actions = [factory().button() for factory in plugin.lead_actions] + actions
+        return actions
+
+    @classmethod
     def after_create(cls, record, db, ctx):
-        from .service import add_activity, _listeners
+        from .service import add_activity, lead_created
 
         user_id = ctx.panel.auth.user_id(ctx.user) if ctx.user is not None else None
         add_activity(db, record, "Lead added", type="system", user_id=user_id)
-        for fn in list(_listeners):
-            fn(db, record)
+        lead_created(db, record)
 
     @classmethod
     def table(cls, table):
+        plugin = _plugin(table.ctx)
+        extra_actions = [factory().icon_button() for factory in plugin.lead_actions] if plugin else []
+        extra_bulk = [factory() for factory in plugin.lead_bulk_actions] if plugin else []
+
         def set_status(key):
             return lambda records, db: ([setattr(r, "status", key) for r in records], db.commit())
 
@@ -230,6 +241,7 @@ class LeadResource(Resource):
             .actions([
                 Action("call").label("Call").icon("phone").color("success").icon_button()
                 .visible(lambda record: bool(record.phone)).url(lambda record: f"tel:{record.phone}"),
+                *extra_actions,
                 EditAction(),
                 ActionGroup([ViewAction(), DeleteAction()]),
             ])
@@ -243,6 +255,7 @@ class LeadResource(Resource):
                 .success_notification_title("Leads marked as won"),
                 BulkAction("lost").label("Mark lost").icon("circle-x").color("danger").action(set_status("lost"))
                 .success_notification_title("Leads marked as lost"),
+                *extra_bulk,
                 ExportBulkAction(),
                 DeleteBulkAction(),
             ])
