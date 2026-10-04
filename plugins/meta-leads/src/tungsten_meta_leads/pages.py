@@ -55,10 +55,12 @@ class MetaSetupPage(Page):
             {"title": "Connect Facebook", "done": settings.user_token is not None,
              "text": f"Connected as {settings.user_name}." if settings.user_token else
              "Press Connect Facebook and allow access to your pages and their leads."},
-            {"title": "Receive leads", "done": settings.webhook_ok and any(p.subscribed for p in pages),
+            # Meta has no way to ask if the app is live, so this is done once a lead really arrived
+            {"title": "Receive leads", "done": bool(settings.webhook_ok and any(p.subscribed for p in pages)
+                                                    and settings.last_webhook_at),
              "error": settings.webhook_error,
-             "text": "Publish the app in Meta (Publish, Go live). Then Meta sends every new lead here the moment "
-                     "it is submitted."},
+             "text": "Publish the app in Meta (Publish, Go live), then send a test lead. From then on Meta sends "
+                     "every new lead here the moment it is submitted."},
         ]
         return ctx.panel.renderer.render(
             "tungsten_meta_leads/setup.html", ctx=ctx, steps=steps, message=message, message_error=is_error,
@@ -130,13 +132,11 @@ def guide(ctx: Any) -> Any:
     settings = get_settings(ctx.db)
     app_id, app_secret = plugin.keys(ctx.db)
     redirect_uri = plugin.redirect_uri(ctx.request)
-    receiving = settings.webhook_ok and ctx.db.scalar(select(func.count()).select_from(MetaPage)
-                                                      .where(MetaPage.subscribed.is_(True))) > 0
     return ctx.panel.renderer.render(
         "tungsten_meta_leads/guide.html", ctx=ctx, redirect_uri=redirect_uri, app_domain=plugin.app_domain(ctx.request),
         webhook_url=plugin.webhook_url(ctx.request), verify_token=settings.verify_token,
         https=redirect_uri.startswith("https://"), keys_saved=bool(app_id and app_secret),
-        connected=settings.user_token is not None, receiving=bool(receiving),
+        connected=settings.user_token is not None, got_lead=settings.last_webhook_at is not None,
     )
 
 

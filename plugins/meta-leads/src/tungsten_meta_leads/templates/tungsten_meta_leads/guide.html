@@ -1,6 +1,6 @@
 {#
   "Setup guide" popup of the Facebook & Instagram page.
-  vars: redirect_uri, app_domain, webhook_url, verify_token, https, keys_saved, connected, receiving
+  vars: redirect_uri, app_domain, webhook_url, verify_token, https, keys_saved, connected, got_lead
 #}
 {% macro copy(label, value) %}
 <span class="mt-2 block">
@@ -81,7 +81,7 @@
     <li>Keep <span class="{{ b }}">Client OAuth login</span>, <span class="{{ b }}">Web OAuth login</span> and <span class="{{ b }}">Enforce HTTPS</span> on, then press <span class="{{ b }}">Save changes</span>.</li>
   {% endcall %}
 
-  {% call part(5, 'Publish the app', receiving) %}
+  {% call part(5, 'Publish the app', got_lead) %}
     <li>Left menu: <span class="{{ b }}">Publish</span>. Check the list, then press <span class="{{ b }}">Go live</span>.</li>
     <li>Meta sends no leads to an app that is not live, not even test leads.</li>
   {% endcall %}
@@ -89,12 +89,12 @@
   {% call part(6, 'Connect Facebook', connected) %}
     <li>Close this guide and press <span class="{{ b }}">Connect Facebook</span> at the top of the page.</li>
     <li>Continue as yourself. Choose every Page whose leads you want (or all current and future Pages), keep every permission on, and save.</li>
-    <li>You come back here. Your Pages show <span class="{{ b }}">Receiving leads</span> and step 3 of Setup turns green.</li>
+    <li>You come back here. Your Pages show <span class="{{ b }}">Receiving leads</span>.</li>
   {% endcall %}
 
-  {% call part(7, 'Send a test lead', false, 'https://developers.facebook.com/tools/lead-ads-testing', 'Testing tool') %}
+  {% call part(7, 'Send a test lead', got_lead, 'https://developers.facebook.com/tools/lead-ads-testing', 'Testing tool') %}
     <li>Open Meta's <span class="{{ b }}">Lead Ads Testing Tool</span>. Pick your Page and a form, then press <span class="{{ b }}">Create lead</span>.</li>
-    <li>In a few seconds the lead shows in <span class="{{ b }}">Leads</span>. In the tool, <span class="{{ b }}">Track status</span> shows what Meta did.</li>
+    <li>In a few seconds the lead shows in <span class="{{ b }}">Leads</span>, and step 3 of Setup turns green. In the tool, <span class="{{ b }}">Track status</span> shows what Meta did.</li>
     <li>A form can hold one test lead. Press <span class="{{ b }}">Delete lead</span> in the tool before making another.</li>
   {% endcall %}
 

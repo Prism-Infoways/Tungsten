@@ -76,6 +76,7 @@ def test_one_click_connect_sets_up_everything(admin, panel, graph):
     assert sub["callback_url"] == "https://crm.example.com/admin/meta/webhook" and sub["access_token"] == "111|shh"
     page = admin.get("/admin/meta-leads?meta=connected").text
     assert "Prism Page" in page and "Receiving leads" in page and "Asha on Facebook" in page
+    assert len(re.findall(r">\s*Done\s*<", page)) == 2  # "Receive leads" waits for a real lead: Meta can't say if the app is live
 
 
 def test_callback_rejects_wrong_state(admin, graph):
@@ -109,6 +110,7 @@ def test_webhook_verify_and_signed_lead(admin, panel, graph, client):
         assert "Admissions form" in lead.activities[0].body
         assert [log.status for log in db.scalars(select(MetaLeadLog).order_by(MetaLeadLog.id))] == ["imported", "duplicate"]
         assert db.scalars(select(MetaForm)).one().leads_imported == 1
+    assert len(re.findall(r">\s*Done\s*<", admin.get("/admin/meta-leads").text)) == 3
     get_lead = next(c for c in graph.calls if c[1] == "L1")[2]
     assert get_lead["access_token"] == "PAGE-TOKEN" and "appsecret_proof" in get_lead
 
