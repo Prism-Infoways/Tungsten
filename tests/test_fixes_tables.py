@@ -192,3 +192,14 @@ def test_reorder_keeps_hidden_rows_in_place(admin, panel):
         rows = db.scalars(select(Category).order_by(Category.sort, Category.id)).all()
     assert [c.id for c in rows] == [ids[2], ids[1], ids[0]] + ids[3:]
     assert [c.sort for c in rows] == list(range(1, len(ids) + 1))
+
+
+# ---------------------------------------------------------------------- 7. menus inside a table are not cut off
+def test_table_menus_float_above_the_table(admin):
+    # the table box scrolls sideways (overflow-x-auto), which also cuts off a menu hanging below the last rows,
+    # so menus open in the browser's top layer next to their trigger (twDropdown in tungsten.js)
+    html = table(admin, "resource:products").text
+    assert html.count("x-data=\"twDropdown('end')\"") >= 2 and 'x-ref="panel"' in html  # row menus + Columns
+    assert "closest('a, button:not([disabled])') && (open = false)" in html  # picking an item closes the menu
+    js = admin.get("/admin/assets/tungsten.js").text
+    assert 'Alpine.data("twDropdown"' in js and 'panel.setAttribute("popover", "manual")' in js

@@ -116,7 +116,67 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
         return el ? el.innerHTML : "";
       },
     });
+
+    // ui.dropdown(): while open, the panel floats next to the trigger (floatPanel below)
+    Alpine.data("twDropdown", function (align) {
+      return {
+        open: false,
+        init: function () {
+          var root = this.$el, panel = this.$refs.panel, unfloat = function () {};
+          this.$watch("open", function (open) {
+            unfloat();
+            unfloat = open ? floatPanel(panel, root, align) : function () {};
+          });
+        },
+      };
+    });
   });
+
+  // ------------------------------------------------------------------ floating panels
+  // An open dropdown panel goes to the browser's top layer (popover="manual") and is placed next to its
+  // trigger here, so a table's scroll box or a card's overflow-hidden can't cut it off. It opens upwards
+  // when there is more room above, scrolls inside when it fits neither way, and follows the trigger on
+  // scroll and resize. Browsers without popovers keep the plain absolute panel. Returns a function that
+  // puts the panel back.
+  function floatPanel(panel, anchor, align) {
+    if (!("popover" in panel) || !panel.isConnected) return function () {};
+    var pad = 8, gap = 8;
+    function place() {
+      if (!panel.isConnected || !panel.matches(":popover-open")) return unfloat();
+      var t = anchor.getBoundingClientRect();
+      if (panel.classList.contains("w-full")) panel.style.width = t.width + "px"; // as wide as the trigger
+      var w = panel.offsetWidth;
+      if (!w) return; // x-show has not shown it yet; the ResizeObserver calls again when it does
+      var h = panel.scrollHeight + panel.offsetHeight - panel.clientHeight;
+      var vw = document.documentElement.clientWidth, vh = window.innerHeight;
+      var below = vh - t.bottom - gap - pad, above = t.top - gap - pad;
+      var up = h > below && above > below;
+      var room = Math.max(up ? above : below, 120);
+      var end = (align === "end") !== (getComputedStyle(anchor).direction === "rtl");
+      Object.assign(panel.style, {
+        maxHeight: h > room ? room + "px" : "",
+        overflowY: h > room ? "auto" : "visible",
+        left: Math.max(pad, Math.min(end ? t.right - w : t.left, vw - w - pad)) + "px",
+        top: (up ? t.top - gap - Math.min(h, room) : t.bottom + gap) + "px",
+      });
+    }
+    var observer = new ResizeObserver(place);
+    function unfloat() {
+      observer.disconnect();
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+      if (panel.matches(":popover-open")) panel.hidePopover();
+    }
+    panel.setAttribute("popover", "manual");
+    if (!panel.matches(":popover-open")) panel.showPopover();
+    // drop the popover defaults (centred in the viewport, own colours) for a spot next to the trigger
+    Object.assign(panel.style, { position: "fixed", inset: "auto", margin: "0", color: "inherit", overflow: "visible" });
+    observer.observe(panel);
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    place();
+    return unfloat;
+  }
 
   window.twToast = function (t) {
     if (window.Alpine) window.Alpine.store("toasts").push(t);
