@@ -181,7 +181,7 @@ From a different phone, send a message to your WhatsApp number. It shows in **Wh
 
 ### Common problems
 
-**"Unauthorized" or 401.** The API key is wrong or missing. Find it on the WAHA server with `cd waha && grep WAHA_API_KEY_PLAIN .env`, paste it on the setup page and save.
+**"Unauthorized" or 401.** The API key is wrong or missing. Find it on the WAHA server with `cd waha && grep WAHA_API_KEY .env`, paste it on the setup page and save.
 
 **"Could not reach" the gateway.** Check the Gateway URL, and that WAHA runs: `cd waha && docker compose ps`. `docker compose logs -f` shows what it does.
 

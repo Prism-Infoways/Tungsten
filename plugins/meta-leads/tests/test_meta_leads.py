@@ -40,8 +40,9 @@ def fake_meta(graph):
     })
 
 
-def connect_facebook(admin, graph):
+def connect_facebook(admin, graph, **routes):
     fake_meta(graph)
+    graph.routes.update(routes)
     page = admin.get("/admin/meta-leads").text
     link = re.search(r'href="(https://www\.facebook\.com/[^"]+)"', page).group(1).replace("&amp;", "&")
     query = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(link).query))
@@ -95,6 +96,13 @@ def test_webhook_verify_and_signed_lead(admin, panel, graph, client):
     assert client.client.get("/admin/meta/webhook?hub.mode=subscribe&hub.verify_token=no&hub.challenge=1").status_code == 403
     assert client.client.get("/admin/meta/webhook?hub.mode=subscribe&hub.verify_token=%C3%A9").status_code == 403
 
+    # Meta's dashboard test sends a sample lead of a page that is not connected: that is no proof the app is live
+    sample = json.dumps({"object": "page", "entry": [{"id": "444", "changes": [
+        {"field": "leadgen", "value": {"leadgen_id": "444", "page_id": "444", "form_id": "444"}}]}]}).encode()
+    signed = "sha256=" + hmac.new(b"shh", sample, hashlib.sha256).hexdigest()
+    client.client.post("/admin/meta/webhook", content=sample, headers={"X-Hub-Signature-256": signed})
+    assert len(re.findall(r">\s*Done\s*<", admin.get("/admin/meta-leads").text)) == 2
+
     body = json.dumps({"object": "page", "entry": [{"id": "P1", "changes": [
         {"field": "leadgen", "value": {"leadgen_id": "L1", "page_id": "P1", "form_id": "F1"}}]}]}).encode()
     bad = client.client.post("/admin/meta/webhook", content=body, headers={"X-Hub-Signature-256": "sha256=00"})
@@ -108,7 +116,8 @@ def test_webhook_verify_and_signed_lead(admin, panel, graph, client):
         assert (lead.name, lead.phone, lead.source) == ("Amit Sharma", "+919876543210", "meta")
         assert lead.custom_fields == {"which_course": "MBA"} and lead.external_id == "meta:L1"
         assert "Admissions form" in lead.activities[0].body
-        assert [log.status for log in db.scalars(select(MetaLeadLog).order_by(MetaLeadLog.id))] == ["imported", "duplicate"]
+        assert [log.status for log in db.scalars(select(MetaLeadLog).order_by(MetaLeadLog.id))] == [
+            "failed", "imported", "duplicate"]
         assert db.scalars(select(MetaForm)).one().leads_imported == 1
     assert len(re.findall(r">\s*Done\s*<", admin.get("/admin/meta-leads").text)) == 3
     get_lead = next(c for c in graph.calls if c[1] == "L1")[2]
@@ -173,3 +182,14 @@ def test_saving_keys_reloads_the_page(admin, panel, graph):
     r = admin.post("/admin/meta-leads", {"app_id": "222", "app_secret": "s3"})
     assert r.headers.get("HX-Redirect") == "/admin/meta-leads", r.text[:300]
     assert "client_id=222" in admin.get("/admin/meta-leads").text
+
+
+def test_webhook_set_by_hand_counts_once_a_lead_arrives(admin, panel, graph, client):
+    connect_facebook(admin, graph, **{"POST 111/subscriptions": (400, {"error": {"message": "Callback verification failed"}})})
+    assert "Callback verification failed" in admin.get("/admin/meta-leads").text
+    body = json.dumps({"object": "page", "entry": [{"id": "P1", "changes": [
+        {"field": "leadgen", "value": {"leadgen_id": "L1", "page_id": "P1", "form_id": "F1"}}]}]}).encode()
+    sig = "sha256=" + hmac.new(b"shh", body, hashlib.sha256).hexdigest()
+    assert client.client.post("/admin/meta/webhook", content=body, headers={"X-Hub-Signature-256": sig}).status_code == 200
+    page = admin.get("/admin/meta-leads").text
+    assert "Callback verification failed" not in page and len(re.findall(r">\s*Done\s*<", page)) == 3

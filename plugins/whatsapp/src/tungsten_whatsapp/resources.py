@@ -14,7 +14,7 @@ from tungsten_leads import Lead
 from .client import WhatsAppError, click_to_chat_url
 from .models import WhatsAppMessage, WhatsAppTemplate
 from .pages import template_options
-from .service import client_for, fill, get_settings, send
+from .service import approved_template, client_for, fill, get_settings, send
 
 STATUS_COLORS = {"received": "info", "sent": "gray", "delivered": "primary", "read": "success", "failed": "danger"}
 
@@ -58,7 +58,8 @@ def send_to_lead(ctx: Any, db: Any, lead: Lead, data: dict) -> None:
     template = data.get("template") or None
     params = [p.strip() for p in (data.get("params") or "").split("|") if p.strip()] if template else []
     if template and not params:
-        tpl = db.scalars(select(WhatsAppTemplate).where(WhatsAppTemplate.name == template)).first()
+        tpl = approved_template(db.scalars(select(WhatsAppTemplate).where(WhatsAppTemplate.name == template)
+                                           .order_by(WhatsAppTemplate.id)).all())
         params = [lead.name.split(" ")[0]] * (tpl.params if tpl else 0)
     send(db, phone=lead.phone or "", text=fill(data.get("message") or "", lead), template=template, params=params,
          lead=lead, user_id=_user_id(ctx), transport=_plugin(ctx).transport)
@@ -163,7 +164,8 @@ class WhatsAppMessageResource(Resource):
                 TextColumn("direction").label("").icon(lambda state: "arrow-down-left" if state == "in" else "arrow-up-right")
                 .format_state_using(lambda state: "In" if state == "in" else "Out")
                 .color(lambda state: "info" if state == "in" else "gray"),
-                TextColumn("phone").state(lambda record: f"+{record.phone}").searchable().copyable(),
+                TextColumn("phone").state(lambda record: f"+{record.phone}" if record.phone else "Number hidden")
+                .searchable().copyable(),
                 TextColumn("lead_id").label("Lead").state(
                     lambda record, ctx: lead_name(ctx, record.lead_id))
                 .url(lambda record, ctx: ctx.url("leads", record.lead_id) if record.lead_id else None),
@@ -178,7 +180,7 @@ class WhatsAppMessageResource(Resource):
             ])
             .actions([
                 Action("reply").label("Reply").icon("reply").color("success").icon_button()
-                .visible(lambda record, ctx: record.direction == "in" and _can_send(ctx))
+                .visible(lambda record, ctx: record.direction == "in" and bool(record.phone) and _can_send(ctx))
                 .form([Textarea("message").rows(4).required()]).modal_submit_action_label("Send").action(reply)
                 .success_notification_title("WhatsApp sent"),
             ])

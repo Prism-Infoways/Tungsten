@@ -50,6 +50,12 @@ def template_variables(body: str | None) -> list[str]:
     return list(dict.fromkeys(re.findall(r"\{\{\s*(\w+)\s*\}\}", body or "")))
 
 
+def approved_template(rows: list[WhatsAppTemplate]) -> WhatsAppTemplate | None:
+    """Of one template's translations, the approved one the template lists show (the last synced)."""
+    approved = [r for r in rows if (r.status or "APPROVED") == "APPROVED"]
+    return approved[-1] if approved else (rows[0] if rows else None)
+
+
 def template_text(template: WhatsAppTemplate | None, params: list[str]) -> str:
     if template is None:
         return ""
@@ -75,10 +81,10 @@ def send(db: Any, *, phone: str, text: str | None = None, template: str | None =
     if template:
         if not isinstance(client, CloudClient):
             raise WhatsAppError("Templates work with the WhatsApp Cloud API only.")
-        query = select(WhatsAppTemplate).where(WhatsAppTemplate.name == template)
+        query = select(WhatsAppTemplate).where(WhatsAppTemplate.name == template).order_by(WhatsAppTemplate.id)
         if language:
             query = query.where(WhatsAppTemplate.language == language)
-        row = db.scalars(query).first()
+        row = approved_template(db.scalars(query).all())
         language = language or (row.language if row is not None else "en")
         body = template_text(row, params) or f"Template {template}"
     else:
@@ -106,12 +112,16 @@ def send(db: Any, *, phone: str, text: str | None = None, template: str | None =
 
 
 def receive(db: Any, settings: WhatsAppSettings, *, phone: str, body: str, name: str | None = None,
-            external_id: str | None = None, channel: str = "cloud") -> WhatsAppMessage | None:
+            external_id: str | None = None, channel: str = "cloud", sender_id: str | None = None) -> WhatsAppMessage | None:
     """Save an incoming message, on the lead with this number (made if needed and allowed).
 
-    Without a number (WhatsApp can hide it) the message is saved, but no lead is matched or made.
+    Without a number (WhatsApp can hide it) the message is saved with the sender's name and WhatsApp id in front,
+    but no lead is matched or made.
     """
     phone = to_digits(phone, settings.country_code)
+    if not phone:
+        who = " ".join(p for p in (name, f"({sender_id})" if sender_id else None) if p)
+        body = f"[{who}] {body}" if who else body
     if external_id and db.scalars(select(WhatsAppMessage).where(WhatsAppMessage.external_id == external_id)).first():
         return None  # already saved: WhatsApp sometimes sends the same message twice
     lead = find_lead(db, phone=phone) if phone else None
@@ -171,7 +181,8 @@ def handle_cloud_webhook(db: Any, payload: dict) -> int:
                 # "from" is left out for people who use a WhatsApp username: then only their user id is known
                 sender = msg.get("from") or msg.get("from_user_id")
                 saved += receive(db, settings, phone=msg.get("from") or "", body=_cloud_body(msg),
-                                 name=names.get(sender), external_id=msg.get("id"), channel="cloud") is not None
+                                 name=names.get(sender), external_id=msg.get("id"), channel="cloud",
+                                 sender_id=sender) is not None
             for st in value.get("statuses", []):
                 errors = st.get("errors") or [{}]
                 update_status(db, st.get("id", ""), st.get("status", ""),
@@ -225,7 +236,7 @@ def handle_web_webhook(db: Any, payload: dict, transport: Transport | None = Non
     body = data.get("body") or ("[media]" if data.get("hasMedia") else "")
     phone = _web_sender(data, client if isinstance(client, WebClient) else None)
     return receive(db, settings, phone=phone, body=body, name=name,
-                   external_id=str(data.get("id") or "") or None, channel="web") is not None
+                   external_id=str(data.get("id") or "") or None, channel="web", sender_id=chat) is not None
 
 
 def sync_templates(db: Any, client: CloudClient) -> int:
@@ -250,8 +261,10 @@ def welcome(db: Any, lead: Lead, transport: Transport | None = None) -> WhatsApp
         return None
     try:
         if settings.channel == "cloud" and settings.welcome_template:
-            rows = db.scalars(select(WhatsAppTemplate).where(WhatsAppTemplate.name == settings.welcome_template)).all()
-            tpl = next((r for r in rows if r.language == settings.welcome_language), rows[0] if rows else None)
+            rows = db.scalars(select(WhatsAppTemplate).where(WhatsAppTemplate.name == settings.welcome_template)
+                              .order_by(WhatsAppTemplate.id)).all()
+            approved = [r for r in rows if (r.status or "APPROVED") == "APPROVED"]
+            tpl = next((r for r in approved if r.language == settings.welcome_language), None) or approved_template(rows)
             params = [lead.name.split(" ")[0]] if tpl is not None and tpl.params else []
             language = tpl.language if tpl is not None else settings.welcome_language
             return send(db, phone=lead.phone, template=settings.welcome_template, language=language,

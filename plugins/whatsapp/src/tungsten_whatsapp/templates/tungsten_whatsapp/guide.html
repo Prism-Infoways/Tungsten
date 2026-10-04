@@ -222,7 +222,7 @@
     {% endcall %}
 
     {% call problems() %}
-      {% call problem('"Unauthorized" or 401') %}The API key is wrong or missing. Find it on the WAHA server with <code>cd waha &amp;&amp; grep WAHA_API_KEY_PLAIN .env</code>, paste it here and save.{% endcall %}
+      {% call problem('"Unauthorized" or 401') %}The API key is wrong or missing. Find it on the WAHA server with <code>cd waha &amp;&amp; grep WAHA_API_KEY .env</code>, paste it here and save.{% endcall %}
       {% call problem('"Could not reach" the gateway') %}Check the Gateway URL, and that WAHA runs: <code>cd waha &amp;&amp; docker compose ps</code>. <code>docker compose logs -f</code> shows what it does.{% endcall %}
       {% call problem('"pull access denied" while installing') %}The image line still says waha-plus. Change it to <code>devlikeapro/waha</code> (step 1).{% endcall %}
       {% call problem('"env file not found", or "exec format error"') %}"env file": run <code>touch .env</code> in the waha folder, then the setup line again. "exec format error": the server is ARM; use <code>devlikeapro/waha:arm</code> (step 1).{% endcall %}

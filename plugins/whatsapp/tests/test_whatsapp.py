@@ -159,8 +159,19 @@ def test_web_link_phone_and_incoming(admin, panel, http, client):
     admin.get(link, headers={"HX-Request": "true"})  # the code refreshing must not restart the session
     assert [c[0] for c in http.calls if c[1].startswith("/api/sessions")] == ["GET", "POST", "GET", "GET", "GET"]
 
+    state["session"].update(status="STARTING")  # logging in right after the scan: no code to show
+    calls = len(http.calls)
+    box = admin.get(link, headers={"HX-Request": "true"}).text
+    assert "Connecting to WhatsApp" in box and 'hx-trigger="every 15s"' in box
+    assert not [c for c in http.calls[calls:] if c[1].endswith("/auth/qr")]
+    http.routes["GET /api/default/auth/qr"] = (422, {"message": "Session status is not as expected"})
+    state["session"].update(status="SCAN_QR_CODE")
+    box = admin.get(link, headers={"HX-Request": "true"}).text
+    assert "Session status is not as expected" in box and 'hx-trigger="every 15s"' in box  # keeps asking
+
     state["session"].update(status="WORKING", me={"id": "919900001111@c.us"})
-    assert "Linked to +919900001111" in admin.get(link, headers={"HX-Request": "true"}).text
+    box = admin.get(link, headers={"HX-Request": "true"}).text
+    assert "Linked to +919900001111" in box and "every 15s" not in box
     admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "link"})
     with panel.db() as db:
         settings = db.scalars(select(WhatsAppSettings)).one()
@@ -187,9 +198,15 @@ def test_web_link_phone_and_incoming(admin, panel, http, client):
     gows = {"event": "message", "payload": {"id": "L2", "from": "987654321@lid", "body": "Hi",
                                             "_data": {"Info": {"PushName": "Gita"}}}}
     client.client.post(path, json=gows)
+    http.routes["GET /api/default/lids/555"] = {"lid": "555@lid", "pn": None}  # not in the phone's contacts
+    client.client.post(path, json={"event": "message", "payload": {"id": "L3", "from": "555@lid", "body": "Price?",
+                                                                    "_data": {"notifyName": "Mohan"}}})
     with panel.db() as db:
         phones = {lead.name: lead.phone for lead in db.scalars(select(Lead))}
-        assert phones["Sita"] == "+919833334444" and phones["Gita"] == "+919855556666"
+        assert phones["Sita"] == "+919833334444" and phones["Gita"] == "+919855556666" and "Mohan" not in phones
+        hidden_msg = db.scalars(select(WhatsAppMessage).where(WhatsAppMessage.external_id == "L3")).one()
+        assert (hidden_msg.phone, hidden_msg.body) == ("", "[Mohan (555@lid)] Price?")
+    assert "Number hidden" in admin.get("/admin/whatsapp-messages").text
 
     lead_id = add_lead(panel, name="Ravi Kumar", phone="9000000009")
     admin.post(ACTION, {"_tw_host": "resource:leads", "_tw_scope": "row", "_tw_name": "whatsapp",
@@ -324,7 +341,9 @@ def test_link_phone_opens_a_popup(admin, panel, http):
 def test_cloud_templates_and_usernames(admin, panel, http, client):
     cloud(panel, http)
     pages = iter([
-        {"data": [{"name": "hello", "language": "en_US", "status": "APPROVED", "components": [
+        {"data": [{"name": "hello", "language": "hi", "status": "PENDING", "components": [
+            {"type": "BODY", "text": "Namaste {{first_name}}"}]},
+                  {"name": "hello", "language": "en_US", "status": "APPROVED", "components": [
             {"type": "BODY", "text": "Hi {{first_name}}, your order {{order}} is ready"}]}],
          "paging": {"next": "https://graph.facebook.com/v25.0/WABA1/message_templates?after=X"}},
         {"data": [{"name": "promo", "language": "hi", "status": "APPROVED", "components": [
@@ -333,13 +352,13 @@ def test_cloud_templates_and_usernames(admin, panel, http, client):
     http.routes["GET WABA1/message_templates"] = lambda body: next(pages)
     admin.get("/admin/whatsapp")
     r = admin.post(ACTION, {"_tw_host": "page:whatsapp", "_tw_scope": "page", "_tw_name": "templates"})
-    assert "2 templates" in r.headers.get("HX-Trigger", "") + admin.get("/admin/whatsapp").text  # both pages read
+    assert "3 templates" in r.headers.get("HX-Trigger", "") + admin.get("/admin/whatsapp").text  # both pages read
 
     lead_id = add_lead(panel)
     admin.post(ACTION, {"_tw_host": "resource:leads", "_tw_scope": "row", "_tw_name": "whatsapp",
                         "_tw_record": str(lead_id), "template": "hello", "params": "Amit | 42"})
     template = http.calls[-1][2]["template"]
-    assert template["language"] == {"code": "en_US"}  # the template's own language
+    assert template["language"] == {"code": "en_US"}  # the approved translation, not the pending one
     assert template["components"][0]["parameters"] == [
         {"type": "text", "text": "Amit", "parameter_name": "first_name"},
         {"type": "text", "text": "42", "parameter_name": "order"}]
@@ -353,5 +372,14 @@ def test_cloud_templates_and_usernames(admin, panel, http, client):
     sig = "sha256=" + hmac.new(b"shh", body, hashlib.sha256).hexdigest()
     assert client.client.post("/admin/whatsapp/webhook", content=body, headers={"X-Hub-Signature-256": sig}).status_code == 200
     with panel.db() as db:
-        assert db.scalars(select(WhatsAppMessage).where(WhatsAppMessage.direction == "in")).one().body == "Hey"
+        assert db.scalars(select(WhatsAppMessage).where(WhatsAppMessage.direction == "in")).one().body == "[Anon (IN.123)] Hey"
         assert len(db.scalars(select(Lead)).all()) == 1
+
+
+def test_adding_the_app_secret_reloads_the_page(admin, panel):
+    configure(panel, channel="cloud", phone_number_id="PN1", access_token="TOKEN", business_account_id="WABA1")
+    assert "Keys missing" in admin.get("/admin/whatsapp").text
+    r = admin.post("/admin/whatsapp", {"channel": "cloud", "country_code": "+91", "phone_number_id": "PN1",
+                                       "business_account_id": "WABA1", "access_token": "", "app_secret": "shh"})
+    assert r.headers.get("HX-Redirect") == "/admin/whatsapp", r.text[:300]
+    assert "Keys missing" not in admin.get("/admin/whatsapp").text

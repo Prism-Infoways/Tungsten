@@ -231,7 +231,6 @@ def handle_webhook(db: Any, graph: Graph, payload: dict[str, Any], default_statu
     logs = []
     if payload.get("object") != "page":
         return logs
-    get_settings(db).last_webhook_at = dt.datetime.now()
     for entry in payload.get("entry", []):
         for change in entry.get("changes", []):
             if change.get("field") != "leadgen":
@@ -240,6 +239,10 @@ def handle_webhook(db: Any, graph: Graph, payload: dict[str, Any], default_statu
             logs.append(import_leadgen(db, graph, leadgen_id=value.get("leadgen_id"),
                                        page_id=value.get("page_id") or entry.get("id"),
                                        form_id=value.get("form_id"), default_status=default_status))
+    if any(log.status in ("imported", "duplicate") for log in logs):
+        # a real lead came in: the app is live and the webhook works (also when it was set by hand in Meta)
+        settings = get_settings(db)
+        settings.last_webhook_at, settings.webhook_ok, settings.webhook_error = dt.datetime.now(), True, None
     return logs
 
 

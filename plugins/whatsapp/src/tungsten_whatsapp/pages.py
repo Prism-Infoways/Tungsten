@@ -45,7 +45,8 @@ def _saved(name: str):
 
 def _buttons_state(settings: Any) -> tuple:
     """What the buttons at the top and the status card depend on."""
-    return (settings.channel, bool(settings.phone_number_id), bool(settings.access_token), bool(settings.gateway_url))
+    return (settings.channel, bool(settings.phone_number_id), bool(settings.access_token), bool(settings.app_secret),
+            bool(settings.gateway_url))
 
 
 def _is(channel: str):
@@ -57,7 +58,7 @@ def template_options(db: Any) -> dict[str, str]:
 
     from .models import WhatsAppTemplate
 
-    rows = db.scalars(select(WhatsAppTemplate).order_by(WhatsAppTemplate.name)).all()
+    rows = db.scalars(select(WhatsAppTemplate).order_by(WhatsAppTemplate.name, WhatsAppTemplate.id)).all()
     return {r.name: f"{r.name} ({r.language})" for r in rows if (r.status or "APPROVED") == "APPROVED"}
 
 
@@ -258,27 +259,36 @@ def link_phone(ctx: Any, host: Any = None) -> Markup:
     client = client_for(settings, plugin.transport)
     if not isinstance(client, WebClient):
         return Markup("")
-    box = Markup('<div id="tw-wa-qr">{}</div>')
+
+    def box(content: Markup, again: bool = True) -> Markup:
+        if host is None or not again:
+            return Markup('<div id="tw-wa-qr">{}</div>').format(content)
+        vals = json.dumps({"_tw_host": host.key, "_tw_scope": "page", "_tw_name": "link"})
+        return Markup('<div id="tw-wa-qr" hx-get="{}" hx-vals="{}" hx-trigger="every 15s" hx-target="this" '
+                      'hx-select="#tw-wa-qr" hx-swap="outerHTML">{}</div>').format(ctx.url("_tw", "action"), vals,
+                                                                                  content)
+
+    def note(text: str, color: str = "text-gray-600 dark:text-gray-300") -> Markup:
+        return Markup('<p class="text-sm {}">{}</p>').format(color, text)
+
     try:
         client.start(plugin.webhook_url(ctx.request, "web-webhook", token=settings.web_webhook_token))
         info = client.status()
-        settings.web_status = info.get("status")
-        if info.get("status") == "WORKING":
+        status = info.get("status")
+        settings.web_status = status
+        if status == "WORKING":
             phone = str((info.get("me") or {}).get("id", "")).split("@")[0]
             settings.web_phone = phone or settings.web_phone
             ctx.db.commit()
-            return box.format(Markup('<p class="text-sm text-success-600">{}</p>').format(
-                f"Linked to +{settings.web_phone}. You can close this." if settings.web_phone else "Linked."))
-        qr = client.qr_data_uri()
+            return box(note(f"Linked to +{settings.web_phone}. You can close this." if settings.web_phone
+                            else "Linked.", "text-success-600 dark:text-success-400"), again=False)
         ctx.db.commit()
-    except WhatsAppError as exc:
-        return box.format(Markup('<p class="text-sm text-danger-600">{}</p>').format(f"The gateway said: {exc}"))
-    img = Markup('<img src="{}" alt="QR code" class="mx-auto h-64 w-64 rounded-lg bg-white p-2">').format(qr)
-    if host is None:
-        return box.format(img)
-    vals = json.dumps({"_tw_host": host.key, "_tw_scope": "page", "_tw_name": "link"})
-    return Markup('<div id="tw-wa-qr" hx-get="{}" hx-vals="{}" hx-trigger="every 15s" hx-target="this" '
-                  'hx-select="#tw-wa-qr" hx-swap="outerHTML">{}</div>').format(ctx.url("_tw", "action"), vals, img)
+        if status != "SCAN_QR_CODE":  # starting, or logging in right after the scan: the gateway has no code now
+            return box(note("Connecting to WhatsApp. The code or the word Linked shows here in a moment."))
+        qr = client.qr_data_uri()
+    except WhatsAppError as exc:  # keeps asking, so a short hiccup fixes itself
+        return box(note(f"The gateway said: {exc}", "text-danger-600 dark:text-danger-400"))
+    return box(Markup('<img src="{}" alt="QR code" class="mx-auto h-64 w-64 rounded-lg bg-white p-2">').format(qr))
 
 
 def check_web(ctx: Any, db: Any) -> None:
