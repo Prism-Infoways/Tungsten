@@ -8,7 +8,7 @@
     <div class="group relative {{ 'h-24 w-24 rounded-full' if v.avatar else 'h-24 w-24 rounded-lg' }} overflow-hidden bg-gray-100 ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
       <img src="{{ f.url }}" alt="{{ f.name }}" class="h-full w-full object-cover">
       {% if not v.disabled %}
-      {{ ui_action(form, 'file.remove:' ~ v.path ~ ':' ~ loop.index0, __('Remove'), 'absolute right-1 top-1 hidden rounded-full bg-gray-950/70 p-1 text-white group-hover:block', 'x') }}
+      {{ ui_action(form, 'file.remove:' ~ v.path ~ ':' ~ loop.index0, __('Remove'), 'absolute end-1 top-1 hidden rounded-full bg-gray-950/70 p-1 text-white group-hover:block', 'x') }}
       {% endif %}
     </div>
     {% endfor %}
