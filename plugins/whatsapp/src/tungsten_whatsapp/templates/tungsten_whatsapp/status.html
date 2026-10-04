@@ -1,0 +1,28 @@
+{% import "tungsten/components/ui.html" as ui %}
+<section class="tw-card">
+  <header class="flex items-center gap-x-3 px-6 py-4">
+    <span class="tw-icon-tile h-9 w-9 {{ colors.pick(colors.SOFT_ICON, 'success') }}">{{ icon('message-circle', 'h-5 w-5') }}</span>
+    <div class="flex-1">
+      <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ channel_label }}</h3>
+      <p class="text-sm text-gray-500 dark:text-gray-400">{{ channel_text }}</p>
+    </div>
+    {{ ui.badge(state_label, state_color, 'circle-check' if state_color == 'success' else 'circle-alert') }}
+  </header>
+  {% if urls %}
+  <dl class="grid gap-4 border-t border-gray-100 p-6 md:grid-cols-2 dark:border-white/10">
+    {% for label, value in urls %}
+    <div>
+      <dt class="text-sm font-medium text-gray-950 dark:text-white">{{ label }}</dt>
+      <dd class="mt-2 flex items-center gap-x-2">
+        <code class="tw-input block w-full truncate px-3 py-2 text-sm">{{ value }}</code>
+        <button type="button" class="tw-icon-btn {{ colors.pick(colors.ICON_BUTTON, 'gray') }}" title="{{ __('Copy') }}"
+                onclick="navigator.clipboard.writeText({{ value | tojson | forceescape }}); window.twToast && twToast({title: twT('Copied'), status: 'success'})">{{ icon('copy', 'h-4 w-4') }}</button>
+      </dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% endif %}
+  {% if help %}
+  <p class="border-t border-gray-100 px-6 py-4 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">{{ help }}</p>
+  {% endif %}
+</section>

@@ -23,7 +23,13 @@ from tungsten import Plugin
 from .fields import FIELD_TYPES, CustomFields
 from .models import Lead, LeadActivity, LeadField, LeadsBase
 from .resources import DEFAULT_SOURCES, DEFAULT_STATUSES, LeadFieldResource, LeadResource
-from .service import add_activity, create_lead, find_lead, normalize_phone, on_lead_created
+from .service import (
+    add_activity,
+    create_lead,
+    find_lead,
+    normalize_phone,
+    on_lead_created,
+)
 from .widgets import LeadStats
 
 __version__ = "0.1.0"
@@ -48,6 +54,24 @@ class LeadsPlugin(Plugin):
         self.sources = dict(sources or DEFAULT_SOURCES)
         self.capture_token = capture_token
         self.dashboard_widget = dashboard_widget
+        #: other plugins hook in with the three methods below
+        self.listeners: dict[str, Any] = {}
+        self.lead_actions: list[Any] = []
+        self.lead_bulk_actions: list[Any] = []
+
+    def on_lead_created(self, key: str, fn: Any) -> None:
+        """Run ``fn(db, lead)`` after a lead of this panel is added. The same ``key`` replaces the function."""
+        self.listeners[key] = fn
+
+    def add_lead_action(self, factory: Any) -> None:
+        """Add a button to every lead row and lead page. ``factory()`` returns a fresh ``Action``."""
+        if factory not in self.lead_actions:
+            self.lead_actions.append(factory)
+
+    def add_lead_bulk_action(self, factory: Any) -> None:
+        """Add a bulk action for selected leads. ``factory()`` returns a fresh ``BulkAction``."""
+        if factory not in self.lead_bulk_actions:
+            self.lead_bulk_actions.append(factory)
 
     def register(self, panel: Any) -> None:
         panel.resources([LeadResource, LeadFieldResource])
@@ -94,6 +118,6 @@ class LeadsPlugin(Plugin):
 
 __all__ = [
     "CustomFields", "FIELD_TYPES", "Lead", "LeadActivity", "LeadField", "LeadFieldResource", "LeadResource",
-    "LeadStats", "LeadsBase", "LeadsPlugin", "add_activity", "create_lead", "find_lead", "normalize_phone",
-    "on_lead_created",
+    "LeadStats", "LeadsBase", "LeadsPlugin", "add_activity", "create_lead", "find_lead",
+    "normalize_phone", "on_lead_created",
 ]

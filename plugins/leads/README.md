@@ -61,3 +61,12 @@ def welcome(db, lead):
 ```
 
 `create_lead` skips a lead whose `external_id` is already saved, so the same Meta lead is never added twice.
+
+### Hooks for other plugins
+
+```python
+leads = panel.get_plugin("leads")
+leads.on_lead_created("my-plugin.welcome", lambda db, lead: ...)   # only this panel's leads
+leads.add_lead_action(lambda: Action("quote").label("Send quote").action(...))   # a button on every lead
+leads.add_lead_bulk_action(lambda: BulkAction("tag").label("Tag").action(...))   # a bulk action
+```

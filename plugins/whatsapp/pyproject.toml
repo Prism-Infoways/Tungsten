@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tungsten-whatsapp"
+version = "0.1.0"
+description = "Tungsten plugin: WhatsApp for your leads, by the official Cloud API or by WhatsApp Web (linked phone)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Prism Infoways" }]
+keywords = ["tungsten", "tungsten-admin", "whatsapp", "whatsapp cloud api", "waha", "crm", "leads"]
+dependencies = ["tungsten-admin>=0.1.3", "tungsten-leads>=0.1.0"]
+
+[project.urls]
+Homepage = "https://tungsten.prisminfoways.com/"
+Repository = "https://github.com/Prism-Infoways/Tungsten"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tungsten_whatsapp"]
