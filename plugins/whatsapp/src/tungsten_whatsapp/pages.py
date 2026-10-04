@@ -43,6 +43,11 @@ def _saved(name: str):
     return lambda ctx: "Saved. Type a new one to change it." if getattr(get_settings(ctx.db), name) else None
 
 
+def _buttons_state(settings: Any) -> tuple:
+    """What the buttons at the top and the status card depend on."""
+    return (settings.channel, bool(settings.phone_number_id), bool(settings.access_token), bool(settings.gateway_url))
+
+
 def _is(channel: str):
     return lambda get: (get("channel") or "") == channel
 
@@ -172,6 +177,7 @@ class WhatsAppSetupPage(Page):
     @classmethod
     def save(cls, ctx, data):
         settings = get_settings(ctx.db)
+        before = _buttons_state(settings)
         for name in FIELDS:
             if name not in data or (name in SECRETS and not data[name]):
                 continue
@@ -179,6 +185,8 @@ class WhatsAppSetupPage(Page):
         settings.channel = settings.channel or None
         settings.country_code = (settings.country_code or "91").lstrip("+")
         ctx.db.commit()
+        if _buttons_state(settings) != before:
+            ctx.redirect(str(ctx.request.url.path))  # reload, so the buttons for the next step show
 
     @classmethod
     def header_actions(cls, ctx):

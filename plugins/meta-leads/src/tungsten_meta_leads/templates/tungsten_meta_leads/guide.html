@@ -66,7 +66,7 @@
   {% call part(3, 'Copy the app keys', keys_saved) %}
     <li>Left menu: <span class="{{ b }}">App settings</span>, then <span class="{{ b }}">Basic</span>.</li>
     <li>Copy the <span class="{{ b }}">App ID</span>. Next to <span class="{{ b }}">App secret</span> press <span class="{{ b }}">Show</span> (Facebook asks your password) and copy it.</li>
-    <li>Paste both in <span class="{{ b }}">Meta app keys</span> at the bottom of this page and press <span class="{{ b }}">Save keys</span>. Keep the secret private.</li>
+    <li>Paste both in <span class="{{ b }}">Meta app keys</span> at the bottom of this page and press <span class="{{ b }}">Save keys</span>. The page reloads with Connect Facebook ready. Keep the secret private.</li>
     <li>On the same Basic page, fill these and press <span class="{{ b }}">Save changes</span>. Meta needs them to publish the app:
       {{ copy('App domains', app_domain) }}
       <span class="mt-2 block"><span class="{{ b }}">Privacy Policy URL</span>: a page on your website. <span class="{{ b }}">User data deletion</span>: a page that says how people can ask you to delete their data (your privacy page can say this). Also pick a <span class="{{ b }}">Category</span> and add an <span class="{{ b }}">App icon</span> (512 × 512).</span>
@@ -83,7 +83,7 @@
 
   {% call part(5, 'Publish the app', receiving) %}
     <li>Left menu: <span class="{{ b }}">Publish</span>. Check the list, then press <span class="{{ b }}">Go live</span>.</li>
-    <li>Until the app is live, Meta does not send leads from real customers, only from people who work on the app.</li>
+    <li>Meta sends no leads to an app that is not live, not even test leads.</li>
   {% endcall %}
 
   {% call part(6, 'Connect Facebook', connected) %}
@@ -109,8 +109,8 @@
     {% call problem('Facebook says "Invalid Scopes" or "This app needs at least one supported permission"') %}
       A permission is not added to the app. Do step 2 again, then press Connect Facebook.
     {% endcall %}
-    {% call problem('The test lead came in, but real leads do not') %}
-      The app is not live yet. Do step 5. Real customers have no role on your app, so Meta only sends their leads once it is published.
+    {% call problem('No leads come in, not even test leads') %}
+      The app is not live yet. Do step 5, then send a test lead again.
     {% endcall %}
     {% call problem('A Page is missing or shows "Not receiving"') %}
       Press Reconnect Facebook and tick every Page. You need full control of the Page, or task access with Advertise.
@@ -118,9 +118,10 @@
     {% call problem('Nothing arrives at all') %}
       Someone may have limited <span class="{{ b }}">Leads access</span>. In Meta Business Suite open Settings, Integrations, Leads access, pick your Page, then on the CRMs tab press Assign CRMs and tick your app. On the People tab, make sure you are listed.
       Then press <span class="{{ b }}">Sync forms and leads</span> to fetch the leads you missed.
+      If none of this helps, Meta may want App Review: in your app open App Review, then Permissions and features, and ask for Advanced access to <span class="{{ b }}">leads_retrieval</span>.
     {% endcall %}
     {% call problem('This page shows a webhook error') %}
-      Meta could not reach this site. It must be public https with a real certificate (Let's Encrypt is fine, self-signed is not). You can also set it by hand: in your app open Webhooks, choose Page, paste the two values below, press Verify and save, then subscribe to <span class="{{ b }}">leadgen</span>.
+      Meta could not reach this site. It must be public https with a real certificate (Let's Encrypt is fine, self-signed is not). You can also set it by hand: in your app open Use cases, Customize, then Webhooks (older apps: Webhooks in the left menu). Pick Page, paste the two values below, press Verify and save, then subscribe to <span class="{{ b }}">leadgen</span>.
       {{ copy('Callback URL', webhook_url) }}
       {{ copy('Verify token', verify_token) }}
     {% endcall %}

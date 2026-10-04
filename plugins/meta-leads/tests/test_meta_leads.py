@@ -162,3 +162,12 @@ def test_setup_guide_shows_this_sites_addresses(admin, panel, graph):
     assert "Capture &amp; manage ad leads with Marketing API" in guide
     assert "https://crm.example.com/admin/meta/callback" in guide and "Lead Ads Testing Tool" in guide
     assert "open on http, not https" not in guide and 'type="submit"' not in guide
+
+
+def test_saving_keys_reloads_the_page(admin, panel, graph):
+    plugin = panel.get_plugin("meta-leads")
+    plugin.app_id = plugin.app_secret = None  # keys typed on the setup page, not given in code
+    assert "meta=keys" in admin.get("/admin/meta-leads").text  # Connect Facebook asks for keys first
+    r = admin.post("/admin/meta-leads", {"app_id": "222", "app_secret": "s3"})
+    assert r.headers.get("HX-Redirect") == "/admin/meta-leads", r.text[:300]
+    assert "client_id=222" in admin.get("/admin/meta-leads").text

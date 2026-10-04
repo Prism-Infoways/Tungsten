@@ -36,7 +36,7 @@ Then open **WhatsApp setup** in the panel and press **Setup guide**. It walks th
 2. Make a permanent token: Business settings, System users, add an Admin user, give it full control of the app and the WhatsApp account, and generate a token that never expires with `whatsapp_business_messaging` and `whatsapp_business_management`.
 3. In WhatsApp setup, pick *Cloud API (official)*, fill in the Phone number ID, the WhatsApp Business Account ID, the token and the App secret, and save.
 4. Press **More, Register number** once, with a 6-digit PIN.
-5. In the Meta app's WhatsApp *Configuration*, paste the Callback URL and Verify token shown on the setup page, then subscribe to **messages**.
+5. In the Meta app, open *Use cases, Customize* next to WhatsApp, then *Configuration*. Paste the Callback URL and Verify token shown on the setup page, then subscribe to **messages**.
 6. Publish the app, add a payment method, and press **Check connection**.
 
 WhatsApp only lets you send free text within 24 hours of the person's last message. Outside that window, use an approved template (press **More, Sync templates** to load them). Meta charges per message.
@@ -47,7 +47,8 @@ WhatsApp only lets you send free text within 24 hours of the person's last messa
    ```bash
    mkdir waha && cd waha
    wget -O docker-compose.yaml https://raw.githubusercontent.com/devlikeapro/waha/refs/heads/core/docker-compose.yaml
-   # change "image: devlikeapro/waha-plus" to "image: devlikeapro/waha", then:
+   touch .env
+   # change "image: devlikeapro/waha-plus" to "image: devlikeapro/waha" (ARM server: devlikeapro/waha:arm), then:
    docker compose run --no-deps -v "$(pwd)":/app/env waha init-waha /app/env
    docker compose up -d
    ```

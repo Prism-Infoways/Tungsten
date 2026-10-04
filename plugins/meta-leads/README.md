@@ -33,10 +33,10 @@ Open **Facebook & Instagram** in your panel and press **Setup guide**. It walks 
 1. At [developers.facebook.com](https://developers.facebook.com/apps/creation/), create an app with the use case **Capture & manage ad leads with Marketing API**, and add the `pages_manage_metadata` permission to it.
 2. Paste the app's App ID and App secret on the setup page.
 3. In the app's *Facebook Login for Business, Settings*, add the **Redirect URI** shown on the setup page (for example `https://admin.example.com/admin/meta/callback`).
-4. Publish the app (*Publish, Go live*). Until then Meta only sends leads from people who work on the app.
+4. Publish the app (*Publish, Go live*). Meta sends no leads, not even test leads, to an app that is not live.
 5. Press **Connect Facebook** and allow every Page and permission.
 
-Your site must be reachable on the internet over https so Meta can send leads to it. You don't need App Review for your own Pages; it is only needed when other businesses connect their Pages to your app. The full guide, with common problems, is in [Facebook & Instagram leads](https://github.com/Prism-Infoways/Tungsten/blob/HEAD/docs/facebook-leads.md).
+Your site must be reachable on the internet over https so Meta can send leads to it. For your own Pages you usually don't need App Review; it is needed when other businesses connect their Pages to your app. The full guide, with common problems, is in [Facebook & Instagram leads](https://github.com/Prism-Infoways/Tungsten/blob/HEAD/docs/facebook-leads.md).
 
 You can also give the keys in code: `MetaLeadsPlugin(app_id="...", app_secret="...")`.
 

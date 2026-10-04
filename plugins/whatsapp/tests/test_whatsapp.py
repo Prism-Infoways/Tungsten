@@ -255,7 +255,12 @@ def test_setup_page_keeps_secrets(admin, panel):
     assert "The whatsapp business account id field is required." in r.text  # needed for replies now
     r = admin.post("/admin/whatsapp", {"channel": "cloud", "country_code": "+91", "phone_number_id": "PN9",
                                        "business_account_id": "WABA9", "access_token": "", "app_secret": ""})
-    assert r.status_code == 200, r.text[:300]
+    assert r.headers.get("HX-Redirect") == "/admin/whatsapp", r.text[:300]  # reload: the next buttons show now
+    assert "Register number" in admin.get("/admin/whatsapp").text
+    r = admin.post("/admin/whatsapp", {"channel": "cloud", "country_code": "+91", "phone_number_id": "PN9",
+                                       "business_account_id": "WABA9", "access_token": "", "app_secret": "",
+                                       "create_leads": "1"})
+    assert r.status_code == 200 and "HX-Redirect" not in r.headers  # nothing at the top changed
     with panel.db() as db:
         s = db.scalars(select(WhatsAppSettings)).one()
         assert (s.phone_number_id, s.access_token, s.app_secret, s.country_code) == ("PN9", "KEEP", "KEEP2", "91")

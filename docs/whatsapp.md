@@ -51,6 +51,8 @@ panel.create_tables(engine)
 2. In **From**, press **Add phone number**. Type your business name and category, then your number, and enter the code Meta sends by SMS or call.
 3. Pick your number in **From**. Copy its **Phone number ID** and the **WhatsApp Business Account ID** (Meta may call it Messaging account ID).
 
+Adding your number makes a new WhatsApp Business Account for it. Use that account's ID, and pick that account for billing (step 9) and templates, not the test one.
+
 Meta also gives a free test number. It is fine for a first try, but switch to your own number for real use.
 
 ### 3. Make a permanent access token
@@ -67,7 +69,7 @@ In your app open **App settings**, then **Basic**. Next to App secret press **Sh
 
 ### 5. Fill the setup page
 
-In the panel open **WhatsApp setup**. In **How to send** pick **Cloud API (official)**, paste the Phone number ID, WhatsApp Business Account ID, Access token and App secret, then press **Save changes**.
+In the panel open **WhatsApp setup**. In **How to send** pick **Cloud API (official)**, paste the Phone number ID, WhatsApp Business Account ID, Access token and App secret, then press **Save changes**. The page reloads with the buttons for the next steps.
 
 ### 6. Register your number
 
@@ -81,7 +83,7 @@ Press **More**, then **Register number**, and type a 6-digit PIN. Meta needs thi
 
 ### 8. Publish the app
 
-In **App settings**, **Basic**, add a Privacy Policy URL (a page on your website), a category and an icon, then save. Then press **Publish** in the left menu, then **Go live**. Some messages are not sent to apps that are still in development.
+In **App settings**, **Basic**, fill the contact email, a Privacy Policy URL and a Terms of Service URL (pages on your website), a category and an icon, then save. Then press **Publish** in the left menu; the list shows anything still missing. Then press **Go live**. Some messages are not sent to apps that are still in development.
 
 ### 9. Add a payment method
 
@@ -113,6 +115,8 @@ WhatsApp only lets you send free text within 24 hours of the person's last messa
 
 **Messages go out, but replies never show.** Publish the app (step 8), check that messages is subscribed (step 7), then press Check connection. If the App secret was reset in Meta, paste the new one.
 
+**A chat from a strange number appeared after Meta's Test button.** Meta's test sends a made-up message. You can delete that chat and lead.
+
 ## WhatsApp Web
 
 WhatsApp Web mode is not an official API. It links your own WhatsApp number, like WhatsApp Web on a laptop. WhatsApp may block numbers that send bulk or unwanted messages, so use it to talk with people who expect your messages.
@@ -132,16 +136,17 @@ Download WAHA's setup file:
 ```bash
 mkdir waha && cd waha
 wget -O docker-compose.yaml https://raw.githubusercontent.com/devlikeapro/waha/refs/heads/core/docker-compose.yaml
+touch .env
 ```
 
-Open `docker-compose.yaml` and change the line `image: devlikeapro/waha-plus` to `image: devlikeapro/waha`. Then make the passwords and the API key, and start it:
+Open `docker-compose.yaml` and change the line `image: devlikeapro/waha-plus` to `image: devlikeapro/waha`. On an ARM server (for example Oracle Ampere or Hetzner CAX) use `image: devlikeapro/waha:arm`. Then make the passwords and the API key, and start it:
 
 ```bash
 docker compose run --no-deps -v "$(pwd)":/app/env waha init-waha /app/env
 docker compose up -d
 ```
 
-The first command prints **Use this API key in the x-api-key header** and a key under it. Copy that key.
+The first command prints **Use this API key in the x-api-key header** and a key under it. Copy that key. It is also saved in the `.env` file.
 
 This setup keeps WAHA private on the server (`127.0.0.1:3000`), keeps your phone linked after restarts, and starts again by itself. More in WAHA's [Docker guide](https://waha.devlike.pro/blog/waha-on-docker/).
 
@@ -150,11 +155,11 @@ This setup keeps WAHA private on the server (`127.0.0.1:3000`), keeps your phone
 - **Same server as the panel**: the Gateway URL is `http://127.0.0.1:3000`.
 - **Another server** (for example the panel on cPanel): point a subdomain such as `waha.yourbusiness.in` at the server, and put Nginx with a free Let's Encrypt certificate in front of port 3000. The Gateway URL is then `https://waha.yourbusiness.in`.
 - Never open port 3000 itself to the internet. The API key goes with every call.
-- WAHA also calls the panel when a message comes in, at the **Webhook URL** shown on the setup page, so the panel must be reachable from the WAHA server.
+- WAHA also calls the panel when a message comes in, at the **Webhook URL** the setup page shows once you save it in step 3 (your panel's address followed by `/whatsapp/web-webhook`), so the panel must be reachable from the WAHA server.
 
 ### 3. Fill the setup page
 
-In **How to send** pick **WhatsApp Web (linked phone)**. Type the Gateway URL and the API key, leave the session name as `default`, and press **Save changes**. The **Link phone** button now shows at the top.
+In **How to send** pick **WhatsApp Web (linked phone)**. Type the Gateway URL and the API key, leave the session name as `default`, and press **Save changes**. The page reloads, and the **Link phone** button shows at the top.
 
 ### 4. Link your phone
 
@@ -176,11 +181,13 @@ From a different phone, send a message to your WhatsApp number. It shows in **Wh
 
 ### Common problems
 
-**"Unauthorized" or 401.** The API key is wrong or missing. Copy it again and save it. Running the setup command again makes a new key.
+**"Unauthorized" or 401.** The API key is wrong or missing. Find it on the WAHA server with `cd waha && grep WAHA_API_KEY_PLAIN .env`, paste it on the setup page and save.
 
 **"Could not reach" the gateway.** Check the Gateway URL, and that WAHA runs: `cd waha && docker compose ps`. `docker compose logs -f` shows what it does.
 
 **"pull access denied" while installing.** The image line still says `waha-plus`. Change it to `devlikeapro/waha`.
+
+**"env file not found", or "exec format error".** For the first, run `touch .env` in the waha folder, then the setup command again. The second means the server is ARM: use `devlikeapro/waha:arm`.
 
 **The phone must be linked again after every restart.** The sessions folder is missing. Use WAHA's setup file from step 1; it keeps that folder.
 

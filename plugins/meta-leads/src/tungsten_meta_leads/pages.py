@@ -100,6 +100,7 @@ class MetaSetupPage(Page):
         if data.get("app_secret"):
             settings.app_secret = data["app_secret"]
         ctx.db.commit()
+        ctx.redirect(str(ctx.request.url.path))  # reload, so Connect Facebook uses the new keys
 
     # ------------------------------------------------------------------ buttons
     @classmethod

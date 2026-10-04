@@ -48,7 +48,7 @@ It takes about 15 minutes. Meta changes its screens now and then, so if a name d
 
 1. Left menu: **App settings**, then **Basic**.
 2. Copy the **App ID**. Next to **App secret** press **Show** and copy it.
-3. In the panel, paste both in **Meta app keys** on the Facebook & Instagram page and press **Save keys**.
+3. In the panel, paste both in **Meta app keys** on the Facebook & Instagram page and press **Save keys**. The page reloads with Connect Facebook ready.
 4. On the same Basic page, fill these and press **Save changes**. Meta needs them to publish the app:
    - **App domains**: your panel's host, for example `admin.example.com`.
    - **Privacy Policy URL**: a page on your website.
@@ -67,7 +67,7 @@ You can also give the keys in code: `MetaLeadsPlugin(app_id="...", app_secret=".
 
 Left menu: **Publish**. Check the list, then press **Go live**.
 
-Until the app is live, Meta does not send leads from real customers, only from people who work on the app. You do not need App Review for your own Pages. App Review and Business Verification are only needed when people outside your business connect their Pages to your app.
+Meta sends no leads to an app that is not live, not even test leads. For your own Pages you usually do not need App Review or Business Verification. They are needed when people outside your business connect their Pages to your app.
 
 ## 6. Connect Facebook
 
@@ -89,13 +89,13 @@ The panel saves your Pages and their lead forms, turns on lead alerts for each P
 
 **Facebook says "Invalid Scopes", or "This app needs at least one supported permission".** A permission is not added to the app. Do step 2 again, then press Connect Facebook.
 
-**The test lead came in, but real leads do not.** The app is not live yet. Do step 5.
+**No leads come in, not even test leads.** The app is not live yet. Do step 5, then send a test lead again.
 
 **A Page is missing, or shows "Not receiving".** Press **Reconnect Facebook** and tick every Page. You need full control of the Page, or task access with Advertise.
 
-**Nothing arrives at all.** Someone may have limited *Leads access*. In Meta Business Suite open Settings, Integrations, **Leads access**, pick your Page, then on the CRMs tab press **Assign CRMs** and tick your app. On the People tab, make sure you are listed. Then press **Sync forms and leads** in the panel to fetch the leads you missed.
+**Nothing arrives at all.** Someone may have limited *Leads access*. In Meta Business Suite open Settings, Integrations, **Leads access**, pick your Page, then on the CRMs tab press **Assign CRMs** and tick your app. On the People tab, make sure you are listed. Then press **Sync forms and leads** in the panel to fetch the leads you missed. If none of this helps, Meta may want App Review: in your app open **App Review**, **Permissions and features**, and ask for Advanced access to `leads_retrieval`.
 
-**The setup page shows a webhook error.** Meta could not reach your site. It must be public https with a real certificate (Let's Encrypt is fine). You can also set it by hand: in your Meta app open **Webhooks**, choose **Page**, paste the **Webhook callback URL** and **Verify token** from the setup page, press **Verify and save**, then subscribe to **leadgen**.
+**The setup page shows a webhook error.** Meta could not reach your site. It must be public https with a real certificate (Let's Encrypt is fine). You can also set it by hand: in your Meta app open **Use cases**, **Customize**, then **Webhooks** (older apps: Webhooks in the left menu). Pick **Page**, paste the **Webhook callback URL** and **Verify token** from the setup page, press **Verify and save**, then subscribe to **leadgen**.
 
 **Instagram leads do not show.** Instagram lead ads belong to the Facebook Page linked to the Instagram account. Connect that Page and they come in with the rest, marked "on Instagram".
 

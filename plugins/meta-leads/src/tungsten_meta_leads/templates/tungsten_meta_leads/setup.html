@@ -41,8 +41,8 @@
     <dl class="grid gap-4 border-t border-gray-100 p-6 md:grid-cols-2 dark:border-white/10">
       {% for label, value, hint in [(__('Redirect URI'), redirect_uri, __('Facebook Login for Business, Settings')),
                                     (__('App domain'), app_domain, __('App settings, Basic')),
-                                    (__('Webhook callback URL'), webhook_url, __('Webhooks, Page, only if Meta refused it')),
-                                    (__('Verify token'), verify_token, __('Webhooks, Page, only if Meta refused it'))] %}
+                                    (__('Webhook callback URL'), webhook_url, __('Only if Meta refused it: Use cases, Customize, Webhooks, Page')),
+                                    (__('Verify token'), verify_token, __('Only if Meta refused it: Use cases, Customize, Webhooks, Page'))] %}
       <div>
         <dt class="text-sm font-medium text-gray-950 dark:text-white">{{ label }} <span class="font-normal text-gray-500 dark:text-gray-400">· {{ hint }}</span></dt>
         <dd class="mt-2 flex items-center gap-x-2">

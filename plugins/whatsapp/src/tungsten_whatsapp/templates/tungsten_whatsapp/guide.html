@@ -95,6 +95,7 @@
       <li>In the app open <span class="{{ b }}">Use cases</span>, then <span class="{{ b }}">Customize</span> next to WhatsApp, then <span class="{{ b }}">API Setup</span> (older apps: WhatsApp, API Setup).</li>
       <li>In <span class="{{ b }}">From</span>, press <span class="{{ b }}">Add phone number</span>. Type your business name and category, then your number, and enter the code Meta sends by SMS or call.</li>
       <li>Pick your number in <span class="{{ b }}">From</span>. Copy its <span class="{{ b }}">Phone number ID</span> and the <span class="{{ b }}">WhatsApp Business Account ID</span> (Meta may call it Messaging account ID).</li>
+      <li>Adding your number makes a new WhatsApp Business Account for it. Use that account's ID here, and pick that account for billing (step 9) and templates (step 11), not the test one.</li>
       <li>Meta also gives a free test number. It is fine for a first try, but switch to your own number for real use.</li>
     {% endcall %}
 
@@ -111,7 +112,7 @@
 
     {% call part(5, 'Fill this page') %}
       <li>Close this guide. In <span class="{{ b }}">How to send</span> pick <span class="{{ b }}">Cloud API (official)</span>.</li>
-      <li>Paste the Phone number ID, WhatsApp Business Account ID, Access token and App secret, then press <span class="{{ b }}">Save changes</span>.</li>
+      <li>Paste the Phone number ID, WhatsApp Business Account ID, Access token and App secret, then press <span class="{{ b }}">Save changes</span>. The page reloads with the buttons for the next steps.</li>
     {% endcall %}
 
     {% call part(6, 'Register your number') %}
@@ -129,8 +130,8 @@
     {% endcall %}
 
     {% call part(8, 'Publish the app') %}
-      <li>In <span class="{{ b }}">App settings</span>, <span class="{{ b }}">Basic</span>, add a Privacy Policy URL (a page on your website), a category and an icon, then save.</li>
-      <li>Left menu: <span class="{{ b }}">Publish</span>, then <span class="{{ b }}">Go live</span>. Some messages are not sent to apps that are still in development.</li>
+      <li>In <span class="{{ b }}">App settings</span>, <span class="{{ b }}">Basic</span>, fill the contact email, a Privacy Policy URL and a Terms of Service URL (pages on your website), a category and an icon, then save.</li>
+      <li>Left menu: <span class="{{ b }}">Publish</span>. The list shows anything still missing. Then press <span class="{{ b }}">Go live</span>. Some messages are not sent to apps that are still in development.</li>
     {% endcall %}
 
     {% call part(9, 'Add a payment method', 'https://business.facebook.com/latest/billing_hub/payment_methods/', 'Billing') %}
@@ -174,13 +175,13 @@
         {{ code('curl -fsSL https://get.docker.com | sh') }}
       </li>
       <li>Download WAHA's setup file:
-        {{ code('mkdir waha && cd waha\nwget -O docker-compose.yaml https://raw.githubusercontent.com/devlikeapro/waha/refs/heads/core/docker-compose.yaml') }}
+        {{ code('mkdir waha && cd waha\nwget -O docker-compose.yaml https://raw.githubusercontent.com/devlikeapro/waha/refs/heads/core/docker-compose.yaml\ntouch .env') }}
       </li>
-      <li>Open <code>docker-compose.yaml</code> (for example <code>nano docker-compose.yaml</code>) and change the line <code>image: devlikeapro/waha-plus</code> to <code>image: devlikeapro/waha</code>.</li>
+      <li>Open <code>docker-compose.yaml</code> (for example <code>nano docker-compose.yaml</code>) and change the line <code>image: devlikeapro/waha-plus</code> to <code>image: devlikeapro/waha</code>. On an ARM server (for example Oracle Ampere or Hetzner CAX) use <code>image: devlikeapro/waha:arm</code>.</li>
       <li>Make the passwords and the API key, then start it:
         {{ code('docker compose run --no-deps -v "$(pwd)":/app/env waha init-waha /app/env\ndocker compose up -d') }}
       </li>
-      <li>The first line prints <span class="{{ b }}">Use this API key in the x-api-key header</span> and a key under it. Copy that key; you paste it here soon.</li>
+      <li>The first line prints <span class="{{ b }}">Use this API key in the x-api-key header</span> and a key under it. Copy that key; you paste it here soon. It is also saved in the <code>.env</code> file.</li>
       <li>This setup keeps WAHA private on the server, keeps your phone linked after restarts, and starts again by itself.</li>
     {% endcall %}
 
@@ -196,7 +197,7 @@
     {% call part(3, 'Fill this page') %}
       <li>Close this guide. In <span class="{{ b }}">How to send</span> pick <span class="{{ b }}">WhatsApp Web (linked phone)</span>.</li>
       <li>Type the Gateway URL and the API key. Leave the session name as <code>default</code>. Press <span class="{{ b }}">Save changes</span>.</li>
-      <li>The <span class="{{ b }}">Link phone</span> button now shows at the top.</li>
+      <li>The page reloads, and the <span class="{{ b }}">Link phone</span> button shows at the top.</li>
     {% endcall %}
 
     {% call part(4, 'Link your phone') %}
@@ -221,9 +222,10 @@
     {% endcall %}
 
     {% call problems() %}
-      {% call problem('"Unauthorized" or 401') %}The API key is wrong or missing. Copy it again from the WAHA setup and save it here. Running the setup line again makes a new key.{% endcall %}
+      {% call problem('"Unauthorized" or 401') %}The API key is wrong or missing. Find it on the WAHA server with <code>cd waha &amp;&amp; grep WAHA_API_KEY_PLAIN .env</code>, paste it here and save.{% endcall %}
       {% call problem('"Could not reach" the gateway') %}Check the Gateway URL, and that WAHA runs: <code>cd waha &amp;&amp; docker compose ps</code>. <code>docker compose logs -f</code> shows what it does.{% endcall %}
       {% call problem('"pull access denied" while installing') %}The image line still says waha-plus. Change it to <code>devlikeapro/waha</code> (step 1).{% endcall %}
+      {% call problem('"env file not found", or "exec format error"') %}"env file": run <code>touch .env</code> in the waha folder, then the setup line again. "exec format error": the server is ARM; use <code>devlikeapro/waha:arm</code> (step 1).{% endcall %}
       {% call problem('The phone must be linked again after every restart') %}The sessions folder is missing. Use WAHA's setup file from step 1; it keeps that folder.{% endcall %}
       {% call problem('Incoming messages do not show here') %}WAHA cannot reach this panel. The address in step 2 must open from the WAHA server. Also, messages you send from the linked phone itself are not shown.{% endcall %}
     {% endcall %}
