@@ -43,9 +43,9 @@ class Unauthorized(Exception):
 
 
 class McpServer:
-    def __init__(self, plugin: Any) -> None:
+    def __init__(self, plugin: Any, tools: type[Tools] = Tools) -> None:
         self.plugin = plugin
-        self.tools = Tools(plugin)
+        self.tools = tools(plugin)
 
     # ------------------------------------------------------------------ http
     async def handle_http(self, request: Request) -> Response:
@@ -145,8 +145,9 @@ class McpServer:
     def call_tool(self, ctx: Context, row: McpToken, id_: Any, params: dict) -> dict:
         name = params.get("name")
         args = params.get("arguments") or {}
-        allowed = Tools.READ + (Tools.WRITE if self.can_write(row) else ())
-        if name in Tools.WRITE and name not in allowed:
+        # the instance's own lists, so a Tools subclass can add its own tools
+        allowed = self.tools.READ + (self.tools.WRITE if self.can_write(row) else ())
+        if name in self.tools.WRITE and name not in allowed:
             return _result(id_, _tool_error("This token can only read. Make a token with \"Allow changes\" "
                                             "switched on to create, update or delete records."))
         if name not in allowed:

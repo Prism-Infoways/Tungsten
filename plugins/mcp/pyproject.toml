@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tungsten-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tungsten plugin: an MCP server so AI assistants like Claude can read and change your admin panel's data."
 readme = "README.md"
 requires-python = ">=3.10"

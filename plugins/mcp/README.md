@@ -80,4 +80,30 @@ McpPlugin(
 )
 ```
 
+## Your own tools
+
+Beside the record tools, a panel can add tools of its own: subclass `Tools`, name them in `READ` or
+`WRITE`, add them to `definitions()`, and pass the class as `tools=`.
+
+```python
+from tungsten_mcp import McpPlugin, Tools
+
+class ShopTools(Tools):
+    READ = Tools.READ + ("shop_hours",)
+
+    def definitions(self, ctx, can_write):
+        return super().definitions(ctx, can_write) + [
+            {"name": "shop_hours", "description": "When the shop is open.",
+             "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": True}},
+        ]
+
+    def shop_hours(self, ctx):
+        return {"open": "9 to 5"}
+
+panel.plugin(McpPlugin(tools=ShopTools))
+```
+
+A tool named in `WRITE` needs a token with **Allow changes**. Raise `ToolError("...")` for a problem
+the AI can fix; the message goes back as the tool's answer.
+
 With [multi-tenancy](https://tungsten.prisminfoways.com/docs/multi-tenancy.html), the token's user works in their first tenant. Send an `X-Tenant: <id>` header to pick another.

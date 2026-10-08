@@ -7,7 +7,7 @@ from decimal import Decimal
 import pytest
 from conftest import Mcp, Product, make_token
 from sqlalchemy import select
-from tungsten_mcp import McpToken, hash_token
+from tungsten_mcp import McpToken, Tools, hash_token
 
 from tungsten.models import ActivityLog
 
@@ -199,3 +199,41 @@ def test_token_screen(admin, panel):
     with panel.db() as db:
         assert db.scalars(select(McpToken)).one().last_used_at is not None
     assert "My Claude" in admin.get("/admin/mcp-tokens").text
+
+
+class ShopTools(Tools):
+    """Tools of the app's own, beside the record ones."""
+
+    READ = Tools.READ + ("shop_hours",)
+    WRITE = Tools.WRITE + ("restock",)
+
+    def definitions(self, ctx, can_write):
+        tools = super().definitions(ctx, can_write)
+        tools.append({"name": "shop_hours", "description": "When the shop is open.",
+                      "inputSchema": {"type": "object", "properties": {}},
+                      "annotations": {"readOnlyHint": True}})
+        if can_write:
+            tools.append({"name": "restock", "description": "Add stock.",
+                          "inputSchema": {"type": "object", "properties": {"sku": {"type": "string"}},
+                                          "required": ["sku"]}})
+        return tools
+
+    def shop_hours(self, ctx):
+        return {"open": "9 to 5"}
+
+    def restock(self, ctx, sku):
+        return {"restocked": sku}
+
+
+@pytest.mark.parametrize("options", [{"tools": ShopTools}])
+def test_custom_tools(admin_mcp, panel, http):
+    names = {t["name"] for t in admin_mcp.rpc("tools/list")["result"]["tools"]}
+    assert {"shop_hours", "restock"} <= names
+    assert admin_mcp.call("shop_hours")["structuredContent"] == {"open": "9 to 5"}
+    assert admin_mcp.call("restock", sku="RS-1")["structuredContent"] == {"restocked": "RS-1"}
+
+    with panel.db() as db:
+        reader = Mcp(http, make_token(db, 1, can_write=False))
+    assert {t["name"] for t in reader.rpc("tools/list")["result"]["tools"]} == set(Tools.READ) | {"shop_hours"}
+    assert reader.call("shop_hours")["structuredContent"] == {"open": "9 to 5"}
+    assert "can only read" in reader.call("restock", sku="RS-1")["content"][0]["text"]

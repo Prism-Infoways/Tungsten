@@ -28,7 +28,7 @@ from .resources import McpTokenResource
 from .server import McpServer
 from .tools import SENSITIVE, ToolError, Tools
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 DEFAULT_INSTRUCTIONS = (
     "These tools work with the records of a Tungsten admin panel. Start with list_resources, then "
@@ -54,6 +54,7 @@ class McpPlugin(Plugin):
     - ``oauth``: let apps connect by logging in (OAuth 2.1 with PKCE), besides tokens made on
       the screen. Needs a panel with login. ``allow_registration=False`` stops new apps.
     - ``token_minutes``: how long an OAuth access token works before the app refreshes it.
+    - ``tools``: a :class:`Tools` subclass, to add tools of your own beside the record ones.
     """
 
     id = "mcp"
@@ -63,7 +64,8 @@ class McpPlugin(Plugin):
     def __init__(self, path: str = "/mcp", *, read_only: bool = False, resources: Iterable[Any] | None = None,
                  exclude: Iterable[Any] = (), hidden_fields: Iterable[str] = (), max_limit: int = 100,
                  name: str | None = None, instructions: str | None = None, public_url: str | None = None,
-                 oauth: bool = True, allow_registration: bool = True, token_minutes: int = 60) -> None:
+                 oauth: bool = True, allow_registration: bool = True, token_minutes: int = 60,
+                 tools: type[Tools] = Tools) -> None:
         self.path = "/" + path.strip("/")
         self.read_only = read_only
         self.only = {_slug(r) for r in resources} if resources is not None else None
@@ -77,7 +79,7 @@ class McpPlugin(Plugin):
         self.allow_registration = allow_registration
         self.token_seconds = token_minutes * 60
         self.panel: Any = None
-        self.server = McpServer(self)
+        self.server = McpServer(self, tools)
         self.oauth = OAuth(self)
 
     def register(self, panel: Any) -> None:
