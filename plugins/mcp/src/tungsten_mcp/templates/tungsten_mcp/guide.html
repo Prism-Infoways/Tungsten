@@ -5,7 +5,7 @@
 #}
 {% import "tungsten_mcp/macros.html" as ui with context %}
 {% set b = 'font-medium text-gray-950 dark:text-white' %}
-{% set tabs = [('code', 'Claude Code', 'terminal'), ('desktop', 'Claude Desktop', 'monitor'), ('other', 'Other apps', 'plug')] %}
+{% set tabs = ([('claude', 'Claude app', 'sparkles')] if oauth and not token else []) + [('code', 'Claude Code', 'terminal'), ('desktop', 'Claude Desktop', 'monitor'), ('other', 'Other apps', 'plug')] %}
 {% set secret = token or 'YOUR_TOKEN' %}
 {% set claude_code = 'claude mcp add --transport http tungsten ' ~ url ~ ' --header "Authorization: Bearer ' ~ secret ~ '"' %}
 {% set desktop = {"mcpServers": {"tungsten": {"command": "npx", "args": ["-y", "mcp-remote", url, "--header", "Authorization:${AUTH_HEADER}"], "env": {"AUTH_HEADER": "Bearer " ~ secret}}}} %}
@@ -25,7 +25,8 @@
   {{ ui.copy(None, token) }}
   {% endcall %}
   {% else %}
-  {% call ui.part(1, 'Make a token') %}
+  {% call ui.part(1, 'Make a token' if not oauth else 'Make a token (only for apps without login)') %}
+  {% if oauth %}<li>Claude and most apps log in by themselves (first tab below). Skip this step for them.</li>{% endif %}
   <li>Close this, press <span class="{{ b }}">New token</span>, give it a name and save.</li>
   <li>The token is shown once, with these steps filled in for it.</li>
   {% endcall %}
@@ -36,7 +37,7 @@
       <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ 1 if token else 2 }}</span>
       <h3 class="flex-1 text-sm font-semibold text-gray-950 dark:text-white">Add this panel to your AI app</h3>
     </header>
-    <div class="px-4 pb-4 text-sm text-gray-600 dark:text-gray-300" x-data="{ tab: 'code' }">
+    <div class="px-4 pb-4 text-sm text-gray-600 dark:text-gray-300" x-data="{ tab: {{ ('claude' if oauth and not token else 'code') | tojson | forceescape }} }">
       {{ ui.copy('Server URL', url) }}
       <nav class="mt-4 flex gap-x-1 overflow-x-auto border-b border-gray-200 dark:border-white/10" role="tablist">
         {% for key, label, tab_icon in tabs %}
@@ -47,7 +48,14 @@
         </button>
         {% endfor %}
       </nav>
-      <div class="pt-4" x-show="tab === 'code'" role="tabpanel">
+      {% if oauth and not token %}
+      <div class="pt-4" x-show="tab === 'claude'" role="tabpanel">
+        <p>No token needed. In Claude (web, desktop or phone) open <span class="{{ b }}">Settings, Connectors, Add custom connector</span>, paste the Server URL above and press <span class="{{ b }}">Add</span>, then <span class="{{ b }}">Connect</span>. Log in here and press <span class="{{ b }}">Allow</span>.</p>
+        <p class="mt-2">Claude Code works the same way: run this, then type <span class="{{ b }}">/mcp</span> in Claude Code to log in.</p>
+        {{ ui.code('claude mcp add --transport http tungsten ' ~ url) }}
+      </div>
+      {% endif %}
+      <div class="pt-4" x-show="tab === 'code'" {% if oauth and not token %}x-cloak{% endif %} role="tabpanel">
         <p>Run this in a terminal{% if not token %}, with your token in place of YOUR_TOKEN{% endif %}:</p>
         {{ ui.code(claude_code) }}
       </div>

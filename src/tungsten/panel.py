@@ -45,7 +45,7 @@ def asset_version(name: str) -> str:
         return VERSION
 
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 VENDOR_FILES = ("chart.umd.min.js", "trix.umd.min.js", "trix.css", "tom-select.complete.min.js", "tom-select.css",
                 "sortable.min.js", "qrcode.js")
 
@@ -486,6 +486,8 @@ class Panel:
 
     def mount(self, app: "FastAPI") -> "Panel":
         """Mount the panel into your FastAPI (or Starlette) app at ``path``."""
+        for plugin in self._plugins:
+            plugin.mount(app, self)  # first, so a panel at "/" doesn't hide the plugin's routes
         app.mount(self.path or "/", self.app, name=f"tungsten-{self.id}")
         return self
 

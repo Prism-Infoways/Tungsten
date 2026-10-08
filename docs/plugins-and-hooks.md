@@ -47,6 +47,7 @@ panel.plugin(BlogPlugin())
 | --- | --- | --- |
 | `register(panel)` | Right away, when you call `panel.plugin(...)` | Add resources, pages, widgets, navigation items and groups |
 | `boot(panel)` | Once, just before the panel starts serving (when it is mounted) | Add render hooks, or anything that needs the other registrations done |
+| `mount(app, panel)` | When `panel.mount(app)` runs, with your main app | Add routes outside the panel's path, such as `/.well-known/...` |
 | `permissions()` | When the Roles screen is drawn | Return extra `(permission, label)` pairs to show in the Roles screen |
 
 A plugin can call any public `Panel` method on the panel it receives:

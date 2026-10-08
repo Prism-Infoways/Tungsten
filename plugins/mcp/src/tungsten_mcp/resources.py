@@ -25,7 +25,7 @@ def _user_id(ctx: Any) -> str | None:
 def guide(ctx: Any, token: str | None = None) -> Markup:
     plugin = _plugin(ctx)
     return ctx.panel.renderer.render("tungsten_mcp/guide.html", ctx=ctx, url=plugin.endpoint_url(ctx.request),
-                                     read_only=plugin.read_only, token=token)
+                                     read_only=plugin.read_only, token=token, oauth=plugin.oauth_enabled)
 
 
 def create_token(ctx: Any, db: Any, data: dict) -> Any:
@@ -87,7 +87,7 @@ class McpTokenResource(Resource):
         return [
             Action("guide").label("How to connect").icon("book-open").color("gray").outlined()
             .slide_over().modal_width("2xl").modal_heading("Connect an AI assistant")
-            .modal_description("Make a token, then add this panel to your AI app.")
+            .modal_description("Log in from your AI app, or make a token and paste it there.")
             .modal_content(lambda ctx: guide(ctx)).modal_submit_action(False).modal_cancel_action_label("Close"),
             Action("create").label("New token").icon("plus").authorize("create")
             .modal_heading("New MCP token").modal_width("md")
@@ -104,6 +104,8 @@ class McpTokenResource(Resource):
                 TextColumn("can_write").label("Access").badge()
                 .state(lambda record: "Read and change" if record.can_write else "Read only")
                 .color(lambda record: "warning" if record.can_write else "gray"),
+                TextColumn("client_id").label("Made by")
+                .state(lambda record: "App login (OAuth)" if record.client_id else "This screen").color("gray"),
                 TextColumn("last_used_at").label("Last used").since().placeholder("Never").sortable(),
                 TextColumn("created_at").date().sortable(),
             ])

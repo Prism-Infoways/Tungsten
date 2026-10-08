@@ -68,3 +68,20 @@ def test_app_templates_override_plugin_templates(tmp_path):
     panel = Panel(path="/admin", secret_key="x", template_dirs=[tmp_path / "own"])
     panel.plugin(make_plugin(tmp_path))
     assert str(panel.renderer.render("notes/hello.html", who="x")) == "Mine"
+
+
+def test_plugin_mount_hook_adds_routes_to_the_main_app():
+    class WellKnownPlugin(Plugin):
+        id = "well-known"
+
+        def mount(self, app, panel):
+            @app.get("/.well-known/hello")
+            def hello():
+                return {"panel": panel.path}
+
+    for path in ("/admin", ""):
+        panel = Panel(path=path, secret_key="t")
+        panel.plugin(WellKnownPlugin())
+        app = FastAPI()
+        panel.mount(app)
+        assert TestClient(app).get("/.well-known/hello").json() == {"panel": path}

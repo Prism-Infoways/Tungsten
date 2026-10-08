@@ -1,0 +1,20 @@
+{#
+  The "Allow" page an AI app sends the user to (OAuth).
+  vars: pending (or None), user, host
+#}
+{% set b = 'font-medium text-gray-950 dark:text-white' %}
+<div class="rounded-xl bg-white p-6 text-sm text-gray-600 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:text-gray-300 dark:ring-white/10">
+  {% if pending %}
+  <div class="flex items-center gap-x-3">
+    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ icon('bot', 'h-5 w-5') }}</span>
+    <div>
+      <p class="text-base {{ b }}">{{ pending.client_name }}</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400">{{ host }}</p>
+    </div>
+  </div>
+  <p class="mt-4"><span class="{{ b }}">{{ pending.client_name }}</span> wants to use this panel as <span class="{{ b }}">{{ user }}</span>. It will see what you can see{% if pending.write %}, and with <span class="{{ b }}">Allow changes</span> it can also create, change and delete records{% endif %}.</p>
+  <p class="mt-2">Only allow apps you just connected yourself. You can remove it any time in <a class="{{ colors.LINK['primary'] }} font-medium" href="{{ ctx.url('mcp-tokens') }}">AI access (MCP)</a>.</p>
+  {% else %}
+  <p>Nothing to approve here. Start connecting again from your AI app.</p>
+  {% endif %}
+</div>

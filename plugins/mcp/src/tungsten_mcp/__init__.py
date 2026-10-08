@@ -22,7 +22,8 @@ from fastapi.responses import JSONResponse
 
 from tungsten import Plugin
 
-from .models import McpBase, McpToken, hash_token, new_token
+from .models import McpBase, McpOAuthClient, McpOAuthCode, McpToken, hash_token, new_token
+from .oauth import AuthorizePage, OAuth
 from .resources import McpTokenResource
 from .server import McpServer
 from .tools import SENSITIVE, ToolError, Tools
@@ -50,6 +51,9 @@ class McpPlugin(Plugin):
     - ``name``/``instructions``: what the AI app is told about this server.
     - ``public_url``: this site's address for the URL in "How to connect". Default: the panel's
       ``app_url``, then the address in the browser.
+    - ``oauth``: let apps connect by logging in (OAuth 2.1 with PKCE), besides tokens made on
+      the screen. Needs a panel with login. ``allow_registration=False`` stops new apps.
+    - ``token_minutes``: how long an OAuth access token works before the app refreshes it.
     """
 
     id = "mcp"
@@ -58,7 +62,8 @@ class McpPlugin(Plugin):
 
     def __init__(self, path: str = "/mcp", *, read_only: bool = False, resources: Iterable[Any] | None = None,
                  exclude: Iterable[Any] = (), hidden_fields: Iterable[str] = (), max_limit: int = 100,
-                 name: str | None = None, instructions: str | None = None, public_url: str | None = None) -> None:
+                 name: str | None = None, instructions: str | None = None, public_url: str | None = None,
+                 oauth: bool = True, allow_registration: bool = True, token_minutes: int = 60) -> None:
         self.path = "/" + path.strip("/")
         self.read_only = read_only
         self.only = {_slug(r) for r in resources} if resources is not None else None
@@ -68,13 +73,30 @@ class McpPlugin(Plugin):
         self.name = name
         self.instructions = instructions
         self.public_url = public_url.rstrip("/") if public_url else None
+        self.oauth_wanted = oauth
+        self.allow_registration = allow_registration
+        self.token_seconds = token_minutes * 60
         self.panel: Any = None
         self.server = McpServer(self)
+        self.oauth = OAuth(self)
 
     def register(self, panel: Any) -> None:
         self.panel = panel
         panel.resources([McpTokenResource])
         panel.routes(self._routes)
+        if self.oauth_enabled:
+            panel.pages([AuthorizePage])
+            panel.routes(self.oauth.routes)
+
+    @property
+    def oauth_enabled(self) -> bool:
+        return bool(self.oauth_wanted and self.panel is not None and self.panel.auth.enabled)
+
+    def mount(self, app: Any, panel: Any) -> None:
+        # MCP apps look for the OAuth metadata at the site root, e.g. /.well-known/oauth-authorization-server/admin
+        if self.oauth_enabled and panel.path:
+            self.oauth.well_known_routes(app, prefix=panel.path)
+            self.oauth.well_known_routes(app)  # older apps drop the path
 
     def _routes(self, app: Any, panel: Any) -> None:
         server = self.server
@@ -104,12 +126,16 @@ class McpPlugin(Plugin):
                 out.add(column)
         return out
 
-    def endpoint_url(self, request: Request) -> str:
+    def base_url(self, request: Request) -> str:
+        """``https://host`` of this site (no panel path)."""
         base = self.public_url or self.panel.app_url
         if not base:
             proto = request.headers.get("x-forwarded-proto") or request.url.scheme
             base = f"{proto}://{request.headers.get('host') or request.url.netloc}"
-        return base.rstrip("/") + self.panel.url(self.path.strip("/"))
+        return base.rstrip("/")
+
+    def endpoint_url(self, request: Request) -> str:
+        return self.base_url(request) + self.panel.url(self.path.strip("/"))
 
     def server_title(self) -> str:
         return self.name or f"{self.panel.brand_name} admin"
@@ -132,10 +158,14 @@ def _slug(resource: Any) -> str:
 
 __all__ = [
     "SENSITIVE",
+    "AuthorizePage",
+    "McpOAuthClient",
+    "McpOAuthCode",
     "McpPlugin",
     "McpServer",
     "McpToken",
     "McpTokenResource",
+    "OAuth",
     "ToolError",
     "Tools",
     "__version__",

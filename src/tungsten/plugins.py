@@ -49,6 +49,12 @@ class Plugin:
     def boot(self, panel: "Panel") -> None:
         """Called once before the panel starts serving requests."""
 
+    def mount(self, app: Any, panel: "Panel") -> None:
+        """Called by ``panel.mount(app)`` with your main app, before the panel is mounted.
+
+        For routes that must live outside the panel's path, such as ``/.well-known/...``.
+        """
+
     def permissions(self) -> list[tuple[str, str]]:
         """Extra ``(permission, label)`` pairs shown in the Roles screen."""
         return []

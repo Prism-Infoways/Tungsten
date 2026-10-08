@@ -184,6 +184,7 @@ def test_token_screen(admin, panel):
     guide = admin.get(f"{ACTION}?_tw_host=resource:mcp-tokens&_tw_scope=page&_tw_name=guide",
                       headers={"HX-Request": "true"})
     assert "https://shop.example.com/admin/mcp" in guide.text and "claude mcp add --transport http" in guide.text
+    assert "Add custom connector" in guide.text
     r = admin.post(ACTION, {"_tw_host": "resource:mcp-tokens", "_tw_scope": "page", "_tw_name": "create",
                             "name": "My Claude", "can_write": "1"})
     assert r.status_code == 200 and "Token created" in r.text and "tw-refresh" in r.headers["HX-Trigger"]
