@@ -8,7 +8,8 @@ Ask things like *"Show the 10 newest orders"*, *"How many products are out of st
 
 - An MCP server inside your panel, at `/admin/mcp`.
 - Tools for every resource: `list_resources`, `describe_resource`, `list_records` (search, filters, sort, pages), `get_record`, and with a token that allows changes, `create_record`, `update_record`, `delete_record`.
-- An **AI access (MCP)** screen to make and revoke tokens, with a **How to connect** guide for Claude Code, Claude Desktop and other apps.
+- Login with OAuth: in Claude, add the server URL as a custom connector, press Connect, log in to your panel and press Allow. No token to copy.
+- An **AI access (MCP)** screen to see and revoke connected apps and tokens, with a **How to connect** guide for Claude, Claude Code, Claude Desktop and other apps.
 
 It is safe by default:
 
@@ -31,11 +32,17 @@ panel.plugin(McpPlugin())
 panel.create_tables(engine)
 ```
 
-Then open **AI access (MCP)** in the panel, press **New token**, copy the token, and press **How to connect**.
+Then open **AI access (MCP)** in the panel and press **How to connect**. Needs `tungsten-admin` 0.1.4 or newer.
 
 ## Connect
 
-**Claude Code**
+**Claude (web, desktop, phone)**: Settings, Connectors, Add custom connector, paste `https://admin.example.com/admin/mcp`, then Connect. Log in to the panel and press Allow.
+
+**Claude Code** with login: `claude mcp add --transport http tungsten https://admin.example.com/admin/mcp`, then `/mcp` in Claude Code.
+
+Apps without MCP login use a token: press **New token** on the AI access (MCP) screen.
+
+**Claude Code** with a token
 
 ```bash
 claude mcp add --transport http tungsten https://admin.example.com/admin/mcp --header "Authorization: Bearer YOUR_TOKEN"
@@ -68,6 +75,8 @@ McpPlugin(
     hidden_fields=["customers.phone", "notes"],   # never send these columns
     max_limit=100,                    # most records per list_records call
     name="Shop admin",                # the name the AI app shows
+    oauth=True,                       # apps can connect by logging in (needs a panel with login)
+    token_minutes=60,                 # how long an OAuth access token works
 )
 ```
 

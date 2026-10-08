@@ -14,12 +14,12 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
-from starlette.concurrency import run_in_threadpool
 
 from tungsten.context import Context
 from tungsten.i18n import reset_locale, set_locale
 
 from .models import McpToken, hash_token
+from .oauth import run_sync_db
 from .tools import ToolError, Tools
 
 log = logging.getLogger("tungsten.mcp")
@@ -58,35 +58,34 @@ class McpServer:
             return JSONResponse(_error(None, INVALID_REQUEST, "Invalid request"), status_code=400)
         token = _bearer(request)
         try:
-            answers = await self._run(request, lambda db: self._handle_all(db, request, token, messages))
+            answers = await run_sync_db(self.plugin.panel, lambda db: self._handle_all(db, request, token, messages))
         except Unauthorized as exc:
-            return JSONResponse({"error": "unauthorized", "error_description": str(exc)}, status_code=401,
-                                headers={"WWW-Authenticate": 'Bearer realm="tungsten-mcp"'})
+            return self.unauthorized(request, str(exc), bool(token))
         answers = [a for a in answers if a is not None]
         if not answers:  # only notifications
             return Response(status_code=202)
         return JSONResponse(answers if isinstance(body, list) else answers[0])
 
-    async def _run(self, request: Request, fn: Any) -> Any:
-        panel = self.plugin.panel
-        if panel.is_async:
-            async with panel.session_factory() as adb:
-                return await adb.run_sync(fn)
-
-        def sync() -> Any:
-            with panel.session_factory() as db:
-                return fn(db)
-
-        return await run_in_threadpool(sync)
+    def unauthorized(self, request: Request, message: str, had_token: bool) -> JSONResponse:
+        """401 with the header that tells an MCP app where to log in (OAuth)."""
+        challenge = 'Bearer realm="tungsten-mcp"'
+        if self.plugin.oauth_enabled:
+            challenge += f', resource_metadata="{self.plugin.oauth.resource_metadata_url(request)}"'
+        if had_token:
+            challenge += ', error="invalid_token"'
+        return JSONResponse({"error": "invalid_token" if had_token else "unauthorized", "error_description": message},
+                            status_code=401, headers={"WWW-Authenticate": challenge})
 
     # ------------------------------------------------------------------ auth
     def authenticate(self, db: Any, request: Request, token: str | None) -> tuple[Context, McpToken]:
         panel = self.plugin.panel
         if not token:
-            raise Unauthorized("Send your MCP token as: Authorization: Bearer <token>")
+            raise Unauthorized("Log in, or send your MCP token as: Authorization: Bearer <token>")
         row = db.scalars(select(McpToken).where(McpToken.token_hash == hash_token(token))).first()
         if row is None:
             raise Unauthorized("This token is not valid. Make a new one in the panel under AI access (MCP).")
+        if row.expires_at is not None and row.expires_at < dt.datetime.now():
+            raise Unauthorized("This token has expired. Use the refresh token to get a new one.")
         db.info["tungsten_panel"] = panel
         ctx = Context(panel, request, db)
         if panel.auth.enabled:

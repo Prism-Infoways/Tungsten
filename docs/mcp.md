@@ -19,9 +19,34 @@ panel.plugin(McpPlugin())
 panel.create_tables(engine)
 ```
 
-This adds **AI access (MCP)** under Settings, and the server at `/admin/mcp`.
+This adds **AI access (MCP)** under Settings, and the server at `/admin/mcp`. It needs `tungsten-admin` 0.1.4 or newer.
+
+## Connect with login (OAuth)
+
+Apps that support MCP login, like Claude, need no token. They log in to your panel, like "Sign in with Google":
+
+1. In Claude (web, desktop or phone) open **Settings, Connectors, Add custom connector**.
+2. Paste `https://admin.example.com/admin/mcp` and press **Add**, then **Connect**.
+3. Your panel's login page opens. Log in, then press **Allow** on the **Connect an AI app** page. Switch on **Allow changes** first if the app should create, change or delete records.
+
+Claude Code works the same way:
+
+```bash
+claude mcp add --transport http tungsten https://admin.example.com/admin/mcp
+```
+
+Then type `/mcp` in Claude Code and pick **tungsten** to log in.
+
+The app gets an access token that works for an hour, and swaps it for a new one by itself. Each connected app shows on the **AI access (MCP)** screen as *App login (OAuth)*. Revoke it there to disconnect it.
+
+Under the hood this is OAuth 2.1 with PKCE, as the [MCP authorization spec](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization) asks: protected resource metadata, authorization server metadata, dynamic client registration, and refresh tokens that change on each use. The metadata lives at `/.well-known/...` on your site, so mount the panel with `panel.mount(app)`.
+
+> [!NOTE]
+> OAuth needs a panel with login (`auth=Auth(...)`). Set `McpPlugin(oauth=False)` to use tokens only, or `allow_registration=False` to stop new apps from connecting.
 
 ## Make a token
+
+For apps without MCP login, or scripts.
 
 1. Open **AI access (MCP)** and press **New token**.
 2. Give it a name. Switch on **Allow changes** only if the AI should create, change or delete records.
@@ -29,7 +54,7 @@ This adds **AI access (MCP)** under Settings, and the server at `/admin/mcp`.
 
 Each token acts as the user who made it: their roles, policies and tenancy apply, as in the panel. Users only see and revoke their own tokens. Only a hash of each token is stored.
 
-## Connect your AI app
+## Connect with a token
 
 The **How to connect** button shows these steps with your own URL.
 
@@ -90,6 +115,9 @@ McpPlugin(
     max_limit=100,                    # most records per list_records call
     name="Shop admin",                # the name the AI app shows
     instructions=None,                # your own hints for the AI
+    oauth=True,                       # apps can connect by logging in
+    allow_registration=True,          # new apps may register themselves
+    token_minutes=60,                 # how long an OAuth access token works
 )
 ```
 
@@ -99,7 +127,9 @@ With [multi-tenancy](multi-tenancy), the AI works in the user's first tenant. Se
 
 ## Common problems
 
-**401 Unauthorized.** The token is wrong or revoked, or its user was deleted or switched off. Make a new token.
+**401 Unauthorized.** The token is wrong, revoked or expired, or its user was deleted or switched off. Make a new token, or connect the app again.
+
+**Claude says it couldn't connect, or the login page doesn't open.** The panel must be on a public https address, and `app_url` must be that address. Behind a proxy, check that `/.well-known/oauth-authorization-server/admin` on your site shows JSON.
 
 **The AI says it can't create or change records.** The token is read-only, the plugin has `read_only=True`, or the user's role doesn't allow it. Make a token with *Allow changes*, or give the role the permission.
 
