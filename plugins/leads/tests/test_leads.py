@@ -72,3 +72,14 @@ def test_capture_api(client, panel):
         lead = db.get(Lead, r.json()["id"])
         assert lead.source == "website" and lead.email == "web@x.com" and lead.custom_fields == {"city": "Pune"}
         assert db.scalars(select(LeadActivity)).first().lead_id == lead.id
+
+    # the same external_id twice (a form that posts again) is one lead, with one "came from the website" note
+    post = lambda: client.client.post("/admin/api/leads", json={"name": "Amit", "phone": "+919812345678",
+                                                               "external_id": "kundli-7", "city": "Pune"},
+                                      headers={"X-Leads-Token": "secret-token"})
+    first, again = post(), post()
+    assert first.status_code == 201 and again.json()["id"] == first.json()["id"]
+    with panel.db() as db:
+        lead = db.get(Lead, first.json()["id"])
+        assert lead.external_id == "kundli-7" and lead.custom_fields == {"city": "Pune"}
+        assert len([a for a in db.scalars(select(LeadActivity)) if a.lead_id == lead.id]) == 1

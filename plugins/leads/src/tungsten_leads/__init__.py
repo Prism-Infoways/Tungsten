@@ -32,7 +32,7 @@ from .service import (
 )
 from .widgets import LeadStats
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 _CORE_FIELDS = {"name", "email", "phone", "company", "notes"}
 
@@ -103,12 +103,15 @@ class LeadsPlugin(Plugin):
                 return JSONResponse({"error": "Send a name, email or phone"}, status_code=422)
 
             def save(db: Any) -> int:
-                extra = {k: v for k, v in payload.items() if k not in _CORE_FIELDS and k != "source"}
+                extra = {k: v for k, v in payload.items() if k not in _CORE_FIELDS | {"source", "external_id"}}
+                external_id = payload.get("external_id")
+                known = find_lead(db, external_id=external_id) if external_id else None
                 lead = create_lead(db, name=payload.get("name"), email=payload.get("email"),
                                    phone=payload.get("phone"), company=payload.get("company"),
                                    notes=payload.get("notes"), source=str(payload.get("source") or "website"),
-                                   custom_fields=extra)
-                add_activity(db, lead, "Lead came from the website form", type="system")
+                                   custom_fields=extra, external_id=external_id)
+                if known is None:  # the same external_id again is the same lead, not a new one
+                    add_activity(db, lead, "Lead came from the website form", type="system")
                 db.commit()
                 return lead.id
 
