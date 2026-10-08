@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tungsten-mcp"
+version = "0.1.0"
+description = "Tungsten plugin: an MCP server so AI assistants like Claude can read and change your admin panel's data."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Prism Infoways" }]
+keywords = ["tungsten", "tungsten-admin", "mcp", "model context protocol", "claude", "ai", "llm", "fastapi"]
+dependencies = ["tungsten-admin>=0.1.3"]
+
+[project.urls]
+Homepage = "https://tungsten.prisminfoways.com/"
+Repository = "https://github.com/Prism-Infoways/Tungsten"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tungsten_mcp"]

@@ -1,0 +1,39 @@
+{# Building blocks of the MCP popups (import "with context"). #}
+{% macro copy(label, value) %}
+<span class="mt-2 block">
+  {% if label %}<span class="block text-xs font-medium text-gray-500 dark:text-gray-400">{{ label }}</span>{% endif %}
+  <span class="mt-1 flex items-center gap-x-2">
+    <code class="tw-input block w-full min-w-0 truncate px-3 py-1.5 text-sm">{{ value }}</code>
+    <button type="button" class="tw-icon-btn {{ colors.pick(colors.ICON_BUTTON, 'gray') }}" title="{{ __('Copy') }}"
+            onclick="navigator.clipboard.writeText({{ value | tojson | forceescape }}); window.twToast && twToast({title: twT('Copied'), status: 'success'})">{{ icon('copy', 'h-4 w-4') }}</button>
+  </span>
+</span>
+{% endmacro %}
+
+{% macro code(text) %}
+<span class="mt-2 flex items-start gap-x-2">
+  <code class="tw-input block w-full min-w-0 overflow-x-auto px-3 py-2 font-mono text-xs" style="white-space: pre">{{ text }}</code>
+  <button type="button" class="tw-icon-btn {{ colors.pick(colors.ICON_BUTTON, 'gray') }}" title="{{ __('Copy') }}"
+          onclick="navigator.clipboard.writeText({{ text | tojson | forceescape }}); window.twToast && twToast({title: twT('Copied'), status: 'success'})">{{ icon('copy', 'h-4 w-4') }}</button>
+</span>
+{% endmacro %}
+
+{% macro part(n, title, link=None, link_label='Open') %}
+<section class="rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10">
+  <header class="flex items-center gap-x-3 px-4 py-3">
+    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ n }}</span>
+    <h3 class="flex-1 text-sm font-semibold text-gray-950 dark:text-white">{{ title }}</h3>
+    {% if link %}
+    <a href="{{ link }}" target="_blank" rel="noopener" class="tw-btn px-2.5 py-1.5 text-xs bg-white ring-1 ring-gray-950/10 dark:bg-transparent dark:ring-white/20 {{ colors.pick(colors.LINK, 'gray') }}">{{ icon('external-link', 'h-3.5 w-3.5') }}<span>{{ link_label }}</span></a>
+    {% endif %}
+  </header>
+  <ol class="grid grid-cols-1 list-decimal gap-2 px-4 pb-4 ps-9 text-sm text-gray-600 dark:text-gray-300">{{ caller() }}</ol>
+</section>
+{% endmacro %}
+
+{% macro note(title, color='gray') %}
+<div class="rounded-xl p-4 text-sm {{ 'bg-gray-50 text-gray-600 dark:bg-white/5 dark:text-gray-300' if color == 'gray' else 'bg-warning-50 text-warning-700 dark:bg-warning-400/10 dark:text-warning-400' }}">
+  <p class="font-semibold {{ 'text-gray-950 dark:text-white' if color == 'gray' }}">{{ title }}</p>
+  <div class="mt-2">{{ caller() }}</div>
+</div>
+{% endmacro %}
