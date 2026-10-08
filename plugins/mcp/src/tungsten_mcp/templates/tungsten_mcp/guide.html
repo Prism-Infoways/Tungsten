@@ -1,0 +1,73 @@
+{#
+  "How to connect" popup of the AI access (MCP) screen: one tab per AI app.
+  Right after "New token" it shows the new token, filled into every snippet.
+  vars: url, read_only, token (or None)
+#}
+{% import "tungsten_mcp/macros.html" as ui with context %}
+{% set b = 'font-medium text-gray-950 dark:text-white' %}
+{% set tabs = [('code', 'Claude Code', 'terminal'), ('desktop', 'Claude Desktop', 'monitor'), ('other', 'Other apps', 'plug')] %}
+{% set secret = token or 'YOUR_TOKEN' %}
+{% set claude_code = 'claude mcp add --transport http tungsten ' ~ url ~ ' --header "Authorization: Bearer ' ~ secret ~ '"' %}
+{% set desktop = {"mcpServers": {"tungsten": {"command": "npx", "args": ["-y", "mcp-remote", url, "--header", "Authorization:${AUTH_HEADER}"], "env": {"AUTH_HEADER": "Bearer " ~ secret}}}} %}
+{% set other = {"mcpServers": {"tungsten": {"type": "http", "url": url, "headers": {"Authorization": "Bearer " ~ secret}}}} %}
+<div class="grid grid-cols-1 gap-4">
+  {% call ui.note('What the AI can do') %}
+  <ul class="grid list-disc gap-1 ps-5">
+    <li>See your resources, search and read records{% if not read_only %}, and with an <span class="{{ b }}">Allow changes</span> token also create, change and delete them{% endif %}.</li>
+    <li>It acts as you: your roles and permissions apply, and its changes show in the activity log.</li>
+    <li>Password hashes, tokens and other secret columns are never sent.</li>
+  </ul>
+  {% endcall %}
+
+  {% if token %}
+  {% call ui.note('Copy your token now', 'warning') %}
+  <p>It is shown only this once. Lost it? Revoke it and make a new one. The steps below already have it filled in.</p>
+  {{ ui.copy(None, token) }}
+  {% endcall %}
+  {% else %}
+  {% call ui.part(1, 'Make a token') %}
+  <li>Close this, press <span class="{{ b }}">New token</span>, give it a name and save.</li>
+  <li>The token is shown once, with these steps filled in for it.</li>
+  {% endcall %}
+  {% endif %}
+
+  <section class="rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10">
+    <header class="flex items-center gap-x-3 px-4 py-3">
+      <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ 1 if token else 2 }}</span>
+      <h3 class="flex-1 text-sm font-semibold text-gray-950 dark:text-white">Add this panel to your AI app</h3>
+    </header>
+    <div class="px-4 pb-4 text-sm text-gray-600 dark:text-gray-300" x-data="{ tab: 'code' }">
+      {{ ui.copy('Server URL', url) }}
+      <nav class="mt-4 flex gap-x-1 overflow-x-auto border-b border-gray-200 dark:border-white/10" role="tablist">
+        {% for key, label, tab_icon in tabs %}
+        <button type="button" role="tab" @click="tab = {{ key | tojson | forceescape }}"
+                class="-mb-px flex shrink-0 items-center gap-x-2 border-b-2 px-4 py-3 text-sm font-medium transition"
+                :class="tab === {{ key | tojson | forceescape }} ? 'border-primary-500 text-primary-600 dark:text-primary-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'">
+          {{ icon(tab_icon, 'h-4 w-4') }}{{ label }}
+        </button>
+        {% endfor %}
+      </nav>
+      <div class="pt-4" x-show="tab === 'code'" role="tabpanel">
+        <p>Run this in a terminal{% if not token %}, with your token in place of YOUR_TOKEN{% endif %}:</p>
+        {{ ui.code(claude_code) }}
+      </div>
+      <div class="pt-4" x-show="tab === 'desktop'" x-cloak role="tabpanel">
+        <p>In Claude Desktop open <span class="{{ b }}">Settings, Developer, Edit Config</span>, add this to the file, {% if not token %}put in your token, {% endif %}save and restart Claude. It needs <span class="{{ b }}">Node.js</span> on your computer.</p>
+        {{ ui.code(desktop | tojson(indent=2)) }}
+      </div>
+      <div class="pt-4" x-show="tab === 'other'" x-cloak role="tabpanel">
+        <p>Cursor, VS Code, Windsurf and other MCP apps: add a <span class="{{ b }}">Streamable HTTP</span> server with the URL above and this header. Many apps take this JSON as is:</p>
+        {{ ui.code(other | tojson(indent=2)) }}
+      </div>
+    </div>
+  </section>
+
+  {% call ui.part(2 if token else 3, 'Try it') %}
+  <li>Ask your AI something like <span class="{{ b }}">"Which resources are in my Tungsten panel?"</span> or <span class="{{ b }}">"Show the 5 newest orders"</span>.</li>
+  <li>The first time, the app may ask you to allow the Tungsten tools.</li>
+  {% endcall %}
+
+  {% call ui.note('Keep it safe', 'warning') %}
+  <p>A token opens your data like your password does. Don't paste it in chats or code you share. Use a read-only token when the AI only needs to look.</p>
+  {% endcall %}
+</div>
