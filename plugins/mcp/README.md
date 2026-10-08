@@ -106,4 +106,24 @@ panel.plugin(McpPlugin(tools=ShopTools))
 A tool named in `WRITE` needs a token with **Allow changes**. Raise `ToolError("...")` for a problem
 the AI can fix; the message goes back as the tool's answer.
 
+## A panel under a sub-path
+
+Apps also look for the metadata at the site root (`/.well-known/oauth-protected-resource/...`). When the web
+server gives your app only the panel's path — a cPanel Python app with base URI `/admin`, say — those root
+addresses answer from the site next to it, and an app that builds them itself cannot log in ("couldn't
+register"). Send them on in the site's `.htaccess`:
+
+```apache
+RewriteEngine On
+RewriteRule ^\.well-known/oauth-protected-resource/admin/mcp$ /admin/.well-known/oauth-protected-resource/mcp [R=302,L]
+RewriteRule ^\.well-known/oauth-authorization-server/admin$ /admin/.well-known/oauth-authorization-server [R=302,L]
+RewriteRule ^\.well-known/openid-configuration/admin$ /admin/.well-known/openid-configuration [R=302,L]
+RewriteRule ^\.well-known/oauth-protected-resource$ /admin/.well-known/oauth-protected-resource [L]
+RewriteRule ^\.well-known/oauth-authorization-server$ /admin/.well-known/oauth-authorization-server [L]
+RewriteRule ^\.well-known/openid-configuration$ /admin/.well-known/openid-configuration [L]
+```
+
+(On LiteSpeed an internal rewrite of the addresses that carry the panel path came back 404 from the app, so
+those three are sent on with a redirect, which metadata readers follow.)
+
 With [multi-tenancy](https://tungsten.prisminfoways.com/docs/multi-tenancy.html), the token's user works in their first tenant. Send an `X-Tenant: <id>` header to pick another.

@@ -55,8 +55,10 @@ def exchange(http, client_id, code, verifier=VERIFIER):
 def test_metadata(panel, http):
     r = http.post("/admin/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
     assert r.status_code == 401
-    meta_url = "https://shop.example.com/.well-known/oauth-protected-resource/admin/mcp"
+    # the challenge names an address under the panel, because that is the one the app is always given
+    meta_url = "https://shop.example.com/admin/.well-known/oauth-protected-resource/mcp"
     assert f'resource_metadata="{meta_url}"' in r.headers["www-authenticate"]
+    assert http.get("/admin/.well-known/oauth-protected-resource/mcp").status_code == 200
     resource = http.get("/.well-known/oauth-protected-resource/admin/mcp").json()
     assert resource["resource"] == "https://shop.example.com/admin/mcp"
     assert resource["authorization_servers"] == ["https://shop.example.com/admin"]
@@ -196,3 +198,6 @@ def test_panel_at_root(tmp_path):
     http = TestClient(app)
     assert http.get("/.well-known/oauth-authorization-server").json()["issuer"] == "https://x.example.com"
     assert http.get("/.well-known/oauth-protected-resource/mcp").json()["resource"] == "https://x.example.com/mcp"
+    r = http.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"})
+    assert 'resource_metadata="https://x.example.com/.well-known/oauth-protected-resource/mcp"' in \
+        r.headers["www-authenticate"]
