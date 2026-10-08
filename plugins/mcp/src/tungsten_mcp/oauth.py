@@ -89,8 +89,15 @@ class OAuth:
         return self.plugin.base_url(request) + (self.plugin.panel.path or "")
 
     def resource_metadata_url(self, request: Request) -> str:
-        return self.plugin.base_url(request) + "/.well-known/oauth-protected-resource" + self.plugin.panel.url(
-            self.plugin.path.strip("/"))
+        """The address the 401 sends apps to: under the panel, not at the site root.
+
+        On shared hosting the web server often hands the app only the panel's path (a cPanel Python app
+        with base URI ``/admin``), and a root address then answers from the static site instead. RFC 9728
+        lets the challenge name any address, and the root ones stay registered for apps that build the
+        address themselves.
+        """
+        return self.plugin.base_url(request) + self.plugin.panel.url(
+            ".well-known/oauth-protected-resource", self.plugin.path.strip("/"))
 
     def protected_resource(self, request: Request) -> dict:
         return {

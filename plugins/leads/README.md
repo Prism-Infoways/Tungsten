@@ -44,7 +44,9 @@ curl -X POST https://admin.example.com/admin/api/leads \
   -d '{"name": "Amit", "phone": "+91 98765 43210", "city": "Pune"}'
 ```
 
-`name`, `email`, `phone`, `company` and `notes` go to the lead itself. Any other key is saved in the lead's extra fields.
+`name`, `email`, `phone`, `company` and `notes` go to the lead itself. Any other key is saved in the lead's extra
+fields. Send an `external_id` (the row id in your own site's database) and the same lead is never added twice, so a
+form that posts again is safe.
 
 ## Use it from your code or other plugins
 
