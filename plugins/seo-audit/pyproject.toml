@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tungsten-seo-audit"
+version = "0.1.0"
+description = "Tungsten plugin: SEO audit for your website, with a score, fix tips, history, and AI search (GEO/AEO) checks."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Prism Infoways" }]
+keywords = ["tungsten", "tungsten-admin", "seo", "seo audit", "site audit", "geo", "aeo", "broken links", "fastapi"]
+dependencies = ["tungsten-admin>=0.1.4"]
+
+[project.urls]
+Homepage = "https://tungsten.prisminfoways.com/"
+Repository = "https://github.com/Prism-Infoways/Tungsten"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tungsten_seo_audit"]
