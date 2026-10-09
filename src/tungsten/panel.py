@@ -45,7 +45,7 @@ def asset_version(name: str) -> str:
         return VERSION
 
 
-VERSION = "0.1.4"
+VERSION = "0.1.5"
 VENDOR_FILES = ("chart.umd.min.js", "trix.umd.min.js", "trix.css", "tom-select.complete.min.js", "tom-select.css",
                 "sortable.min.js", "qrcode.js")
 

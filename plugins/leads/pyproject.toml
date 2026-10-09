@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tungsten-leads"
-version = "0.1.1"
+version = "0.1.2"
 description = "Leads plugin for Tungsten: lead list, stages, notes and your own form fields."
 readme = "README.md"
 requires-python = ">=3.10"

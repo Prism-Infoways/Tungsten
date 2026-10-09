@@ -11,10 +11,11 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Prism Infoways" }]
 keywords = ["tungsten", "tungsten-admin", "blog", "cms", "seo", "geo", "aeo", "llms.txt", "schema.org", "fastapi"]
-dependencies = ["tungsten-admin>=0.1.4"]
+dependencies = ["tungsten-admin>=0.1.5"]
 
 [project.urls]
 Homepage = "https://tungsten.prisminfoways.com/"
+Documentation = "https://tungsten.prisminfoways.com/docs/blog.html"
 Repository = "https://github.com/Prism-Infoways/Tungsten"
 
 [tool.hatch.build.targets.wheel]

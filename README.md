@@ -2,7 +2,7 @@
 
 **A Filament-style admin panel for FastAPI.** Describe a model once in Python and get list, create, edit and view pages, with search, filters, bulk actions, modals, dashboards, login and roles.
 
-**[Website & docs](https://tungsten.prisminfoways.com/)** · [PyPI](https://pypi.org/project/tungsten-admin/) · [1-minute video](promo/promo.mp4)
+**[Website & docs](https://tungsten.prisminfoways.com/)** · [PyPI](https://pypi.org/project/tungsten-admin/) · [1-minute video](https://github.com/Prism-Infoways/Tungsten/blob/claude/tungsten-admin-panel/promo/promo.mp4)
 
 Tungsten renders HTML on the server (Jinja2) and uses HTMX + Alpine.js in the browser. You write no JavaScript. It works with SQLAlchemy 2.0 models (SQLModel models work too).
 
@@ -72,7 +72,36 @@ class ProductResource(Resource):
 | **Theming & UX** | Brand colors (any Tailwind palette or a hex color), logo, dark mode, SPA mode (no full page reloads), unsaved-changes warning, collapsible sidebar, keyboard shortcuts (Ctrl/⌘+S saves). |
 | **Languages** | Every screen can be translated. Hindi ships built in; add any language with a JSON file. Users switch language from the user menu or the login page. |
 | **Database** | Works with a normal SQLAlchemy engine or an async one (`create_async_engine`). `async def` hooks work too. |
-| **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins, render hooks, CLI generators. |
+| **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins (official ones for leads, help desk, blog, SEO and security audits, WhatsApp, Facebook leads and AI access), render hooks, CLI generators. |
+
+## Official plugins
+
+Add more with one `pip install`. Each plugin is its own package and turns on with `panel.plugin(...)`.
+
+| Package | What it adds | Docs |
+| --- | --- | --- |
+| [`tungsten-leads`](https://pypi.org/project/tungsten-leads/) | Leads list, stages, timeline and your own lead form fields | [README](https://github.com/Prism-Infoways/Tungsten/tree/claude/tungsten-admin-panel/plugins/leads) |
+| [`tungsten-meta-leads`](https://pypi.org/project/tungsten-meta-leads/) | Facebook and Instagram lead form leads, with one-click setup | [Guide](https://tungsten.prisminfoways.com/docs/facebook-leads.html) |
+| [`tungsten-whatsapp`](https://pypi.org/project/tungsten-whatsapp/) | WhatsApp for leads: click-to-chat, Cloud API or WhatsApp Web | [Guide](https://tungsten.prisminfoways.com/docs/whatsapp.html) |
+| [`tungsten-mcp`](https://pypi.org/project/tungsten-mcp/) | MCP server, so AI assistants like Claude can read and change your data | [Guide](https://tungsten.prisminfoways.com/docs/mcp.html) |
+| [`tungsten-tickets`](https://pypi.org/project/tungsten-tickets/) | Help desk: tickets, replies, notes, SLA and a customer support page | [Guide](https://tungsten.prisminfoways.com/docs/tickets.html) |
+| [`tungsten-blog`](https://pypi.org/project/tungsten-blog/) | Blog built for SEO, GEO and AEO, with a live score, sitemap and llms.txt | [Guide](https://tungsten.prisminfoways.com/docs/blog.html) |
+| [`tungsten-seo-audit`](https://pypi.org/project/tungsten-seo-audit/) | SEO audit of your website: score, fix tips, AI search checks, history | [Guide](https://tungsten.prisminfoways.com/docs/seo-audit.html) |
+| [`tungsten-security-audit`](https://pypi.org/project/tungsten-security-audit/) | Security audit with a score and fix tips, plus a login log with lockout | [Guide](https://tungsten.prisminfoways.com/docs/security-audit.html) |
+
+```bash
+pip install tungsten-admin tungsten-tickets tungsten-blog
+```
+
+```python
+from tungsten_tickets import TicketsPlugin
+from tungsten_blog import BlogPlugin
+
+panel.plugin(TicketsPlugin())
+panel.plugin(BlogPlugin(site_name="Acme", site_url="https://acme.com"))
+```
+
+See [all plugins](https://github.com/Prism-Infoways/Tungsten/tree/claude/tungsten-admin-panel/plugins) for setup steps.
 
 ---
 
@@ -508,7 +537,7 @@ class BlogPlugin(Plugin):
     def register(self, panel): panel.resources([PostResource])
     def boot(self, panel): panel.render_hook("sidebar.footer", lambda: Markup("<p>Blog</p>"))
 
-panel.plugin(BlogPlugin())
+panel.plugin(BlogPlugin(site_name="Acme", site_url="https://acme.com"))
 ```
 
 Hook names: `head.end`, `body.start`, `body.end`, `sidebar.nav.start`, `sidebar.nav.end`, `sidebar.footer`, `topbar.start`, `topbar.end`, `content.start`, `content.end`, `user-menu.items`, `auth.login.form.after`, `resource.list.before-table`.
