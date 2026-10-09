@@ -1,0 +1,67 @@
+{% import "tungsten/components/ui.html" as ui %}
+{% set status_icon = {'pass': 'circle-check', 'warn': 'circle-alert', 'fail': 'circle-x', 'info': 'info', 'skip': 'circle-minus'} %}
+{% set status_color = {'pass': 'success', 'warn': 'warning', 'fail': 'danger', 'info': 'info', 'skip': 'gray'} %}
+{% set status_label = {'pass': 'Passed', 'warn': 'Warning', 'fail': 'Failed', 'info': 'Note', 'skip': 'Skipped'} %}
+{% set severity_label = {'high': 'High risk', 'medium': 'Medium risk', 'low': 'Low risk'} %}
+{% if audit is none %}
+<section class="tw-card">
+  <div class="flex flex-col items-center gap-4 px-6 py-12" style="text-align:center">
+    <span class="tw-icon-tile h-16 {{ colors.pick(colors.SOFT_ICON, 'primary') }}" style="width:4rem">{{ icon('shield-check', 'h-8 w-8') }}</span>
+    <div>
+      <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('No audit yet') }}</h3>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('Press Run audit to check your settings, admin accounts, logins and website headers.') }}</p>
+    </div>
+  </div>
+</section>
+{% else %}
+{% set score_color = 'success' if audit.score >= 80 else ('warning' if audit.score >= 60 else 'danger') %}
+<section class="tw-card">
+  <div class="flex flex-col gap-6 p-6 sm:flex-row items-center">
+    <div class="flex shrink-0 items-center justify-center rounded-full {{ colors.pick(colors.TEXT, score_color) }}"
+         style="width:7rem;height:7rem;border:8px solid currentColor"
+         title="{{ __('Security score') }}">
+      <span class="text-4xl font-bold">{{ audit.score }}</span>
+    </div>
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center gap-x-3 gap-4">
+        <h3 class="text-2xl font-bold text-gray-950 dark:text-white">{{ __('Grade') }} {{ audit.grade }}</h3>
+        {{ ui.badge(__(':count failed', count=audit.failed), 'danger' if audit.failed else 'gray', 'circle-x') }}
+        {{ ui.badge(__(':count warnings', count=audit.warnings), 'warning' if audit.warnings else 'gray', 'circle-alert') }}
+        {{ ui.badge(__(':count passed', count=audit.passed), 'success', 'circle-check') }}
+      </div>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        {{ __('Checked') }} {{ audit.created_at.strftime('%d %b %Y, %H:%M') }}{% if audit.url %} · {{ audit.url }}{% endif %}
+      </p>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('Fix the red items first: they are the biggest risks. Each item says how.') }}</p>
+    </div>
+  </div>
+</section>
+{% for group, items in groups %}
+<section class="tw-card mt-6">
+  <header class="px-6 py-4">
+    <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __(group) }}</h3>
+  </header>
+  <ul class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/10 dark:border-white/10">
+    {% for r in items %}
+    <li class="flex items-start gap-x-4 px-6 py-4">
+      <span class="mt-0.5 shrink-0 {{ colors.pick(colors.TEXT, status_color[r.status]) }}">{{ icon(status_icon[r.status], 'h-5 w-5') }}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-x-3 gap-4" style="row-gap:.25rem">
+          <p class="text-sm font-semibold text-gray-950 dark:text-white">{{ __(r.title) }}</p>
+          {% if r.status in ('fail', 'warn') %}{{ ui.badge(__(severity_label[r.severity]), status_color[r.status]) }}{% endif %}
+        </div>
+        {% if r.detail %}<p class="mt-1 text-sm text-gray-500 dark:text-gray-400" style="overflow-wrap:anywhere">{{ r.detail }}</p>{% endif %}
+        {% if r.fix and r.status in ('fail', 'warn', 'info') %}
+        <p class="mt-1 flex items-start gap-x-2 text-sm text-gray-700 dark:text-gray-300" style="overflow-wrap:anywhere">
+          <span class="mt-0.5 shrink-0 {{ colors.pick(colors.TEXT, 'primary') }}">{{ icon('lightbulb', 'h-4 w-4') }}</span>
+          <span>{{ r.fix }}</span>
+        </p>
+        {% endif %}
+      </div>
+      <span class="shrink-0 text-xs text-gray-500 dark:text-gray-400">{{ __(status_label[r.status]) }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endfor %}
+{% endif %}
