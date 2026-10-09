@@ -77,6 +77,14 @@ def test_rich_editor_live_puts_htmx_on_the_hidden_input():
     assert 'data-tw-live-delay="900"' in html and "data-tw-live-blur" not in html
 
 
+def test_rich_editor_value_with_links_stays_inside_the_hidden_input():
+    form = make([RichEditor("body").live(on_blur=True)])
+    form.state["body"] = '<p>See the <a href="/docs">docs</a></p>'
+    html = str(form.render())
+    assert 'value="&lt;p&gt;See the &lt;a href=&#34;/docs&#34;&gt;docs&lt;/a&gt;&lt;/p&gt;"' in html
+    assert re.search(r'<input type="hidden" [^>]*name="body" [^>]*hx-trigger="change"', html)
+
+
 # ---------------------------------------------------------------------- toggle
 
 

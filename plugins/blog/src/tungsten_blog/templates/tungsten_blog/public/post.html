@@ -1,0 +1,101 @@
+{% extends "tungsten_blog/public/layout.html" %}
+{% block content %}
+<article class="narrow">
+  {% if preview %}<p class="notice">Preview: only people with this link can see this post. Search engines are told not to index it.</p>{% endif %}
+  <header>
+    {% if post.category %}<a class="chip" href="{{ site.category_url(post.category) }}">{{ post.category.name }}</a>{% endif %}
+    <h1>{{ post.title }}</h1>
+    {% if post.excerpt %}<p class="muted" style="font-size:19px;margin:0 0 16px">{{ post.excerpt }}</p>{% endif %}
+    <div class="meta">
+      {% if post.author %}
+      {% if post.author.avatar %}<img src="{{ site.media_url(post.author.avatar) }}" alt="" width="34" height="34">{% endif %}
+      <span>By <a rel="author" href="{{ site.author_url(post.author) }}"><span>{{ post.author.name }}</span></a></span>
+      {% endif %}
+      {% if post.published_at %}<span>Published <time datetime="{{ post.published_at.replace(microsecond=0).isoformat() }}">{{ post.published_at.strftime('%d %b %Y') }}</time></span>{% endif %}
+      {% if show_updated %}<span>Updated <time datetime="{{ post.updated_at.replace(microsecond=0).isoformat() }}">{{ post.updated_at.strftime('%d %b %Y') }}</time></span>{% endif %}
+      <span>{{ minutes }} min read</span>
+    </div>
+    {% if post.cover_image %}<img class="cover" src="{{ site.media_url(post.cover_image) }}" alt="{{ post.cover_alt or '' }}" width="1200" height="675" fetchpriority="high">{% endif %}
+  </header>
+
+  {% if post.summary %}
+  <section class="box blog-summary" aria-labelledby="summary-title">
+    <h2 id="summary-title">Summary</h2>
+    <p>{{ post.summary }}</p>
+  </section>
+  {% endif %}
+
+  {% if key_points %}
+  <section class="box blog-key-points" aria-labelledby="key-points-title">
+    <h2 id="key-points-title">Key points</h2>
+    <ul style="margin:0;padding-left:20px">{% for point in key_points %}<li>{{ point.text }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  {% if toc|length >= 3 %}
+  <nav class="box toc" aria-labelledby="toc-title">
+    <h2 id="toc-title">In this post</h2>
+    <ol>{% for item in toc %}<li{% if item.level == 3 %} class="sub"{% endif %}><a href="#{{ item.id }}">{{ item.text }}</a></li>{% endfor %}</ol>
+  </nav>
+  {% endif %}
+
+  <div class="content">{{ content|safe }}</div>
+
+  {% if steps and post.howto_title %}
+  <section id="how-to" aria-labelledby="how-to-title">
+    <h2 id="how-to-title">{{ post.howto_title }}</h2>
+    <ol class="steps">
+      {% for step in steps %}<li id="step-{{ loop.index }}">{% if step.name %}<strong>{{ step.name }}</strong><br>{% endif %}{{ step.text }}</li>{% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
+  {% if faqs %}
+  <section class="faq" id="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title">Frequently asked questions</h2>
+    {% for faq in faqs %}
+    <details{% if loop.first %} open{% endif %}>
+      <summary><h3>{{ faq.question }}</h3></summary>
+      <p>{{ faq.answer }}</p>
+    </details>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if sources %}
+  <section aria-labelledby="sources-title">
+    <h2 id="sources-title">Sources</h2>
+    <ol>{% for source in sources %}<li><cite><a href="{{ source.url }}" rel="noopener" target="_blank">{{ source.title or source.url }}</a></cite></li>{% endfor %}</ol>
+  </section>
+  {% endif %}
+
+  {% if post.tags %}
+  <p style="display:flex;flex-wrap:wrap;gap:8px;margin-top:34px">{% for tag in post.tags %}<a class="chip" rel="tag" href="{{ site.tag_url(tag) }}">#{{ tag.name }}</a>{% endfor %}</p>
+  {% endif %}
+
+  {% if post.author %}
+  <aside class="box author-box" aria-label="About the author">
+    {% if post.author.avatar %}<img src="{{ site.media_url(post.author.avatar) }}" alt="{{ post.author.name }}" width="64" height="64" loading="lazy">{% endif %}
+    <div>
+      <strong><a href="{{ site.author_url(post.author) }}" style="color:inherit">{{ post.author.name }}</a></strong>{% if post.author.job_title %}<span class="muted"> · {{ post.author.job_title }}</span>{% endif %}
+      {% if post.author.bio %}<p style="margin:6px 0 0" class="muted">{{ post.author.bio }}</p>{% endif %}
+    </div>
+  </aside>
+  {% endif %}
+</article>
+
+{% if related %}
+<section style="margin-top:56px" aria-labelledby="related-title">
+  <h2 id="related-title">Related posts</h2>
+  <div class="grid">
+    {% for item in related %}
+    <article class="card">
+      {% if item.cover_image %}<img src="{{ site.media_url(item.cover_image) }}" alt="{{ item.cover_alt or '' }}" loading="lazy" width="640" height="360">{% endif %}
+      <div class="body"><h3><a href="{{ site.post_url(item) }}">{{ item.title }}</a></h3>
+      {% if item.excerpt %}<p>{{ item.excerpt|truncate(140) }}</p>{% endif %}</div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

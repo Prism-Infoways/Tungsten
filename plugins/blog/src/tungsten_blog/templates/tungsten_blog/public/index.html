@@ -1,0 +1,73 @@
+{% extends "tungsten_blog/public/layout.html" %}
+{% macro card(post, level=2) %}
+<article class="card">
+  {% if post.cover_image %}<a href="{{ site.post_url(post) }}" tabindex="-1"><img src="{{ site.media_url(post.cover_image) }}" alt="{{ post.cover_alt or '' }}" loading="lazy" width="640" height="360"></a>{% endif %}
+  <div class="body">
+    {% if post.category %}<a class="chip" href="{{ site.category_url(post.category) }}" style="align-self:flex-start">{{ post.category.name }}</a>{% endif %}
+    <h{{ level }}><a href="{{ site.post_url(post) }}">{{ post.title }}</a></h{{ level }}>
+    {% if post.excerpt or post.summary %}<p>{{ (post.excerpt or post.summary)|truncate(170) }}</p>{% endif %}
+    <div class="meta" style="margin-top:auto;font-size:14px">
+      {% if post.author %}<span>{{ post.author.name }}</span>{% endif %}
+      {% if post.published_at %}<time datetime="{{ post.published_at.date().isoformat() }}">{{ post.published_at.strftime('%d %b %Y') }}</time>{% endif %}
+      <span>{{ reading_minutes(post.content) }} min read</span>
+    </div>
+  </div>
+</article>
+{% endmacro %}
+{% block content %}
+<header style="margin-bottom:26px">
+  {% if author %}
+  <div class="author-box">
+    {% if author.avatar %}<img src="{{ site.media_url(author.avatar) }}" alt="{{ author.name }}" width="64" height="64">{% endif %}
+    <div><h1 style="margin-bottom:4px">{{ heading }}</h1>{% if author.job_title %}<div class="muted">{{ author.job_title }}</div>{% endif %}</div>
+  </div>
+  {% if author.bio %}<p class="muted" style="max-width:740px">{{ author.bio }}</p>{% endif %}
+  {% else %}
+  <h1>{{ heading }}</h1>
+  {% if intro %}<p class="muted" style="max-width:740px;margin:0">{{ intro }}</p>{% endif %}
+  {% endif %}
+</header>
+{% if kind == "index" %}
+<form class="search" role="search" action="{{ site.blog_url }}" method="get">
+  <label for="blog-q" style="position:absolute;left:-9999px">Search the blog</label>
+  <input id="blog-q" type="search" name="q" value="{{ search }}" placeholder="Search posts">
+  <button type="submit">Search</button>
+</form>
+{% if categories %}
+<ul class="cats" aria-label="Categories">
+  {% for category in categories %}<li><a class="chip" href="{{ site.category_url(category) }}">{{ category.name }}</a></li>{% endfor %}
+</ul>
+{% endif %}
+{% endif %}
+{% if search %}<p class="muted">{{ posts|length }} result{{ '' if posts|length == 1 else 's' }} for “{{ search }}” on this page.</p>{% endif %}
+{% if featured %}
+<article class="featured">
+  {% if featured.cover_image %}<a href="{{ site.post_url(featured) }}" tabindex="-1"><img src="{{ site.media_url(featured.cover_image) }}" alt="{{ featured.cover_alt or '' }}" width="1200" height="675"></a>{% endif %}
+  <div>
+    {% if featured.category %}<a class="chip" href="{{ site.category_url(featured.category) }}">{{ featured.category.name }}</a>{% endif %}
+    <h2><a href="{{ site.post_url(featured) }}">{{ featured.title }}</a></h2>
+    {% if featured.excerpt or featured.summary %}<p class="muted">{{ featured.excerpt or featured.summary }}</p>{% endif %}
+    <div class="meta">
+      {% if featured.author %}<span>{{ featured.author.name }}</span>{% endif %}
+      {% if featured.published_at %}<time datetime="{{ featured.published_at.date().isoformat() }}">{{ featured.published_at.strftime('%d %b %Y') }}</time>{% endif %}
+      <span>{{ reading_minutes(featured.content) }} min read</span>
+    </div>
+  </div>
+</article>
+{% endif %}
+{% set rest = posts[1:] if featured else posts %}
+{% if rest %}
+<div class="grid">
+  {% for post in rest %}{{ card(post) }}{% endfor %}
+</div>
+{% elif not featured %}
+<p class="muted">No posts yet.</p>
+{% endif %}
+{% if pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  <span>{% if page > 1 %}<a class="btn" href="{{ page_url(page - 1) }}" rel="prev">← Newer</a>{% endif %}</span>
+  <span class="muted">Page {{ page }} of {{ pages }}</span>
+  <span>{% if page < pages %}<a class="btn" href="{{ page_url(page + 1) }}" rel="next">Older →</a>{% endif %}</span>
+</nav>
+{% endif %}
+{% endblock %}

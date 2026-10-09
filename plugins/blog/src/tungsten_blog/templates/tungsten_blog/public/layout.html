@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="{{ site.language }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ meta.title }}</title>
+{% if meta.description %}<meta name="description" content="{{ meta.description }}">
+{% endif %}
+<meta name="robots" content="{{ meta.robots }}">
+{% if meta.canonical %}<link rel="canonical" href="{{ meta.canonical }}">
+{% endif %}
+{% if meta.prev %}<link rel="prev" href="{{ meta.prev }}">
+{% endif %}
+{% if meta.next %}<link rel="next" href="{{ meta.next }}">
+{% endif %}
+<link rel="alternate" type="application/rss+xml" title="{{ site.title }} | {{ site.name }}" href="{{ site.blog_url }}/feed.xml">
+{% if meta.markdown %}<link rel="alternate" type="text/markdown" href="{{ meta.markdown }}">
+{% endif %}
+<meta property="og:site_name" content="{{ site.name }}">
+<meta property="og:type" content="{{ meta.type }}">
+<meta property="og:title" content="{{ meta.title }}">
+{% if meta.description %}<meta property="og:description" content="{{ meta.description }}">
+{% endif %}
+{% if meta.canonical %}<meta property="og:url" content="{{ meta.canonical }}">
+{% endif %}
+<meta property="og:locale" content="{{ site.language|replace('-', '_') }}">
+{% if meta.image %}<meta property="og:image" content="{{ meta.image }}">
+{% if meta.image_alt %}<meta property="og:image:alt" content="{{ meta.image_alt }}">
+{% endif %}
+{% endif %}
+{% if meta.published %}<meta property="article:published_time" content="{{ meta.published.replace(microsecond=0).isoformat() }}">
+{% endif %}
+{% if meta.modified %}<meta property="article:modified_time" content="{{ meta.modified.replace(microsecond=0).isoformat() }}">
+{% endif %}
+{% if meta.section %}<meta property="article:section" content="{{ meta.section }}">
+{% endif %}
+{% for tag in meta.tags or [] %}<meta property="article:tag" content="{{ tag }}">
+{% endfor %}
+{% if meta.author %}<meta name="author" content="{{ meta.author }}">
+{% endif %}
+<meta name="twitter:card" content="{{ 'summary_large_image' if meta.image else 'summary' }}">
+{% if site.twitter %}<meta name="twitter:site" content="{{ site.twitter }}">
+{% endif %}
+<meta name="twitter:title" content="{{ meta.title }}">
+{% if meta.description %}<meta name="twitter:description" content="{{ meta.description }}">
+{% endif %}
+{% if meta.image %}<meta name="twitter:image" content="{{ meta.image }}">
+{% endif %}
+{% if jsonld %}{{ jsonld }}
+{% endif %}
+<style>
+:root{--accent:{{ site.accent }};--text:#18181b;--muted:#52525b;--line:#e4e4e7;--soft:#f4f4f5;--bg:#fff;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--text:#f4f4f5;--muted:#a1a1aa;--line:#3f3f46;--soft:#27272a;--bg:#18181b;--card:#1f1f23}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif}
+a{color:var(--accent)}
+img{max-width:100%;height:auto}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.narrow{max-width:740px;margin:0 auto}
+.site-header{border-bottom:1px solid var(--line)}
+.site-header .wrap{display:flex;align-items:center;gap:20px;min-height:64px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--text);text-decoration:none;font-size:19px}
+.brand img{height:32px;width:auto}
+.site-nav{display:flex;gap:18px;margin-left:auto;flex-wrap:wrap}
+.site-nav a{color:var(--muted);text-decoration:none;font-size:15px}
+.site-nav a:hover{color:var(--accent)}
+main{padding:32px 0 64px}
+.crumbs{font-size:14px;color:var(--muted);margin-bottom:18px}
+.crumbs ol{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.crumbs li+li:before{content:"/";margin-right:6px;opacity:.6}
+.crumbs a{color:var(--muted);text-decoration:none}
+h1{font-size:clamp(30px,4.5vw,44px);line-height:1.15;margin:0 0 14px;letter-spacing:-.02em}
+h2{font-size:27px;line-height:1.3;margin:42px 0 12px;letter-spacing:-.01em}
+h3{font-size:21px;line-height:1.35;margin:30px 0 10px}
+.muted{color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;color:var(--muted);font-size:15px}
+.meta img{width:34px;height:34px;border-radius:50%;object-fit:cover}
+.chip{display:inline-block;padding:2px 10px;border-radius:99px;background:var(--soft);color:var(--muted);font-size:13px;text-decoration:none}
+.box{border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:26px 0;background:var(--card)}
+.box h2{font-size:18px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.blog-summary{border-left:4px solid var(--accent)}
+.blog-summary p{margin:0}
+.content{overflow-wrap:break-word}
+.content blockquote{margin:24px 0;padding:4px 20px;border-left:4px solid var(--line);color:var(--muted)}
+.content pre{background:var(--soft);padding:16px;border-radius:10px;overflow:auto;font-size:15px}
+.content code{background:var(--soft);padding:1px 5px;border-radius:5px;font-size:.9em}
+.content pre code{background:none;padding:0}
+.content table{border-collapse:collapse;width:100%;display:block;overflow:auto}
+.content th,.content td{border:1px solid var(--line);padding:8px 12px;text-align:left}
+.content img{border-radius:10px}
+.cover{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:16px;margin:22px 0 6px}
+.toc ol{margin:0;padding-left:20px}
+.toc .sub{margin-left:16px}
+.steps{counter-reset:step;list-style:none;padding:0}
+.steps li{counter-increment:step;position:relative;padding:2px 0 14px 48px}
+.steps li:before{content:counter(step);position:absolute;left:0;top:2px;width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:grid;place-items:center;font-size:15px}
+.faq details{border-bottom:1px solid var(--line);padding:12px 0}
+.faq summary{cursor:pointer;font-weight:600}
+.faq summary h3{display:inline;font-size:18px;margin:0}
+.faq details p{margin:10px 0 0}
+.author-box{display:flex;gap:16px;align-items:flex-start}
+.author-box img{width:64px;height:64px;border-radius:50%;object-fit:cover}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:26px}
+.card{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card)}
+.card img{width:100%;aspect-ratio:16/9;object-fit:cover}
+.card .body{padding:16px 18px 20px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card h2,.card h3{font-size:20px;margin:0;line-height:1.35}
+.card h2 a,.card h3 a{color:var(--text);text-decoration:none}
+.card h2 a:hover,.card h3 a:hover{color:var(--accent)}
+.card p{margin:0;color:var(--muted);font-size:15px}
+.featured{display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:center;margin-bottom:40px}
+.featured img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:16px}
+.featured h2{font-size:32px;margin:6px 0 10px}
+.featured h2 a{color:var(--text);text-decoration:none}
+@media (max-width:760px){.featured{grid-template-columns:1fr}}
+.cats{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 28px;padding:0;list-style:none}
+.search{display:flex;gap:8px;margin:0 0 24px}
+.search input{flex:1;max-width:360px;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit;font-size:15px}
+.search button,.btn{padding:9px 16px;border:0;border-radius:10px;background:var(--accent);color:#fff;font:inherit;font-size:15px;cursor:pointer;text-decoration:none}
+.pager{display:flex;justify-content:space-between;align-items:center;margin-top:40px}
+.notice{background:#fef3c7;color:#78350f;padding:10px 16px;border-radius:10px;margin-bottom:20px;font-size:15px}
+.site-footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-size:14px}
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="{{ site.url }}/">{% if site.logo %}<img src="{{ site.logo }}" alt="{{ site.name }}">{% endif %}<span>{{ site.name }}</span></a>
+    <nav class="site-nav" aria-label="Main">
+      {% for label, url in site.nav_links %}<a href="{{ url }}">{{ label }}</a>{% endfor %}
+      <a href="{{ site.blog_url }}">{{ site.title }}</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <div class="wrap">
+    {% if crumbs %}
+    <nav class="crumbs" aria-label="Breadcrumb"><ol>
+      {% for name, url in crumbs %}<li>{% if loop.last %}<span aria-current="page">{{ name }}</span>{% else %}<a href="{{ url }}">{{ name }}</a>{% endif %}</li>{% endfor %}
+    </ol></nav>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">© {{ site.name }} · <a href="{{ site.blog_url }}/feed.xml">RSS</a></div>
+</footer>
+</body>
+</html>
