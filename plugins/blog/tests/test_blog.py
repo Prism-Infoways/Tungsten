@@ -212,3 +212,11 @@ def test_create_post_from_the_editor(panel, admin):
     assert post.faqs == [{"question": "Why?", "answer": "Because."}]
     assert post.key_points == [{"text": "One point"}]
     assert panel.with_session(lambda db: [t.name for t in db.get(BlogPost, post.id).tags]) == ["News"]
+
+
+def test_seo_urls_for_the_seo_audit_plugin(panel):
+    _, slug = make_post(panel)
+    make_post(panel, title="Secret draft", status="draft")
+    make_post(panel, title="Hidden", noindex=True)
+    urls = panel.with_session(panel.get_plugin("blog").seo_urls)
+    assert urls == ["https://acme.test/blog", f"https://acme.test/blog/{slug}"]
