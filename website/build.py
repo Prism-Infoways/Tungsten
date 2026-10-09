@@ -41,7 +41,7 @@ NAV = [
     ("Widgets", ["widgets"]),
     ("Users & security", ["authentication", "email-verification", "roles-and-permissions", "security"]),
     ("More", ["import-export", "multi-tenancy", "translations", "async-database", "plugins-and-hooks", "cli"]),
-    ("Plugins", ["facebook-leads", "whatsapp", "mcp", "security-audit"]),
+    ("Plugins", ["facebook-leads", "whatsapp", "mcp", "tickets", "security-audit"]),
 ]
 
 CALLOUT = re.compile(r"^> \[!(NOTE|TIP|WARNING)\]\s*\n((?:>.*\n?)*)", re.M)

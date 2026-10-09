@@ -1,0 +1,46 @@
+{# The messages of a ticket, oldest first. ``items`` come from tungsten_tickets.views.conversation_items(). #}
+{% import "tungsten/components/ui.html" as ui %}
+{% set tones = {
+  'reply': 'bg-primary-50 ring-primary-600/20 dark:bg-primary-500/10 dark:ring-primary-400/30',
+  'note': 'bg-warning-50 ring-warning-600/20 dark:bg-warning-500/10 dark:ring-warning-400/30',
+  'customer': 'bg-white ring-gray-950/10 dark:bg-white/5 dark:ring-white/10',
+} %}
+{% set tags = {'reply': ('Team', 'primary'), 'note': ('Internal note', 'warning'), 'customer': ('Customer', 'gray')} %}
+{% if not items %}
+<p class="text-sm text-gray-500 dark:text-gray-400">{{ __('No messages yet.') }}</p>
+{% else %}
+<ol class="grid gap-y-4" data-tickets-conversation>
+  {% for m in items %}
+  {% if m.kind == 'event' %}
+  <li style="padding-inline-start: 3rem" class="flex items-center gap-x-2 text-xs text-gray-500 dark:text-gray-400">
+    {{ icon('clock', 'h-3.5 w-3.5 shrink-0') }}<span>{{ m.body }}</span><span aria-hidden="true">·</span><time>{{ m.when }}</time>
+  </li>
+  {% else %}
+  <li class="flex gap-x-3">
+    {{ ui.avatar(m.author) }}
+    <div class="min-w-0 flex-1 rounded-xl px-4 py-3 ring-1 {{ tones.get(m.kind, tones.customer) }}">
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span class="text-sm font-semibold text-gray-950 dark:text-white">{{ m.author }}</span>
+        {% set tag = tags.get(m.kind) %}{% if tag and show_tags %}{{ ui.badge(__(tag[0]), tag[1]) }}{% endif %}
+        <time class="ms-auto text-xs text-gray-500 dark:text-gray-400">{{ m.when }}</time>
+      </div>
+      <div class="mt-1 break-words text-sm text-gray-700 dark:text-gray-200" style="white-space: pre-line">{{ m.body }}</div>
+      {% if m.attachments %}
+      <ul class="mt-3 flex flex-wrap gap-2">
+        {% for f in m.attachments %}
+        <li>
+          {% if f.url %}
+          <a href="{{ f.url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-x-1.5 rounded-md bg-white px-2 py-1 text-xs font-medium ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10 {{ colors.LINK.gray }}">{{ icon('paperclip', 'h-3.5 w-3.5') }}{{ f.name }}</a>
+          {% else %}
+          <span class="inline-flex items-center gap-x-1.5 rounded-md px-2 py-1 text-xs text-gray-500 ring-1 ring-gray-950/10 dark:ring-white/10">{{ icon('paperclip', 'h-3.5 w-3.5') }}{{ f.name }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </li>
+  {% endif %}
+  {% endfor %}
+</ol>
+{% endif %}
