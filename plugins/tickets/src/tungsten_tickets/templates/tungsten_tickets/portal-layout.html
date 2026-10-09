@@ -1,0 +1,15 @@
+{% extends "tungsten/layout/base.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block body %}
+<div class="min-h-full bg-gray-50 px-4 py-10 sm:px-6 dark:bg-gray-950">
+  <div class="mx-auto w-full max-w-3xl">
+    <div class="flex items-center justify-between gap-4">
+      <a href="{{ portal_home }}" class="flex items-center gap-3 [&_span]:!text-gray-950 dark:[&_span]:!text-white">{% include "tungsten/components/brand.html" %}</a>
+      <span class="inline-flex items-center gap-x-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">{{ icon('life-buoy', 'h-4 w-4') }}{{ __('Support') }}</span>
+    </div>
+    <div class="mt-8 rounded-3xl bg-white p-6 shadow-xl shadow-gray-950/[0.04] ring-1 ring-gray-950/5 sm:p-10 dark:bg-gray-900 dark:shadow-none dark:ring-white/10">
+      {% block portal %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endblock %}

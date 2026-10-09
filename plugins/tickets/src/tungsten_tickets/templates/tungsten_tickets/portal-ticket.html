@@ -1,0 +1,30 @@
+{% extends "tungsten_tickets/portal-layout.html" %}
+{% block title %}{{ ticket.number }} · {{ panel.brand_name }}{% endblock %}
+{% block portal %}
+<div class="flex flex-wrap items-start justify-between gap-3">
+  <div class="min-w-0">
+    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ ticket.number }}</p>
+    <h1 class="mt-1 break-words text-2xl font-bold tracking-tight text-gray-950 dark:text-white">{{ ticket.subject }}</h1>
+  </div>
+  {{ ui.badge(status_label, status_color, size='md') }}
+</div>
+<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ __('Opened :when', when=opened) }}</p>
+
+<div class="mt-8">
+  {% with items=items, show_tags=false %}{% include "tungsten_tickets/conversation.html" %}{% endwith %}
+</div>
+
+<div class="mt-8 border-t border-gray-100 pt-8 dark:border-white/10">
+  {% if closed %}
+  <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('This ticket is closed.') }} <a href="{{ portal_home }}" class="font-medium {{ colors.LINK.primary }}">{{ __('Raise a new ticket') }}</a></p>
+  {% else %}
+  <form method="post" class="grid gap-4" novalidate>
+    <input type="hidden" name="_token" value="{{ csrf_token }}">
+    <label for="ticket-message" class="tw-label">{{ __('Your reply') }}</label>
+    <textarea id="ticket-message" name="message" rows="4" required class="tw-input block w-full px-3 py-2 text-sm">{{ message or '' }}</textarea>
+    {% if error %}<p class="text-sm text-danger-600 dark:text-danger-400">{{ __(error) }}</p>{% endif %}
+    <button type="submit" class="{{ ui.button_classes('primary') }} justify-self-start">{{ icon('send', 'h-4 w-4') }}{{ __('Send reply') }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
