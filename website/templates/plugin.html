@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% set active = 'plugins' %}
+{% block title %}{{ p.name }} plugin for Tungsten (FastAPI admin){% endblock %}
+{% block description %}{{ p.tagline }} {{ p.package }} is a free, open source plugin for the Tungsten FastAPI admin panel.{% endblock %}
+{% block body_class %}plugin-page{% endblock %}
+{% block content %}
+<main id="main">
+  <section class="page-hero">
+    <div class="wrap">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="../index.html">Home</a><span aria-hidden="true">/</span><a href="index.html">Plugins</a><span aria-hidden="true">/</span><span aria-current="page">{{ p.name }}</span></nav>
+      <div class="plugin-head">
+        <span class="feature-icon big"><svg viewBox="0 0 24 24" aria-hidden="true">{{ p.icon | safe }}</svg></span>
+        <div>
+          <p class="eyebrow">{{ p.category }} plugin · <span>{{ p.package }} {{ p.version }}</span></p>
+          <h1>{{ p.name }}</h1>
+        </div>
+      </div>
+      <p class="lede speakable">{{ p.summary }}</p>
+      <div class="hero-cta">
+        {% if p.docs %}<a class="btn btn-primary" href="../docs/{{ p.docs }}.html">Read the docs
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>{% endif %}
+        <button class="install" type="button" data-copy="pip install {{ p.package }}" aria-label="Copy install command">
+          <span class="prompt">$</span><code>pip install {{ p.package }}</code>
+          <svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          <span class="copied" aria-live="polite"></span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Features</p>
+        <h2>What {{ p.name }} adds to your panel</h2>
+      </div>
+      <ul class="feature-list">
+        {% for title, text in p.features %}
+        <li><h3>{{ title }}</h3><p>{{ text }}</p></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section class="section plugin-install">
+    <div class="wrap split-grid">
+      <div class="split-copy">
+        <p class="eyebrow">Install</p>
+        <h2>How to add {{ p.name }} to Tungsten</h2>
+        <ol class="howto">
+          <li>Install the package: <code>pip install {{ p.package }}</code>{% if p.needs %} (it needs {% for n in p.needs %}<code>{{ n }}</code>{% endfor %} too){% endif %}.</li>
+          <li>Turn it on in your panel with <code>panel.plugin(...)</code>, as in the code.</li>
+          <li>Run <code>panel.create_tables(engine)</code> once to create its tables.</li>
+          <li>Restart your app and open the panel. The new screens are in the menu.</li>
+        </ol>
+        {% if p.docs %}<a class="text-link" href="../docs/{{ p.docs }}.html">Full setup guide <span aria-hidden="true">→</span></a>{% endif %}
+      </div>
+      <div class="code-card">
+        <div class="code-title">app/admin.py</div>
+        {{ p.setup | code }}
+      </div>
+    </div>
+  </section>
+
+  <section class="section faq-section">
+    <div class="wrap faq-grid">
+      <div class="section-head">
+        <p class="eyebrow">Questions</p>
+        <h2>{{ p.name }} FAQ</h2>
+      </div>
+      {% include "_faq.html" %}
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head"><p class="eyebrow">More plugins</p><h2>Works well with</h2></div>
+      <div class="plugin-cards">
+        {% for o in related %}
+        <a class="plugin-card" href="{{ o.slug }}.html">
+          <span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true">{{ o.icon | safe }}</svg></span>
+          <h3>{{ o.name }}</h3>
+          <p>{{ o.tagline }}</p>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+</main>
+{% include "_footer.html" %}
+{% endblock %}
