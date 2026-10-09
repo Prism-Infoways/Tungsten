@@ -15,6 +15,7 @@ dependencies = ["tungsten-admin>=0.1.4"]
 
 [project.urls]
 Homepage = "https://tungsten.prisminfoways.com/"
+Documentation = "https://tungsten.prisminfoways.com/docs/tickets.html"
 Repository = "https://github.com/Prism-Infoways/Tungsten"
 
 [tool.hatch.build.targets.wheel]
