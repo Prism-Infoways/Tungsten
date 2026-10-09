@@ -191,7 +191,7 @@ User admin@example.com created.
 uvicorn app.main:app --reload
 ```
 
-Open <http://127.0.0.1:8000/admin> and sign in with the email and password you just chose.
+Open `http://127.0.0.1:8000/admin` and sign in with the email and password you just chose.
 
 You now have:
 

@@ -23,7 +23,7 @@ What each step does:
 2. `python -m examples.shop.seed` creates `shop.db` (SQLite) in the current folder and fills it with demo data.
 3. `uvicorn examples.shop.app:app --reload` starts the server.
 
-Open <http://127.0.0.1:8000/admin> (the site root `/` redirects there) and sign in with:
+Open `http://127.0.0.1:8000/admin` (the site root `/` redirects there) and sign in with:
 
 - **Email:** `admin@example.com`
 - **Password:** `password`

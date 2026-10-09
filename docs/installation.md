@@ -80,7 +80,7 @@ app = FastAPI()
 panel.mount(app)
 ```
 
-Run it and open <http://127.0.0.1:8000/admin>:
+Run it and open `http://127.0.0.1:8000/admin`:
 
 ```bash
 uvicorn main:app --reload

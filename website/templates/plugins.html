@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% set active = 'plugins' %}
+{% block title %}Tungsten plugins: CRM, help desk, blog, WhatsApp and AI for FastAPI{% endblock %}
+{% block description %}Free, open source plugins for the Tungsten FastAPI admin panel: leads CRM, Facebook and Instagram leads, WhatsApp, MCP for Claude, help desk tickets, an SEO blog, SEO audit and security audit.{% endblock %}
+{% block body_class %}plugins-page{% endblock %}
+{% block content %}
+<main id="main">
+  <section class="page-hero">
+    <div class="wrap">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="../index.html">Home</a><span aria-hidden="true">/</span><span aria-current="page">Plugins</span></nav>
+      <p class="eyebrow">{{ plugins | length }} official plugins · MIT</p>
+      <h1>Plugins for Tungsten</h1>
+      <p class="lede">Tungsten plugins are pip packages that add whole features to your FastAPI admin panel. Install one, add <code>panel.plugin(...)</code>, and its screens, tables and routes appear in your panel.</p>
+    </div>
+  </section>
+
+  <section class="section plugin-cat">
+    <div class="wrap">
+      <div class="plugin-cards">
+        {% for p in plugins %}
+        <a class="plugin-card" href="{{ p.slug }}.html">
+          <span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true">{{ p.icon | safe }}</svg></span>
+          <p class="eyebrow">{{ p.category }}</p>
+          <h3>{{ p.name }}</h3>
+          <p>{{ p.tagline }}</p>
+          <code>pip install {{ p.package }}</code>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="section faq-section">
+    <div class="wrap faq-grid">
+      <div class="section-head">
+        <p class="eyebrow">Questions</p>
+        <h2>About plugins</h2>
+        <p>Want to write your own? Read <a class="text-link" href="../docs/plugins-and-hooks.html">Plugins and hooks</a>.</p>
+      </div>
+      {% include "_faq.html" %}
+    </div>
+  </section>
+</main>
+{% include "_footer.html" %}
+{% endblock %}
