@@ -17,6 +17,8 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select
+
 from tungsten import Plugin
 
 from .markdown import html_to_markdown, post_markdown
@@ -76,6 +78,12 @@ class BlogPlugin(Plugin):
 
     def mount(self, app: Any, panel: Any) -> None:
         PublicBlog(self, panel).add_routes(app)
+
+    def seo_urls(self, db: Any) -> list[str]:
+        """The blog home and every live, indexable post: the SEO audit plugin checks these too."""
+        base = (self.site_url or getattr(self.panel, "app_url", None) or "") + self.path
+        query = live_filter(select(BlogPost.slug)).where(BlogPost.noindex.is_(False))
+        return [base or "/"] + [f"{base}/{slug}" for slug in db.scalars(query.order_by(BlogPost.published_at.desc()))]
 
 
 __all__ = [
