@@ -128,7 +128,7 @@
     empty.hidden = results.length > 0;
     list.innerHTML = results.map((r, i) => {
       const words = r.words || [];
-      const href = base + r.page.slug + ".html" + (r.heading ? "#" + r.heading[0] : "");
+      const href = base + r.page.slug + (r.heading ? "#" + r.heading[0] : "");
       const meta = r.page.section + (r.heading ? " › " + r.heading[1] : "");
       const text = words.length ? snippet(r.page.text, words[0]) || r.page.description : r.page.description;
       return `<li><a href="${href}" role="option" aria-selected="${i === 0}">

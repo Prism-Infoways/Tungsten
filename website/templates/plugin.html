@@ -5,26 +5,43 @@
 {% block body_class %}plugin-page{% endblock %}
 {% block content %}
 <main id="main">
-  <section class="page-hero">
-    <div class="wrap">
-      <nav class="crumbs" aria-label="Breadcrumb"><a href="../index.html">Home</a><span aria-hidden="true">/</span><a href="index.html">Plugins</a><span aria-hidden="true">/</span><span aria-current="page">{{ p.name }}</span></nav>
-      <div class="plugin-head">
-        <span class="feature-icon big"><svg viewBox="0 0 24 24" aria-hidden="true">{{ p.icon | safe }}</svg></span>
-        <div>
-          <p class="eyebrow">{{ p.category }} plugin · <span>{{ p.package }} {{ p.version }}</span></p>
-          <h1>{{ p.name }}</h1>
+  <section class="page-hero glow-hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="wrap plugin-hero">
+      <div>
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="../index.html">Home</a><span aria-hidden="true">/</span><a href="index.html">Plugins</a><span aria-hidden="true">/</span><span aria-current="page">{{ p.name }}</span></nav>
+        <div class="plugin-head">
+          <span class="feature-icon big"><svg viewBox="0 0 24 24" aria-hidden="true">{{ p.icon | safe }}</svg></span>
+          <div>
+            <span class="plugin-tag">{{ p.category }} plugin</span>
+            <h1>{{ p.name }}</h1>
+          </div>
+        </div>
+        <p class="lede speakable">{{ p.summary }}</p>
+        <div class="hero-cta">
+          {% if p.docs %}<a class="btn btn-primary" href="../docs/{{ p.docs }}.html">Read the docs
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>{% endif %}
+          <button class="install" type="button" data-copy="pip install {{ p.package }}" aria-label="Copy install command">
+            <span class="prompt">$</span><code>pip install {{ p.package }}</code>
+            <svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+            <span class="copied" aria-live="polite"></span>
+          </button>
         </div>
       </div>
-      <p class="lede speakable">{{ p.summary }}</p>
-      <div class="hero-cta">
-        {% if p.docs %}<a class="btn btn-primary" href="../docs/{{ p.docs }}.html">Read the docs
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>{% endif %}
-        <button class="install" type="button" data-copy="pip install {{ p.package }}" aria-label="Copy install command">
-          <span class="prompt">$</span><code>pip install {{ p.package }}</code>
-          <svg class="i-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-          <span class="copied" aria-live="polite"></span>
-        </button>
-      </div>
+      <aside class="pkg-card" aria-label="Package details">
+        <dl>
+          <div><dt>Package</dt><dd><code>{{ p.package }}</code></dd></div>
+          {% if p.version %}<div><dt>Version</dt><dd>{{ p.version }}</dd></div>{% endif %}
+          <div><dt>License</dt><dd>MIT, free</dd></div>
+          <div><dt>Needs</dt><dd>tungsten-admin{% for n in p.needs %}, {{ n }}{% endfor %}</dd></div>
+          <div><dt>Python</dt><dd>3.10 or newer</dd></div>
+        </dl>
+        <div class="pkg-links">
+          <a href="https://pypi.org/project/{{ p.package }}/" rel="noopener">PyPI</a>
+          <a href="{{ repo }}/tree/HEAD/plugins/{{ p.package | replace('tungsten-', '') }}" rel="noopener">Source code</a>
+          {% if p.docs %}<a href="../docs/{{ p.docs }}.html">Full docs</a>{% endif %}
+        </div>
+      </aside>
     </div>
   </section>
 
@@ -36,7 +53,7 @@
       </div>
       <ul class="feature-list">
         {% for title, text in p.features %}
-        <li><h3>{{ title }}</h3><p>{{ text }}</p></li>
+        <li><span class="check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></span><h3>{{ title }}</h3><p>{{ text }}</p></li>
         {% endfor %}
       </ul>
     </div>
@@ -61,6 +78,23 @@
       </div>
     </div>
   </section>
+
+  {% if doc_toc %}
+  <section class="section in-docs">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">In the docs</p>
+        <h2>Everything about {{ p.name }}</h2>
+        <p>The full guide covers each part step by step. Jump straight to the part you need.</p>
+      </div>
+      <ol class="doc-links">
+        {% for t in doc_toc %}
+        <li><a href="../docs/{{ p.docs }}.html#{{ t.id }}"><span>{{ "%02d" | format(loop.index) }}</span>{{ t.name }}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>
+        {% endfor %}
+      </ol>
+    </div>
+  </section>
+  {% endif %}
 
   <section class="section faq-section">
     <div class="wrap faq-grid">

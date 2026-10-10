@@ -335,7 +335,6 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .crumbs [aria-current] { color: var(--ink-2); }
 .plugin-head { display: flex; align-items: center; gap: 18px; }
 .plugin-head h1 { margin-top: 8px; }
-.plugin-head .eyebrow span { text-transform: none; letter-spacing: 0; font-family: var(--f-mono); }
 .feature-icon.big { width: 64px; height: 64px; border-radius: 16px; flex: none; }
 .feature-icon.big svg { width: 32px; height: 32px; }
 .plugin-cat { padding-block: 32px 48px; }
@@ -377,6 +376,52 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
   .plugin-cards, .feature-list { grid-template-columns: minmax(0, 1fr); }
   .feature-icon.big { width: 52px; height: 52px; }
   .footer-grid > nav:last-child { grid-column: auto; }
+}
+
+.glow-hero { position: relative; overflow: hidden; }
+.glow-hero .hero-glow { height: 560px; }
+.glow-hero .wrap { position: relative; }
+.plugin-hero { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 48px; align-items: end; }
+.plugin-head .plugin-tag { display: inline-block; margin-top: 0; }
+.pkg-card { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); padding: 22px 24px; }
+.pkg-card dl { margin: 0; display: grid; gap: 0; }
+.pkg-card dl div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+.pkg-card dt { color: var(--muted); }
+.pkg-card dd { margin: 0; color: var(--ink); font-weight: 550; text-align: right; }
+.pkg-card dd code { font-size: 13px; }
+.pkg-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.pkg-links a { font-size: 14px; font-weight: 600; text-decoration: none; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); color: var(--ink-2); }
+.pkg-links a:hover { border-color: var(--accent); color: var(--accent); }
+.feature-list li { position: relative; padding-left: 64px; }
+.feature-list .check { position: absolute; left: 24px; top: 26px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); }
+.feature-list .check svg { width: 15px; height: 15px; stroke-width: 2.6; }
+.doc-links { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.doc-links a { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); text-decoration: none; font-weight: 600; transition: border-color .15s; }
+.doc-links a:hover { border-color: var(--accent); }
+.doc-links span { font: 500 13px var(--f-mono); color: var(--accent); }
+.doc-links svg { margin-left: auto; width: 18px; height: 18px; color: var(--muted); flex: none; }
+/* changelog */
+.log { display: grid; gap: 0; max-width: 900px; }
+.log-entry { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 32px; padding-block: 36px; border-top: 1px solid var(--line); }
+.log-entry:first-child { border-top: 0; padding-top: 8px; }
+.log-date { font: 600 14px var(--f-mono); color: var(--muted); position: sticky; top: calc(var(--top) + 24px); align-self: start; }
+.log-date .plugin-tag { display: inline-block; margin-top: 10px; font-family: var(--f-body); }
+.log-entry h2 { font-size: clamp(24px, 3vw, 32px); font-weight: 700; }
+.log-entry ul { margin: 16px 0 0; padding-left: 1.2em; color: var(--ink-2); }
+.log-entry li + li { margin-top: 8px; }
+.log-entry li::marker { color: var(--accent); }
+.log-entry strong { color: var(--ink); }
+.log-entry code { font-size: .86em; padding: .1em .35em; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); }
+@media (max-width: 960px) {
+  .plugin-hero { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .pkg-card { max-width: 480px; }
+  .doc-links { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .log-entry { grid-template-columns: minmax(0, 1fr); gap: 10px; padding-block: 28px; }
+  .log-date { position: static; }
+  .feature-list li { padding-left: 58px; }
+  .feature-list .check { left: 20px; }
 }
 
 @media (max-width: 1180px) {

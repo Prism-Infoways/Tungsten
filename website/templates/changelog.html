@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% set active = 'changelog' %}
+{% block title %}What's new in Tungsten: changelog and releases{% endblock %}
+{% block description %}Every new feature, plugin and fix in Tungsten, the FastAPI admin panel, and its official plugins. Newest first, with dates and versions.{% endblock %}
+{% block body_class %}changelog-page{% endblock %}
+{% block content %}
+<main id="main">
+  <section class="page-hero glow-hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="wrap">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span aria-hidden="true">/</span><span aria-current="page">What's new</span></nav>
+      <p class="eyebrow">Changelog · latest {{ entries[0].date_label }}</p>
+      <h1>What's new in Tungsten</h1>
+      <p class="lede">New plugins, features and fixes for Tungsten and its official plugins, newest first. Update with <code>pip install -U tungsten-admin</code>.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap"><div class="log">
+      {% for e in entries %}
+      <article class="log-entry" id="{{ e.date }}">
+        <div class="log-date"><time datetime="{{ e.date }}">{{ e.date_label }}</time>{% if loop.first %}<br><span class="plugin-tag">Latest</span>{% endif %}</div>
+        <div>
+          <h2>{{ e.title }}</h2>
+          {{ e.body }}
+        </div>
+      </article>
+      {% endfor %}
+    </div></div>
+  </section>
+</main>
+{% include "_footer.html" %}
+{% endblock %}
