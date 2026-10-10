@@ -11,6 +11,7 @@ Docs are the Markdown files in /docs. Each starts with front matter
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import re
@@ -169,6 +170,11 @@ def build(base_url: str = "") -> None:
     plugins = [dict(p, version=package_version(ROOT / "plugins" / p["package"].removeprefix("tungsten-")))
                for p in PLUGINS]
     env.globals.update(repo=REPO, nav=NAV, year=2026, site_url=SITE_URL, plugins=plugins)
+    # cache-busting version for CSS/JS, so browsers fetch new files after each deploy
+    digest = hashlib.sha1()
+    for f in [SITE / "static" / "site.css", SITE / "static" / "site.js", *sorted(DOCS.glob("*.md"))]:
+        digest.update(f.read_bytes())
+    env.globals["v"] = digest.hexdigest()[:10]
     env.filters["code"] = lambda src, lang="python": Markup(
         highlight(textwrap.dedent(str(src)).strip("\n"), get_lexer_by_name(lang), HtmlFormatter(cssclass="codehilite")))
 
