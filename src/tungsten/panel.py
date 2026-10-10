@@ -427,7 +427,11 @@ class Panel:
         return Markup("".join(out))
 
     def theme_css(self) -> Markup:
-        return Markup(color_tools.css_variables(self.colors))
+        key = repr(sorted(self.colors.items()))  # colors can change after setup, so cache by value
+        cached = getattr(self, "_theme_css", None)
+        if cached is None or cached[0] != key:
+            cached = self._theme_css = (key, Markup(color_tools.css_variables(self.colors)))
+        return cached[1]
 
     def csrf_token(self, ctx: "Context") -> str:
         token = ctx.session.get("tw_csrf")

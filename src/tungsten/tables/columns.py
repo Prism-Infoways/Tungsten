@@ -68,6 +68,7 @@ class Column(Component):
         self._alignment = "start"
         self._format: Callable | None = None
         self._state: Callable | None = None
+        self._counts: str | None = None
         self._url: Callable | None = None
         self._new_tab = False
         self._description: Any = None
@@ -134,6 +135,14 @@ class Column(Component):
 
     get_state_using = state
 
+    def counts(self, relationship: str) -> "Column":
+        """Show how many related records each row has: ``TextColumn("orders_count").counts("orders")``.
+
+        The whole page is counted in one ``GROUP BY`` query instead of loading every related row.
+        """
+        self._counts = relationship
+        return self
+
     def url(self, fn: Callable | str, open_in_new_tab: bool = False) -> "Column":
         self._url = fn
         self._new_tab = open_in_new_tab
@@ -187,6 +196,12 @@ class Column(Component):
         ev = {**(ev or {}), "record": record}
         if self._state is not None:
             value = call(self._state, **ev)
+        elif self._counts is not None:
+            table = ev.get("table")
+            if table is not None and getattr(table, "model", None) is not None:
+                value = table.relation_count(self._counts, record)
+            else:
+                value = len(getattr(record, self._counts) or [])
         else:
             value = read_path(record, self.name)
         if value is None or value == []:
@@ -499,6 +514,60 @@ class TextColumn(Column):
             url = table.ctx.panel.storage.url(str(url))
         text = str(read_path(record, self.name) or "")
         return {"url": url, "name": text}
+
+
+    def render_cell(self, table: "Table", record: Any) -> Markup:
+        v = self.view_data(table, record)
+        if self.template == TextColumn.template and _is_plain_text(v) and table.renderer.is_builtin(self.template):
+            return _plain_text_cell(v)
+        return table.renderer.render(self.template, table=table, column=self, record=record, v=v)
+
+
+def _is_plain_text(v: dict[str, Any]) -> bool:
+    """A text cell without badges, avatar, icons, copy button or list: the bulk of every table."""
+    return not (v.get("avatar") or v.get("badge") or v.get("copyable") or v.get("as_list")
+                or any(it.get("icon") for it in v.get("entries") or ()))
+
+
+def _plain_text_cell(v: dict[str, Any]) -> Markup:
+    """The same HTML ``tables/columns/text.html`` draws for a plain text cell, without a template call per cell."""
+    e = escape
+    tooltip = f'title="{e(v["tooltip"])}"' if v.get("tooltip") else ""
+    layout = "flex-col" if v.get("description_position") == "below" else "items-center gap-2"
+    out = [f'<div class="flex {layout} {e(v.get("justify", ""))} {e(v.get("classes", ""))}" {tooltip}>\n']
+    description = v.get("description")
+    if description and v.get("description_position") == "above":
+        out.append(f'<span class="text-xs text-gray-500 dark:text-gray-400">{e(description)}</span>')
+    entries = v.get("entries") or []
+    if not entries:
+        placeholder = v.get("placeholder")
+        out.append(f'    <span class="text-sm text-gray-400 dark:text-gray-500">'
+                   f'{e(placeholder if placeholder is not None else "")}</span>\n')
+    else:
+        mono = "font-mono" if v.get("mono") else ""
+        out.append(f'    <div class="flex flex-wrap items-center gap-x-1 {e(v.get("size", ""))} '
+                   f'{e(v.get("weight", ""))} {mono}">\n')
+        url = v.get("url")
+        if url:
+            target = 'target="_blank" rel="noopener"' if v.get("new_tab") else ""
+            link = f'<a href="{e(url)}" {target} class="hover:underline">'
+        last = len(entries) - 1
+        for i, it in enumerate(entries):
+            color = colors.pick(colors.TEXT, it["color"]) if it.get("color") else "text-gray-950 dark:text-white"
+            title = f'title="{e(it["full"])}"' if it.get("full") else ""
+            inner = (f'{e(it["prefix"]) if it.get("prefix") else ""}{e(it.get("text"))}'
+                     f'{e(it["suffix"]) if it.get("suffix") else ""}')
+            if url:
+                inner = f"{link}{inner}</a>"
+            out.append(f'      <span class="inline-flex items-center gap-1.5 {color}"\n{title}>\n{inner}'
+                       f'{"," if i != last else ""}</span>\n')
+        if v.get("more"):
+            out.append(f'<span class="text-xs text-gray-500">{e(__("+:count more", count=v["more"]))}</span>')
+        out.append("    </div>\n")
+    if description and v.get("description_position") == "below":
+        out.append(f'<span class="text-sm text-gray-500 dark:text-gray-400">{e(description)}</span>')
+    out.append("</div>\n")
+    return Markup("".join(out))
 
 
 class BadgeColumn(TextColumn):

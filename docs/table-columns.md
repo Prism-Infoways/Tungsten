@@ -20,7 +20,8 @@ from tungsten.tables import (
 | `sortable(condition=True, query=None)` | Users can sort by this column. See [Sorting](tables#sorting). |
 | `searchable(condition=True, query=None, columns=None, is_global=True, is_individual=False)` | Include it in the table search. `is_individual=True` adds a search box for this column only. See [Search](tables#search). |
 | `toggleable(condition=True, hidden_by_default=False)` | Users can show or hide it. See [Table features](table-features#show-and-hide-columns). |
-| `state(fn)` | Compute the value instead of reading an attribute. Also `get_state_using()`. |
+| `state(fn)` | Compute the value instead of reading an attribute. Also `get_state_using()`. If the column is named after a relationship (`TextColumn("items").state(...)`), that relationship is loaded for the whole page in one query. |
+| `counts(relationship)` | Show how many related records each row has, e.g. `TextColumn("orders_count").counts("orders")`. The whole page is counted in one query. |
 | `format_state_using(fn)` | Change how the value is shown. `fn` gets `state` and `record`. Also `formatted()`. |
 | `default(value)` | Value to use when the attribute is `None` (or an empty list). |
 | `placeholder(text)` | Grey text shown when a text cell is empty. |
@@ -37,7 +38,7 @@ from tungsten.tables import (
 Most options take a value or a closure. Column closures can ask for `record`, `state` (the cell value), `column`, plus `user`, `db` and the other [table closure arguments](tables#closures-in-tables).
 
 ```python
-TextColumn("orders_count").label("Orders").state(lambda record: len(record.orders)).align_end()
+TextColumn("orders_count").label("Orders").counts("orders").align_end()
 TextColumn("city").description(lambda record: record.state)
 TextColumn("published_at").date().placeholder("Not published")
 TextColumn("website").url(lambda record: record.website, open_in_new_tab=True)

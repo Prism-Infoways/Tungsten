@@ -145,6 +145,9 @@ class Table(Component):
         self.params: Any = {}
         self.id = f"tw-table-{next(_ids)}"
         self.model: Any = None
+        self._ev_cache: tuple | None = None
+        self._page_records: list = []
+        self._relation_counts: dict[str, dict] = {}
         self.filter_form: Form | None = None
         self.filter_data: dict[str, dict] = {}
         self._joins: dict[str, Any] = {}
@@ -322,6 +325,20 @@ class Table(Component):
         return self
 
     def ev(self) -> dict[str, Any]:
+        """Closure arguments for this table. Built once per request: every cell asks for them.
+
+        Treat the returned dict as read-only; copy it (``{**table.ev(), ...}``) to add keys.
+        """
+        ctx = self.ctx
+        key = (ctx, getattr(ctx, "user", None), getattr(ctx, "tenant", None), self.host, self.model)
+        cached = getattr(self, "_ev_cache", None)
+        if cached is not None and all(a is b for a, b in zip(cached[0], key)):
+            return cached[1]
+        ev = self._build_ev()
+        self._ev_cache = (key, ev)
+        return ev
+
+    def _build_ev(self) -> dict[str, Any]:
         ctx = self.ctx
         return {
             "ctx": ctx,
@@ -547,12 +564,34 @@ class Table(Component):
             current = alias
         return query, getattr(current, parts[-1])
 
-    def _eager_loads(self, query):
+    def _eager_load_paths(self) -> set[tuple[str, ...]]:
+        """Relationship paths the visible cells will read, so each is loaded in one query, not once per row.
+
+        ``customer.name`` needs ``customer`` and ``tags`` needs ``tags``. A column with ``state()`` is
+        computed, but a name that is itself a relationship (``TextColumn("items").state(lambda record:
+        len(record.items))``) is almost always read by it, so that relationship is loaded too.
+        """
         paths = set()
         for col in self._columns:
-            if "." in col.name and col._state is None:
-                paths.add(tuple(col.name.split(".")[:-1]))
-        for path in paths:
+            if getattr(col, "_counts", None) is not None:  # counted with one GROUP BY, never loaded
+                continue
+            path: list[str] = []
+            model = self.model
+            for part in col.name.split("."):
+                rels = sa_inspect(model).relationships
+                if part not in rels:
+                    break
+                rel = rels[part]
+                path.append(part)
+                model = rel.mapper.class_
+            if path:
+                paths.add(tuple(path))
+        return paths
+
+    def _eager_loads(self, query):
+        if self.model is None:
+            return query
+        for path in self._eager_load_paths():
             model = self.model
             loader = None
             try:
@@ -566,6 +605,28 @@ class Table(Component):
             if loader is not None:
                 query = query.options(loader)
         return query
+
+    def relation_count(self, relationship: str, record: Any) -> int:
+        """How many ``relationship`` rows ``record`` has. The first call counts the whole page in one query."""
+        mapper = sa_inspect(self.model)
+        if len(mapper.primary_key) != 1:
+            return len(getattr(record, relationship) or [])
+        pk = mapper.primary_key[0]
+        cache = self._relation_counts.setdefault(relationship, {})
+        key = getattr(record, pk.key)
+        if key not in cache:
+            keys = {getattr(r, pk.key) for r in getattr(self, "_page_records", None) or ()} | {key}
+            keys = [k for k in keys if k not in cache]
+            pk_attr = getattr(self.model, pk.key)
+            for start in range(0, len(keys), 500):  # stay under the database's bound-parameter limit
+                chunk = keys[start:start + 500]
+                rows = self.ctx.db.execute(
+                    select(pk_attr, func.count()).select_from(self.model).join(getattr(self.model, relationship))
+                    .where(pk_attr.in_(chunk)).group_by(pk_attr))
+                found = dict(rows.all())
+                for k in chunk:
+                    cache[k] = int(found.get(k, 0))
+        return cache[key]
 
     def _scoped_base_query(self):
         query = self.host.base_query(self.ctx)
@@ -635,12 +696,14 @@ class Table(Component):
             page = min(self.page, pages)
             query = query.limit(self.per_page).offset((page - 1) * self.per_page)
         records = list(self.ctx.db.scalars(query).unique().all())
+        self._page_records = records
         return records, total
 
     def summaries(self, query) -> dict[str, list[dict]]:
         out: dict[str, list[dict]] = {}
         sub = None
         records = None
+        in_sql: list[tuple[dict, Any, Any]] = []  # (footer entry, summarizer, expression): one query for all
         for col in self.visible_columns():
             if not col._summarizers or ("." in col.name and col._state is None):
                 continue
@@ -648,12 +711,14 @@ class Table(Component):
                 sub = query.order_by(None).subquery()
             if col._state is None and col.name in sub.c:
                 for s in col._summarizers:
-                    value = self.ctx.db.scalar(select(s.expression(sub.c[col.name])))
-                    out.setdefault(col.name, []).append({"label": s.get_label(), "value": s.format(value)})
+                    entry = {"label": s.get_label(), "value": None}
+                    out.setdefault(col.name, []).append(entry)
+                    in_sql.append((entry, s, s.expression(sub.c[col.name])))
                 continue
             # computed (``state()``) or non-column values: summarise in Python over every matching row
             if records is None:
                 records = list(self.ctx.db.scalars(self._eager_loads(query)).unique().all())
+                self._page_records = records  # ``counts()`` columns then count every row at once
             ev = self.ev()
             values = [col.get_state(r, ev) for r in records]
             values = [x for v in values for x in (v if isinstance(v, list) else [v])]
@@ -663,6 +728,10 @@ class Table(Component):
                 except TypeError:  # e.g. a sum over text
                     value = None
                 out.setdefault(col.name, []).append({"label": s.get_label(), "value": s.format(value)})
+        if in_sql:
+            row = self.ctx.db.execute(select(*[expr for _, _, expr in in_sql])).one()
+            for (entry, s, _), value in zip(in_sql, row):
+                entry["value"] = s.format(value)
         return out
 
     def reorder(self, keys: list[str]) -> None:
@@ -796,6 +865,7 @@ class Table(Component):
         elif self._limit:
             sorted_q = sorted_q.limit(self._limit)
         records = list(ctx.db.scalars(sorted_q).unique().all())
+        self._page_records = records
         columns = self.visible_columns()
         self._scoped(self._actions, "row")
         self._scoped(self._bulk_actions, "bulk")

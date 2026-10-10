@@ -81,6 +81,7 @@ def export_rows(ctx: "Context", host: "Host", params: Any, keys: list[str] | Non
     else:
         query = table._eager_loads(table.sorted_query(table.filtered_query()))
         records = ctx.db.scalars(query).unique().all()
+    table._page_records = list(records)  # ``counts()`` columns count every exported row in one query
     ev = table.ev()
     for record in records:
         if export_columns:
