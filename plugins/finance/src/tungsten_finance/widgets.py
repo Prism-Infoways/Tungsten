@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 
 from tungsten import ChartWidget, Stat, StatsOverviewWidget
 
+from .ledger import profit_and_loss
 from .models import Invoice
 from .service import (
     OPEN_STATUSES,
@@ -20,6 +21,7 @@ from .service import (
     money_out,
     month_start,
     monthly,
+    payables,
     period_range,
     receivables,
 )
@@ -53,22 +55,24 @@ class FinanceStats(StatsOverviewWidget):
         start = month_start(today)
         got, spent = money_in(db, start, today), money_out(db, start, today)
         owed = sum(receivables(db).values())
+        owe = sum(payables(db).values())
         overdue = db.scalar(select(func.count()).select_from(Invoice).where(
-            Invoice.status.in_(OPEN_STATUSES), Invoice.due_date < today)) or 0
-        profit = got - spent
+            Invoice.kind == "invoice", Invoice.status.in_(OPEN_STATUSES), Invoice.due_date < today)) or 0
+        profit = profit_and_loss(db, start, today)["net_profit"]
         return [
-            Stat("Money in this month", money(got, cur)).icon("arrow-down-left").color("success"),
-            Stat("Money out this month", money(spent, cur)).icon("arrow-up-right").color("danger"),
+            Stat("Money in this month", money(got, cur)).icon("arrow-down-left").color("success")
+            .describe(f"Money out {money(spent, cur)}"),
             Stat("Profit this month", money(profit, cur)).icon("trending-up" if profit >= 0 else "trending-down")
-            .color("success" if profit >= 0 else "danger"),
+            .color("success" if profit >= 0 else "danger").describe("Sales less purchases and expenses"),
             Stat("Customers owe you", money(owed, cur)).icon("hand-coins").color("warning")
             .describe(f"{overdue} overdue invoice{'s' if overdue != 1 else ''}" if overdue else "Nothing overdue"),
+            Stat("You owe vendors", money(owe, cur)).icon("receipt").color("info").describe("Unpaid bills"),
         ]
 
 
 class CashFlowChart(ChartWidget):
     heading = "Money in and out"
-    description = "Payments received and expenses, month by month."
+    description = "Payments received, and expenses and bills paid, month by month."
     type = "bar"
     column_span = 2
     filters: ClassVar[dict[str, str]] = {"6": "Last 6 months", "12": "Last 12 months"}
@@ -96,15 +100,17 @@ class ReportStats(StatsOverviewWidget):
         cur = currency(ctx)
         start, end = report_range(ctx)
         got, spent = money_in(db, start, end), money_out(db, start, end)
-        profit = got - spent
-        margin = f"{profit / got * 100:.0f}% of money in" if got else "No money in yet"
+        pnl = profit_and_loss(db, start, end)
+        profit = pnl["net_profit"]
+        margin = f"{profit / pnl['income'] * 100:.0f}% of income" if pnl["income"] else "No income yet"
         return [
-            Stat("Invoiced", money(invoiced(db, start, end), cur)).icon("file-text").color("info")
+            Stat("Sales", money(invoiced(db, start, end), cur)).icon("file-text").color("info")
             .describe("Invoices dated in this period"),
             Stat("Money in", money(got, cur)).icon("arrow-down-left").color("success")
             .describe("Payments received"),
-            Stat("Money out", money(spent, cur)).icon("arrow-up-right").color("danger").describe("Expenses"),
-            Stat("Profit", money(profit, cur)).icon("trending-up" if profit >= 0 else "trending-down")
+            Stat("Money out", money(spent, cur)).icon("arrow-up-right").color("danger")
+            .describe("Expenses and bills paid"),
+            Stat("Net profit", money(profit, cur)).icon("trending-up" if profit >= 0 else "trending-down")
             .color("success" if profit >= 0 else "danger").describe(margin),
         ]
 

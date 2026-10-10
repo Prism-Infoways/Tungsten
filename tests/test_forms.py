@@ -191,6 +191,16 @@ def test_repeater_relative_get():
     assert "5 USD" in str(form.render())
 
 
+def test_repeater_rule_checks_all_rows():
+    def balanced(value):
+        return True if sum(int(r["qty"] or 0) for r in value) == 10 else "Rows must add up to 10."
+
+    form = make([Repeater("items").schema([TextInput("qty").integer()]).rule(balanced)])
+    rows = [("items.0.__row", "1"), ("items.0.qty", "4"), ("items.1.__row", "1"), ("items.1.qty", "5")]
+    assert errors_of(form, rows)["items"] == ["Rows must add up to 10."]
+    assert submit(form, [*rows[:3], ("items.1.qty", "6")]) == {"items": [{"qty": 4}, {"qty": 6}]}
+
+
 def test_key_value_field():
     form = make([KeyValue("meta")])
     form.handle_ui_action("keyvalue.add:meta")

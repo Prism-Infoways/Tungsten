@@ -1,5 +1,6 @@
 {# The invoice "paper". Inline styles so it looks the same in the panel, on the customer's page and printed. #}
 {% set muted = "color:#6b7280" %}
+{% set party = vendor or customer %}
 <div data-finance-invoice style="background:#fff;color:#111827;border-radius:12px;border:1px solid #e5e7eb;padding:32px;font-size:14px;line-height:1.5">
   <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:24px">
     <div>
@@ -11,22 +12,25 @@
       {% if business.phone %}<div style="{{ muted }}">{{ business.phone }}</div>{% endif %}
     </div>
     <div style="text-align:right">
-      <div style="font-size:24px;font-weight:700;letter-spacing:.04em">{{ __('INVOICE') }}</div>
+      <div style="font-size:24px;font-weight:700;letter-spacing:.04em">{{ __(title) }}</div>
       <div style="font-weight:600">{{ invoice.number }}</div>
       <div style="{{ muted }}">{{ __('Date') }}: {{ invoice.issue_date.strftime('%d %b %Y') if invoice.issue_date else '' }}</div>
-      {% if invoice.due_date %}<div style="{{ muted }}">{{ __('Due') }}: {{ invoice.due_date.strftime('%d %b %Y') }}</div>{% endif %}
+      {% if invoice.due_date %}<div style="{{ muted }}">{{ __('Valid until') if invoice.kind == 'quote' else __('Due') }}: {{ invoice.due_date.strftime('%d %b %Y') }}</div>{% endif %}
+      {% if invoice.reference %}<div style="{{ muted }}">{{ __('Ref') }}: {{ invoice.reference }}</div>{% endif %}
+      {% if against %}<div style="{{ muted }}">{{ __('For') }}: {{ against }}</div>{% endif %}
+      {% if place_of_supply %}<div style="{{ muted }}">{{ __('Place of supply') }}: {{ place_of_supply }}</div>{% endif %}
       <div data-status="{{ invoice.display_status }}" style="display:inline-block;margin-top:6px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:{{ {'success':'#dcfce7','danger':'#fee2e2','warning':'#fef3c7','info':'#dbeafe'}.get(status_color, '#f3f4f6') }};color:{{ {'success':'#166534','danger':'#991b1b','warning':'#92400e','info':'#1e40af'}.get(status_color, '#374151') }}">{{ __(status_label) }}</div>
     </div>
   </div>
 
   <div style="margin-top:28px">
-    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;{{ muted }}">{{ __('Bill to') }}</div>
-    {% if customer %}
-    <div style="font-weight:600">{{ customer.name }}</div>
-    {% if customer.company %}<div>{{ customer.company }}</div>{% endif %}
-    {% if customer.address %}<div style="{{ muted }};white-space:pre-line">{{ customer.address }}</div>{% endif %}
-    {% if customer.tax_id %}<div style="{{ muted }}">GSTIN: {{ customer.tax_id }}</div>{% endif %}
-    {% if customer.email %}<div style="{{ muted }}">{{ customer.email }}</div>{% endif %}
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;{{ muted }}">{{ __('From vendor') if vendor else __('Bill to') }}</div>
+    {% if party %}
+    <div style="font-weight:600">{{ party.name }}</div>
+    {% if party.company %}<div>{{ party.company }}</div>{% endif %}
+    {% if party.address %}<div style="{{ muted }};white-space:pre-line">{{ party.address }}</div>{% endif %}
+    {% if party.tax_id %}<div style="{{ muted }}">GSTIN: {{ party.tax_id }}</div>{% endif %}
+    {% if party.email %}<div style="{{ muted }}">{{ party.email }}</div>{% endif %}
     {% else %}<div style="{{ muted }}">—</div>{% endif %}
   </div>
 
@@ -35,9 +39,11 @@
     <thead>
       <tr style="border-bottom:2px solid #e5e7eb;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.04em;{{ muted }}">
         <th style="padding:8px 4px">{{ __('Item') }}</th>
+        {% if show_hsn %}<th style="padding:8px 4px">{{ __('HSN/SAC') }}</th>{% endif %}
         <th style="padding:8px 4px;text-align:right">{{ __('Qty') }}</th>
         <th style="padding:8px 4px;text-align:right">{{ __('Price') }}</th>
-        <th style="padding:8px 4px;text-align:right">{{ __('Tax') }}</th>
+        {% if show_discount %}<th style="padding:8px 4px;text-align:right">{{ __('Disc') }}</th>{% endif %}
+        <th style="padding:8px 4px;text-align:right">{{ __('GST') }}</th>
         <th style="padding:8px 4px;text-align:right">{{ __('Amount') }}</th>
       </tr>
     </thead>
@@ -45,8 +51,10 @@
       {% for item in items %}
       <tr style="border-bottom:1px solid #f3f4f6">
         <td style="padding:10px 4px">{{ item.description }}</td>
-        <td style="padding:10px 4px;text-align:right">{{ item.quantity }}</td>
+        {% if show_hsn %}<td style="padding:10px 4px">{{ item.hsn }}</td>{% endif %}
+        <td style="padding:10px 4px;text-align:right">{{ item.quantity }} {{ item.unit }}</td>
         <td style="padding:10px 4px;text-align:right">{{ item.price }}</td>
+        {% if show_discount %}<td style="padding:10px 4px;text-align:right">{{ item.discount }}</td>{% endif %}
         <td style="padding:10px 4px;text-align:right">{{ item.tax }}</td>
         <td style="padding:10px 4px;text-align:right">{{ item.amount }}</td>
       </tr>
@@ -57,9 +65,11 @@
 
   <div style="display:flex;justify-content:flex-end;margin-top:16px">
     <table style="min-width:260px;border-collapse:collapse">
-      <tr><td style="padding:4px;{{ muted }}">{{ __('Subtotal') }}</td><td style="padding:4px;text-align:right">{{ subtotal }}</td></tr>
-      <tr><td style="padding:4px;{{ muted }}">{{ __('Tax') }}</td><td style="padding:4px;text-align:right">{{ tax_total }}</td></tr>
-      {% if discount %}<tr><td style="padding:4px;{{ muted }}">{{ __('Discount') }}</td><td style="padding:4px;text-align:right">-{{ discount }}</td></tr>{% endif %}
+      {% if discount %}<tr><td style="padding:4px;{{ muted }}">{{ __('Subtotal') }}</td><td style="padding:4px;text-align:right">{{ subtotal }}</td></tr>
+      <tr><td style="padding:4px;{{ muted }}">{{ __('Discount') }}</td><td style="padding:4px;text-align:right">-{{ discount }}</td></tr>{% endif %}
+      <tr><td style="padding:4px;{{ muted }}">{{ __('Taxable value') }}</td><td style="padding:4px;text-align:right">{{ taxable }}</td></tr>
+      {% for name, amount in taxes %}<tr><td style="padding:4px;{{ muted }}">{{ name }}</td><td style="padding:4px;text-align:right">{{ amount }}</td></tr>{% endfor %}
+      {% if round_off %}<tr><td style="padding:4px;{{ muted }}">{{ __('Round off') }}</td><td style="padding:4px;text-align:right">{{ round_off }}</td></tr>{% endif %}
       <tr style="border-top:2px solid #e5e7eb;font-weight:700;font-size:16px"><td style="padding:8px 4px">{{ __('Total') }}</td><td style="padding:8px 4px;text-align:right">{{ total }}</td></tr>
       {% if paid %}<tr><td style="padding:4px;{{ muted }}">{{ __('Paid') }}</td><td style="padding:4px;text-align:right">-{{ paid }}</td></tr>
       <tr style="font-weight:700"><td style="padding:4px">{{ __('Still owed') }}</td><td style="padding:4px;text-align:right">{{ balance }}</td></tr>{% endif %}
@@ -67,7 +77,7 @@
   </div>
 
   {% if invoice.notes %}<div style="margin-top:24px;white-space:pre-line">{{ invoice.notes }}</div>{% endif %}
-  {% if payment_details and invoice.status not in ('paid', 'cancelled') %}
+  {% if payment_details and invoice.status not in ('paid', 'cancelled', 'invoiced', 'declined') %}
   <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f9fafb">
     <div style="font-weight:600;margin-bottom:4px">{{ __('How to pay') }}</div>
     <div style="white-space:pre-line">{{ payment_details }}</div>

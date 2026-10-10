@@ -1,4 +1,4 @@
-"""Functions other code (and other plugins) use to bill customers and book money.
+"""Functions other code (and other plugins) use to bill customers, record bills and book money.
 
     from tungsten_finance import create_invoice, record_payment
 
@@ -12,13 +12,22 @@
 from __future__ import annotations
 
 import datetime as dt
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 from sqlalchemy import func, select
 
-from .models import CENT, ZERO, Contact, Expense, ExpenseCategory, Invoice, InvoiceItem, MoneyAccount, Payment
+from .gst import is_inter_state, split_tax, state_code
+from .ledger import ensure_chart, post_document, post_payment
+from .models import CENT, ZERO, Contact, Expense, Invoice, InvoiceItem, Item, Payment
 
+DOC_KINDS = {
+    "invoice": {"label": "Invoice", "plural": "Invoices", "prefix": "INV-", "party": "customer"},
+    "quote": {"label": "Quote", "plural": "Quotes", "prefix": "QT-", "party": "customer"},
+    "credit_note": {"label": "Credit note", "plural": "Credit notes", "prefix": "CN-", "party": "customer"},
+    "bill": {"label": "Bill", "plural": "Bills", "prefix": "BILL-", "party": "vendor"},
+    "debit_note": {"label": "Debit note", "plural": "Debit notes", "prefix": "DN-", "party": "vendor"},
+}
 INVOICE_STATUSES = {
     "draft": ("Draft", "gray"),
     "sent": ("Sent", "info"),
@@ -27,16 +36,26 @@ INVOICE_STATUSES = {
     "overdue": ("Overdue", "danger"),
     "cancelled": ("Cancelled", "gray"),
 }
-#: invoices that still wait for money
+BILL_STATUSES = {**INVOICE_STATUSES, "sent": ("Open", "info")}
+NOTE_STATUSES = {"draft": ("Draft", "gray"), "sent": ("Open", "info"), "partial": ("Part used", "warning"),
+                 "paid": ("Used", "success"), "cancelled": ("Cancelled", "gray")}
+QUOTE_STATUSES = {"draft": ("Draft", "gray"), "sent": ("Sent", "info"), "accepted": ("Accepted", "success"),
+                  "declined": ("Declined", "danger"), "invoiced": ("Invoiced", "primary")}
+#: invoices and bills that still wait for money
 OPEN_STATUSES = ("sent", "partial")
 METHODS = {"bank": "Bank transfer", "upi": "UPI", "cash": "Cash", "card": "Card", "cheque": "Cheque",
            "other": "Other"}
-ACCOUNT_KINDS = {"bank": "Bank", "cash": "Cash", "card": "Card", "wallet": "Wallet / UPI", "other": "Other"}
 CONTACT_KINDS = {"customer": "Customer", "vendor": "Vendor", "both": "Customer and vendor"}
 CURRENCY_SYMBOLS = {"INR": "₹", "USD": "$", "EUR": "€", "GBP": "£", "AED": "AED ", "JPY": "¥", "AUD": "A$",
                     "CAD": "C$", "SGD": "S$"}
-DEFAULT_EXPENSE_CATEGORIES = ["Rent", "Salaries", "Software", "Marketing", "Travel", "Office", "Utilities",
-                              "Taxes and fees", "Other"]
+
+
+def statuses_for(kind: str) -> dict[str, tuple[str, str]]:
+    if kind == "quote":
+        return QUOTE_STATUSES
+    if kind in ("credit_note", "debit_note"):
+        return NOTE_STATUSES
+    return BILL_STATUSES if kind == "bill" else INVOICE_STATUSES
 
 
 def finance_plugin(db: Any) -> Any:
@@ -63,34 +82,58 @@ def money(value: Any, currency: str = "INR") -> str:
     return f"{'-' if amount < 0 else ''}{symbol}{abs(amount):,.2f}"
 
 
-# ---------------------------------------------------------------------- invoices
-def next_number(db: Any, prefix: str = "INV-") -> str:
+# ---------------------------------------------------------------------- numbers
+def prefix_for(kind: str, plugin: Any = None) -> str:
+    if plugin is not None:
+        return plugin.prefixes.get(kind, DOC_KINDS[kind]["prefix"])
+    return DOC_KINDS[kind]["prefix"]
+
+
+def next_number(db: Any, prefix: str = "INV-", column: Any = None) -> str:
     """The next free number, like INV-00013. Counts up from the highest number with this prefix."""
-    numbers = db.scalars(select(Invoice.number).where(Invoice.number.like(f"{prefix}%"))).all()
+    column = column if column is not None else Invoice.number
     highest = 0
-    for number in numbers:
+    for number in db.scalars(select(column).where(column.like(f"{prefix}%"))).all():
         tail = number[len(prefix):]
         if tail.isdigit():
             highest = max(highest, int(tail))
     return f"{prefix}{highest + 1:05d}"
 
 
-def recalculate(invoice: Invoice) -> None:
-    """Work out subtotal, tax and total from the items. Discount comes off the total."""
-    subtotal = sum((item.amount for item in invoice.items), ZERO)
+# ---------------------------------------------------------------------- documents
+def home_state(plugin: Any) -> str | None:
+    return state_code(plugin.state) if plugin is not None else None
+
+
+def recalculate(invoice: Invoice, plugin: Any = None) -> None:
+    """Work out taxable value, CGST/SGST/IGST, round off and total from the items."""
+    subtotal = sum((item.gross for item in invoice.items), ZERO)
+    discount = sum((item.discount_amount for item in invoice.items), ZERO)
+    taxable = subtotal - discount
     tax = sum((item.tax for item in invoice.items), ZERO)
-    invoice.subtotal = subtotal
-    invoice.tax_total = tax
-    invoice.discount = to_decimal(invoice.discount).quantize(CENT)
-    invoice.total = max(subtotal + tax - invoice.discount, ZERO)
+    supply = state_code(invoice.place_of_supply) or (invoice.contact.state if invoice.contact else None)
+    cgst, sgst, igst = split_tax(tax, is_inter_state(home_state(plugin), supply))
+    invoice.subtotal, invoice.discount, invoice.taxable = subtotal, discount, taxable
+    invoice.cgst, invoice.sgst, invoice.igst, invoice.tax_total = cgst, sgst, igst, tax
+    exact = taxable + tax
+    rounded = exact.quantize(Decimal(1), rounding=ROUND_HALF_UP) if (plugin is None or plugin.round_off) else exact
+    invoice.round_off = rounded - exact
+    invoice.total = rounded
 
 
 def refresh_paid(db: Any, invoice: Invoice) -> None:
-    """Sum the invoice's payments and move its status to partial / paid (or back)."""
+    """Sum the document's payments (and credit or debit notes against it) and move its status along."""
     db.flush()
-    paid = db.scalar(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.invoice_id == invoice.id))
-    invoice.amount_paid = to_decimal(paid).quantize(CENT)
-    if invoice.status == "cancelled":
+    paid = to_decimal(db.scalar(select(func.coalesce(func.sum(Payment.amount), 0))
+                                .where(Payment.invoice_id == invoice.id)))
+    if not invoice.is_note:
+        paid += to_decimal(db.scalar(select(func.coalesce(func.sum(Invoice.total), 0)).where(
+            Invoice.against_id == invoice.id, Invoice.kind.in_(("credit_note", "debit_note")),
+            Invoice.status.notin_(("draft", "cancelled")))))
+    elif invoice.against_id and invoice.status not in ("draft", "cancelled"):
+        paid = to_decimal(invoice.total)  # a note against a document is used up by it
+    invoice.amount_paid = paid.quantize(CENT)
+    if invoice.status in ("cancelled", "draft") or invoice.kind == "quote":
         return
     total = to_decimal(invoice.total)
     if invoice.amount_paid > 0 and invoice.amount_paid >= total:
@@ -102,17 +145,36 @@ def refresh_paid(db: Any, invoice: Invoice) -> None:
         invoice.status, invoice.paid_at = "sent", None
 
 
-def prepare_new(db: Any, invoice: Invoice) -> None:
-    """Fill what a new invoice needs: its number and due date. Call before flush."""
+def settle(db: Any, invoice: Invoice) -> None:
+    """After any change to a document: totals, paid amount, status, the ledger, and the document it is against."""
     plugin = finance_plugin(db)
+    recalculate(invoice, plugin)
+    refresh_paid(db, invoice)
+    post_document(db, invoice)
+    if invoice.against_id:
+        target = db.get(Invoice, invoice.against_id)
+        if target is not None:
+            refresh_paid(db, target)
+
+
+def prepare_new(db: Any, invoice: Invoice) -> None:
+    """Fill what a new document needs: number, due date, place of supply, terms. Call before flush."""
+    plugin = finance_plugin(db)
+    kind = invoice.kind or "invoice"
+    invoice.kind = kind
     if not invoice.number:
-        invoice.number = next_number(db, plugin.number_prefix if plugin is not None else "INV-")
+        invoice.number = next_number(db, prefix_for(kind, plugin))
     if not invoice.issue_date:
         invoice.issue_date = dt.date.today()
-    if not invoice.due_date:
-        days = plugin.due_days if plugin is not None else 15
+    if invoice.contact is None and invoice.contact_id:
+        invoice.contact = db.get(Contact, invoice.contact_id)
+    if not invoice.due_date and kind in ("invoice", "bill", "quote"):
+        days = invoice.contact.payment_days if invoice.contact and invoice.contact.payment_days else None
+        days = days if days is not None else (plugin.due_days if plugin is not None else 15)
         invoice.due_date = invoice.issue_date + dt.timedelta(days=days)
-    if plugin is not None and not invoice.terms and plugin.terms:
+    if not invoice.place_of_supply:
+        invoice.place_of_supply = (invoice.contact.state if invoice.contact else None) or home_state(plugin)
+    if plugin is not None and not invoice.terms and plugin.terms and kind in ("invoice", "quote"):
         invoice.terms = plugin.terms
     if not invoice.status:
         invoice.status = "draft"
@@ -144,72 +206,154 @@ def find_or_create_contact(db: Any, name: str, email: str | None = None, kind: s
     return contact
 
 
-def create_invoice(db: Any, *, items: list[dict], contact: Contact | None = None, customer: str | None = None,
-                   email: str | None = None, issue_date: dt.date | None = None, due_date: dt.date | None = None,
-                   discount: Any = 0, notes: str | None = None, status: str = "draft",
-                   external_id: str | None = None) -> Invoice:
-    """Make an invoice. ``items`` are dicts with description, quantity, unit_price and tax_rate.
+def _item_row(db: Any, row: dict, i: int, purchase: bool) -> InvoiceItem:
+    item = None
+    if row.get("item_id"):
+        item = db.get(Item, int(row["item_id"]))
+    elif row.get("sku"):
+        item = db.scalars(select(Item).where(Item.sku == str(row["sku"]))).first()
+    price_default = (item.purchase_price if purchase else item.sale_price) if item else ZERO
+    return InvoiceItem(
+        item_id=item.id if item else None,
+        description=str(row.get("description") or (item.name if item else "Item"))[:255],
+        hsn=row.get("hsn") or (item.hsn if item else None),
+        unit=row.get("unit") or (item.unit if item else None),
+        quantity=to_decimal(row.get("quantity"), Decimal(1)),
+        unit_price=to_decimal(row.get("unit_price"), price_default),
+        discount=to_decimal(row.get("discount")),
+        tax_rate=to_decimal(row.get("tax_rate"), item.tax_rate if item else ZERO), sort=i)
 
-    Pass a ``contact``, or a ``customer`` name (and ``email``) to find or add one.
-    With ``external_id`` the same outside id never makes a second invoice.
+
+def create_document(db: Any, kind: str, *, items: list[dict], contact: Contact | None = None,
+                    name: str | None = None, email: str | None = None, issue_date: dt.date | None = None,
+                    due_date: dt.date | None = None, notes: str | None = None, status: str = "draft",
+                    reference: str | None = None, place_of_supply: str | None = None,
+                    against: Invoice | None = None, external_id: str | None = None) -> Invoice:
+    """Make an invoice, quote, credit note, bill or debit note.
+
+    ``items`` are dicts with description, quantity, unit_price, tax_rate, and optional discount (%),
+    hsn, unit, and item_id or sku of an ``Item``. Pass a ``contact``, or a ``name`` (and ``email``) to
+    find or add one. The same ``external_id`` never makes a second document.
     """
     if external_id:
         existing = find_invoice(db, external_id=external_id)
         if existing is not None:
             return existing
-    if contact is None and customer:
-        contact = find_or_create_contact(db, customer, email)
-    invoice = Invoice(contact=contact, issue_date=issue_date or dt.date.today(), due_date=due_date,
-                      discount=to_decimal(discount), notes=notes, status=status, external_id=external_id)
+    ensure_chart(db)
+    if contact is None and name:
+        contact = find_or_create_contact(db, name, email, kind=DOC_KINDS[kind]["party"])
+    doc = Invoice(kind=kind, contact=contact, contact_id=contact.id if contact else None,
+                  issue_date=issue_date or dt.date.today(), due_date=due_date, notes=notes, status=status,
+                  reference=reference, place_of_supply=state_code(place_of_supply), external_id=external_id,
+                  against_id=against.id if against is not None else None)
+    purchase = kind in ("bill", "debit_note")
     for i, row in enumerate(items):
-        invoice.items.append(InvoiceItem(
-            description=str(row.get("description") or "Item")[:255],
-            quantity=to_decimal(row.get("quantity"), Decimal(1)), unit_price=to_decimal(row.get("unit_price")),
-            tax_rate=to_decimal(row.get("tax_rate")), sort=i))
-    db.add(invoice)
-    prepare_new(db, invoice)
-    recalculate(invoice)
+        doc.items.append(_item_row(db, row, i, purchase))
+    db.add(doc)
+    prepare_new(db, doc)
     if status == "sent":
-        invoice.sent_at = dt.datetime.now().replace(microsecond=0)
+        doc.sent_at = dt.datetime.now().replace(microsecond=0)
     db.flush()
+    settle(db, doc)
+    return doc
+
+
+def create_invoice(db: Any, *, items: list[dict], customer: str | None = None, **kw: Any) -> Invoice:
+    """``create_document(db, "invoice", ...)``; ``customer`` is the customer's name."""
+    return create_document(db, "invoice", items=items, name=customer, **kw)
+
+
+def create_bill(db: Any, *, items: list[dict], vendor: str | None = None, **kw: Any) -> Invoice:
+    """A vendor's bill; ``vendor`` is the vendor's name and ``reference`` their bill number."""
+    kw.setdefault("status", "sent")
+    return create_document(db, "bill", items=items, name=vendor, **kw)
+
+
+def copy_document(db: Any, source: Invoice, kind: str | None = None, **changes: Any) -> Invoice:
+    """A new draft with the same customer and lines (Duplicate, quote to invoice, credit note for an invoice)."""
+    doc = Invoice(kind=kind or source.kind, contact_id=source.contact_id, contact=source.contact,
+                  notes=source.notes, place_of_supply=source.place_of_supply, status="draft",
+                  issue_date=dt.date.today(), ledger_account_id=source.ledger_account_id,
+                  terms=source.terms if (kind or source.kind) in ("invoice", "quote") else None)
+    for key, value in changes.items():
+        setattr(doc, key, value)
+    for item in source.items:
+        doc.items.append(InvoiceItem(item_id=item.item_id, description=item.description, hsn=item.hsn,
+                                     quantity=item.quantity, unit=item.unit, unit_price=item.unit_price,
+                                     discount=item.discount, tax_rate=item.tax_rate, sort=item.sort))
+    db.add(doc)
+    prepare_new(db, doc)
+    db.flush()
+    settle(db, doc)
+    return doc
+
+
+def quote_to_invoice(db: Any, quote: Invoice) -> Invoice:
+    invoice = copy_document(db, quote, "invoice")
+    quote.status = "invoiced"
     return invoice
 
 
+def run_recurring(db: Any, today: dt.date | None = None) -> list[Invoice]:
+    """Make the repeat invoices that are due (call once a day, e.g. from cron). Returns the new drafts."""
+    today = today or dt.date.today()
+    made = []
+    due = db.scalars(select(Invoice).where(Invoice.repeat_months.isnot(None), Invoice.next_repeat_on.isnot(None),
+                                           Invoice.next_repeat_on <= today)).unique().all()
+    for source in due:
+        while source.next_repeat_on and source.next_repeat_on <= today:
+            copy = copy_document(db, source, issue_date=source.next_repeat_on)
+            if source.due_date and source.issue_date:
+                copy.due_date = copy.issue_date + (source.due_date - source.issue_date)
+            made.append(copy)
+            source.next_repeat_on = add_months(source.next_repeat_on, source.repeat_months or 1)
+    db.flush()
+    return made
+
+
+def add_months(day: dt.date, months: int) -> dt.date:
+    month = day.month - 1 + months
+    year = day.year + month // 12
+    month = month % 12 + 1
+    last = month_end(dt.date(year, month, 1)).day
+    return dt.date(year, month, min(day.day, last))
+
+
+# ---------------------------------------------------------------------- payments
 def record_payment(db: Any, invoice: Invoice | None, amount: Any, *, date: dt.date | None = None,
                    account_id: int | None = None, method: str = "bank", reference: str | None = None,
-                   notes: str | None = None, contact: Contact | None = None) -> Payment:
-    """Book money that came in, and update the invoice's paid amount and status."""
-    payment = Payment(amount=to_decimal(amount).quantize(CENT), date=date or dt.date.today(),
+                   notes: str | None = None, contact: Contact | None = None, direction: str | None = None) -> Payment:
+    """Book money received for an invoice, or paid for a bill, and update its status.
+
+    Without a document pass ``contact`` and ``direction`` ("in" or "out").
+    """
+    plugin = finance_plugin(db)
+    if direction is None:
+        direction = "out" if invoice is not None and invoice.kind in ("bill", "credit_note") else "in"
+    if account_id is None and plugin is not None:
+        account_id = plugin.default_account_id(db)
+    payment = Payment(direction=direction, amount=to_decimal(amount).quantize(CENT), date=date or dt.date.today(),
                       invoice_id=invoice.id if invoice is not None else None,
                       contact_id=(invoice.contact_id if invoice is not None else None) or (contact.id if contact else None),
                       account_id=account_id, method=method, reference=reference, notes=notes)
+    payment.number = next_number(db, "PAY-" if direction == "out" else "RCPT-", Payment.number)
     db.add(payment)
+    db.flush()
+    if payment.contact_id and payment.contact is None:
+        payment.contact = db.get(Contact, payment.contact_id)
+    post_payment(db, payment)
     if invoice is not None:
         if invoice.status == "draft":
             invoice.status = "sent"
         refresh_paid(db, invoice)
-    else:
-        db.flush()
+        post_document(db, invoice)
     return payment
 
 
-def ensure_default_categories(db: Any) -> None:
-    if db.scalar(select(func.count()).select_from(ExpenseCategory)):
-        return
-    for i, name in enumerate(DEFAULT_EXPENSE_CATEGORIES):
-        db.add(ExpenseCategory(name=name, sort=i))
-
-
-# ---------------------------------------------------------------------- reports
-def account_balance(db: Any, account: MoneyAccount) -> Decimal:
-    """Opening balance, plus payments into the account, minus expenses paid from it."""
-    money_in = db.scalar(select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.account_id == account.id))
-    money_out = db.scalar(select(func.coalesce(func.sum(Expense.amount), 0)).where(Expense.account_id == account.id))
-    return (to_decimal(account.opening_balance) + to_decimal(money_in) - to_decimal(money_out)).quantize(CENT)
-
-
+# ---------------------------------------------------------------------- cash figures and dates
 def money_in(db: Any, start: dt.date | None = None, end: dt.date | None = None) -> Decimal:
-    query = select(func.coalesce(func.sum(Payment.amount), 0))
+    """Payments received."""
+    query = select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.direction == "in")
     if start:
         query = query.where(Payment.date >= start)
     if end:
@@ -218,30 +362,19 @@ def money_in(db: Any, start: dt.date | None = None, end: dt.date | None = None) 
 
 
 def money_out(db: Any, start: dt.date | None = None, end: dt.date | None = None) -> Decimal:
+    """Expenses plus payments made to vendors."""
     query = select(func.coalesce(func.sum(Expense.amount), 0))
+    paid = select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.direction == "out")
     if start:
-        query = query.where(Expense.date >= start)
+        query, paid = query.where(Expense.date >= start), paid.where(Payment.date >= start)
     if end:
-        query = query.where(Expense.date <= end)
-    return to_decimal(db.scalar(query))
-
-
-def expenses_by_category(db: Any, start: dt.date | None = None,
-                         end: dt.date | None = None) -> list[tuple[str, Decimal]]:
-    """``[(category name, amount), ...]``, biggest first."""
-    query = (select(ExpenseCategory.name, func.sum(Expense.amount))
-             .select_from(Expense).outerjoin(ExpenseCategory, Expense.category_id == ExpenseCategory.id)
-             .group_by(ExpenseCategory.name))
-    if start:
-        query = query.where(Expense.date >= start)
-    if end:
-        query = query.where(Expense.date <= end)
-    rows = [(name or "No category", to_decimal(total)) for name, total in db.execute(query).all()]
-    return sorted(rows, key=lambda row: row[1], reverse=True)
+        query, paid = query.where(Expense.date <= end), paid.where(Payment.date <= end)
+    return to_decimal(db.scalar(query)) + to_decimal(db.scalar(paid))
 
 
 def invoiced(db: Any, start: dt.date | None = None, end: dt.date | None = None) -> Decimal:
-    query = select(func.coalesce(func.sum(Invoice.total), 0)).where(Invoice.status.notin_(("draft", "cancelled")))
+    query = select(func.coalesce(func.sum(Invoice.total), 0)).where(
+        Invoice.kind == "invoice", Invoice.status.notin_(("draft", "cancelled")))
     if start:
         query = query.where(Invoice.issue_date >= start)
     if end:
@@ -249,41 +382,43 @@ def invoiced(db: Any, start: dt.date | None = None, end: dt.date | None = None) 
     return to_decimal(db.scalar(query))
 
 
-def tax_summary(db: Any, start: dt.date | None = None, end: dt.date | None = None) -> dict[str, Decimal]:
-    """Tax you charged on invoices, tax you paid on expenses, and what is left to pay."""
-    out_query = select(func.coalesce(func.sum(Invoice.tax_total), 0)).where(
-        Invoice.status.notin_(("draft", "cancelled")))
-    in_query = select(func.coalesce(func.sum(Expense.tax_amount), 0))
-    if start:
-        out_query, in_query = out_query.where(Invoice.issue_date >= start), in_query.where(Expense.date >= start)
-    if end:
-        out_query, in_query = out_query.where(Invoice.issue_date <= end), in_query.where(Expense.date <= end)
-    collected, paid = to_decimal(db.scalar(out_query)), to_decimal(db.scalar(in_query))
-    return {"collected": collected, "paid": paid, "net": collected - paid}
+def expenses_by_category(db: Any, start: dt.date | None = None,
+                         end: dt.date | None = None) -> list[tuple[str, Decimal]]:
+    """``[(expense account, amount), ...]`` from the ledger (expenses and bills), biggest first."""
+    from .ledger import profit_and_loss
+
+    pnl = profit_and_loss(db, start, end)
+    rows = [(r["account"].name, r["amount"]) for kind in ("purchase", "direct_expense", "expense")
+            for r in pnl["sections"][kind] if r["amount"] > 0]
+    return sorted(rows, key=lambda row: row[1], reverse=True)
 
 
 AGING_BUCKETS = [("current", "Not due yet"), ("1_30", "1-30 days late"), ("31_60", "31-60 days late"),
                  ("61_90", "61-90 days late"), ("90_plus", "Over 90 days late")]
 
 
-def receivables(db: Any, today: dt.date | None = None) -> dict[str, Decimal]:
-    """Money customers still owe, split by how late it is (an "aging" report)."""
+def receivables(db: Any, today: dt.date | None = None, kind: str = "invoice") -> dict[str, Decimal]:
+    """Money still owed on invoices (or on bills, ``kind="bill"``), split by how late it is."""
     today = today or dt.date.today()
     buckets = {key: ZERO for key, _ in AGING_BUCKETS}
-    for invoice in db.scalars(select(Invoice).where(Invoice.status.in_(OPEN_STATUSES))).unique().all():
-        late = (today - invoice.due_date).days if invoice.due_date else 0
+    for doc in db.scalars(select(Invoice).where(Invoice.kind == kind, Invoice.status.in_(OPEN_STATUSES))).unique().all():
+        late = (today - doc.due_date).days if doc.due_date else 0
         key = ("current" if late <= 0 else "1_30" if late <= 30 else "31_60" if late <= 60
                else "61_90" if late <= 90 else "90_plus")
-        buckets[key] += invoice.balance_due
+        buckets[key] += doc.balance_due
     return buckets
 
 
-def top_debtors(db: Any, limit: int = 5) -> list[tuple[str, Decimal]]:
-    """Customers who owe the most."""
+def payables(db: Any, today: dt.date | None = None) -> dict[str, Decimal]:
+    return receivables(db, today, kind="bill")
+
+
+def top_debtors(db: Any, limit: int = 5, kind: str = "invoice") -> list[tuple[str, Decimal]]:
+    """Customers who owe the most (or vendors you owe the most, ``kind="bill"``)."""
     owed: dict[str, Decimal] = {}
-    for invoice in db.scalars(select(Invoice).where(Invoice.status.in_(OPEN_STATUSES))).unique().all():
-        name = invoice.contact.name if invoice.contact else "No customer"
-        owed[name] = owed.get(name, ZERO) + invoice.balance_due
+    for doc in db.scalars(select(Invoice).where(Invoice.kind == kind, Invoice.status.in_(OPEN_STATUSES))).unique().all():
+        name = doc.contact.name if doc.contact else "—"
+        owed[name] = owed.get(name, ZERO) + doc.balance_due
     return sorted(owed.items(), key=lambda row: row[1], reverse=True)[:limit]
 
 
@@ -296,7 +431,7 @@ def month_start(day: dt.date, back: int = 0) -> dt.date:
 
 
 def month_end(day: dt.date) -> dt.date:
-    following = month_start(dt.date(day.year + (day.month == 12), day.month % 12 + 1, 1))
+    following = dt.date(day.year + (day.month == 12), day.month % 12 + 1, 1)
     return following - dt.timedelta(days=1)
 
 
