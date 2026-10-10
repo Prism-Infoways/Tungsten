@@ -49,7 +49,8 @@ NAV = [
     ("Widgets", ["widgets"]),
     ("Users & security", ["authentication", "email-verification", "roles-and-permissions", "security"]),
     ("More", ["import-export", "multi-tenancy", "translations", "async-database", "plugins-and-hooks", "cli"]),
-    ("Plugins", ["leads", "facebook-leads", "whatsapp", "mcp", "tickets", "finance", "blog", "seo-audit", "security-audit"]),
+    ("Plugins", ["leads", "facebook-leads", "whatsapp", "mcp", "tickets", "hr", "finance", "blog", "seo-audit",
+                 "security-audit"]),
 ]
 
 # Answers shown on the home page and as FAQPage schema (answer engines and AI search quote these).

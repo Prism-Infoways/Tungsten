@@ -169,6 +169,37 @@ PLUGINS = [
         ],
     },
     {
+        "slug": "hr",
+        "name": "HR (employees, attendance, leave)",
+        "package": "tungsten-hr",
+        "docs": "hr",
+        "category": "Team",
+        "icon": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+        "tagline": "Employees, attendance with check-in, and leave with balances and approval.",
+        "summary": "tungsten-hr adds HR to your Tungsten panel. Keep employees and departments, let people check in "
+                   "and ask for leave, and approve it in one click. Leave days skip weekends and holidays.",
+        "features": [
+            ("Employees", "Job, department, manager, documents and your own extra details."),
+            ("Check in", "One button to check in and out. Hours, late marks and half days are worked out."),
+            ("Attendance", "Mark a day for many people at once. Approved leave shows up by itself."),
+            ("Leave", "Leave types, days per year, half days and balances."),
+            ("Approval", "Managers get a bell note and approve or reject. Employees get an email."),
+            ("Holidays and hooks", "A holiday list, and hooks for payroll, WhatsApp, Slack and more."),
+        ],
+        "setup": ('from tungsten_hr import HRPlugin\n\n'
+                  'panel = Panel(..., auth=Auth(User, mailer=send_mail))\n'
+                  'panel.plugin(HRPlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Can employees check in themselves?",
+             "Yes. Link the employee to their panel login, and they get Check in and Check out buttons."),
+            ("Are weekends and holidays counted as leave?",
+             "No. Leave days skip weekends and holidays. Set weekend=(6,) for a Sunday-only week off."),
+            ("Who approves leave?",
+             "The employee's manager, or the head of their department when they have no manager."),
+        ],
+    },
+    {
         "slug": "finance",
         "name": "Finance and accounts",
         "package": "tungsten-finance",
