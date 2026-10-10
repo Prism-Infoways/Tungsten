@@ -35,7 +35,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&family=JetBrains+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="{{ root }}static/site.css">
+<link rel="stylesheet" href="{{ root }}static/site.css?v={{ v }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
 <a class="skip" href="#main">Skip to content</a>
@@ -82,7 +82,7 @@
   </div>
 </div>
 <script>window.TW_ROOT = "{{ root }}";</script>
-<script src="{{ root }}static/search-index.js" defer></script>
-<script src="{{ root }}static/site.js" defer></script>
+<script src="{{ root }}static/search-index.js?v={{ v }}" defer></script>
+<script src="{{ root }}static/site.js?v={{ v }}" defer></script>
 </body>
 </html>
