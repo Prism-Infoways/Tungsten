@@ -30,12 +30,13 @@ from tungsten.forms import (
     TimePicker,
     Toggle,
 )
-from tungsten.importexport import ExportAction, ExportBulkAction
+from tungsten.importexport import ExportAction, ExportBulkAction, ImportAction, ImportColumn, Importer
 from tungsten.infolists import TextEntry
 from tungsten.support.colors import COLOR_NAMES
 from tungsten.tables import DateFilter, ListTab, SelectFilter, TernaryFilter, TextColumn, ToggleColumn
 
-from .models import Attendance, Department, Employee, Holiday, LeaveRequest, LeaveType
+from .biometric import apply_punch, find_employee, link_punches, parse_time, pull_device
+from .models import Attendance, BiometricDevice, Department, Employee, Holiday, LeaveRequest, LeaveType, Punch
 from .service import (
     ATTENDANCE_STATUSES,
     EMPLOYEE_STATUSES,
@@ -59,7 +60,9 @@ from .widgets import HRStats
 
 COLORS = {c: c.title() for c in COLOR_NAMES if c != "primary"} | {"primary": "Brand"}
 GENDERS = {"female": "Female", "male": "Male", "other": "Other"}
-SOURCES = {"panel": "Panel", "self": "Check-in button", "leave": "Leave", "import": "Import", "api": "API"}
+SOURCES = {"panel": "Panel", "self": "Check-in button", "leave": "Leave", "import": "Import", "api": "API",
+           "device": "Biometric machine"}
+PUNCH_SOURCES = {"push": "Machine sent", "pull": "Fetched", "api": "API", "import": "File"}
 
 
 def _plugin(ctx: Any) -> Any:
@@ -265,6 +268,8 @@ class EmployeeResource(Resource):
                 Select("status").options(_labels(EMPLOYEE_STATUSES)).default("active").required(),
                 Select("user_id").label("Logs in as").options(user_options).searchable()
                 .helper_text("The panel user who checks in and asks for leave as this person."),
+                TextInput("biometric_id").label("Machine ID").max_length(50).unique()
+                .helper_text("Their user ID / PIN on the biometric machine. Punches become attendance."),
             ]),
         ])
 
@@ -309,10 +314,15 @@ class EmployeeResource(Resource):
     @classmethod
     def after_create(cls, record, db, ctx):
         give_code(db, record)
+        link_punches(db, record)
         plugin = _plugin(ctx)
         if plugin is not None:
             for fn in list(plugin.employee_listeners.values()):
                 fn(db, record)
+
+    @classmethod
+    def after_save(cls, record, db):
+        link_punches(db, record)  # punches that came in before the machine ID was set
 
     @classmethod
     def table(cls, table):
@@ -814,17 +824,174 @@ class HolidayResource(Resource):
         )
 
 
+# ====================================================================== biometric
+def pull_action() -> Action:
+    def run(record, db, ctx):
+        from tungsten import Notification
+
+        try:
+            new, read = pull_device(db, record)
+        except Exception as exc:  # noqa: BLE001 - machine off, wrong IP, pyzk missing...
+            db.rollback()
+            Notification("Could not fetch punches").body(str(exc)[:300]).danger().send(ctx)
+            return
+        db.commit()
+        Notification("Punches fetched").body(f"{new} new of {read} on the machine.").success().send(ctx)
+
+    return (
+        Action("pull").label("Fetch punches").icon("download").color("primary")
+        .visible(lambda record: record is not None and bool(record.ip_address) and record.is_active)
+        .action(run)
+    )
+
+
+class BiometricDeviceResource(Resource):
+    model = BiometricDevice
+    slug = "biometric-devices"
+    icon = "fingerprint"
+    navigation_group = "HR"
+    navigation_sort = 60
+    label = "Biometric machine"
+    description = ("Fingerprint and face machines. They send punches to /iclock/cdata on your site, "
+                   "or the panel fetches them over the office network.")
+    simple = True
+
+    @classmethod
+    def navigation_badge(cls, db):
+        return db.scalar(select(func.count()).select_from(BiometricDevice)
+                         .where(BiometricDevice.is_active.is_(False))) or None
+
+    navigation_badge_color = "warning"
+
+    @classmethod
+    def form(cls, form):
+        return form.columns(2).schema([
+            TextInput("name").required().max_length(100).placeholder("Head office gate"),
+            TextInput("serial_number").label("Serial number (SN)").max_length(64).unique()
+            .helper_text("Needed when the machine sends punches (ADMS / Cloud server)."),
+            TextInput("ip_address").label("IP address").max_length(64).placeholder("192.168.1.201")
+            .helper_text("Only to fetch punches over the office network."),
+            TextInput("port").integer().default(4370),
+            TextInput("password").label("Comm key").integer().default(0),
+            Toggle("is_active").label("Take punches from this machine").default(True),
+        ])
+
+    @classmethod
+    def table(cls, table):
+        return (
+            table.columns([
+                TextColumn("name").weight("medium").searchable()
+                .description(lambda record: record.serial_number),
+                TextColumn("ip_address").label("IP").placeholder("—"),
+                ToggleColumn("is_active").label("On"),
+                TextColumn("last_seen_at").label("Last seen").since().placeholder("Never"),
+                TextColumn("last_punch_at").label("Last punch").since().placeholder("—"),
+            ])
+            .actions([pull_action().icon_button(), EditAction(), DeleteAction()])
+            .default_sort("name", "asc")
+        )
+
+
+class PunchImporter(Importer):
+    """CSV / Excel of punches: who (machine ID or employee code) and when."""
+
+    model = Punch
+    columns = [
+        ImportColumn("person").label("Employee").required().guess(
+            ["employee code", "code", "machine id", "user id", "userid", "pin", "emp code", "enroll no", "id"])
+        .example("EMP-0002"),
+        ImportColumn("punched_at").label("Time").required().guess(
+            ["punch time", "datetime", "date time", "timestamp", "log time", "punch"])
+        .cast_state_using(lambda state: parse_time(state)).example("2026-11-02 09:12:00"),
+    ]
+
+    @classmethod
+    def resolve_record(cls, ctx, data):
+        return db_punch(ctx.db, data) or Punch()
+
+    @classmethod
+    def fill_record(cls, ctx, record, data):
+        if record.id is not None:
+            return  # the same punch again: nothing to do
+        record.person = str(data["person"]).strip()[:50]
+        record.punched_at = data["punched_at"]
+        record.source = "import"
+        employee = find_employee(ctx.db, record.person)
+        record.employee_id = employee.id if employee is not None else None
+
+    @classmethod
+    def before_save(cls, ctx, record, data):
+        if record.id is None and record.employee_id is not None:
+            apply_punch(ctx.db, record.employee_id, record.punched_at)
+
+
+def db_punch(db, data):
+    person = str(data.get("person") or "").strip()[:50]
+    at = data.get("punched_at")
+    if not person or at is None:
+        return None
+    return db.scalars(select(Punch).where(Punch.person == person, Punch.punched_at == at)).first()
+
+
+class PunchResource(Resource):
+    """Every punch from machines, the API and files. Attendance is made from these."""
+
+    model = Punch
+    slug = "punches"
+    icon = "scan-line"
+    navigation_group = "HR"
+    navigation_sort = 61
+    description = "Raw punches from biometric machines, the API and files. The first and last of a day make attendance."
+    pages = ("index",)
+
+    @classmethod
+    def header_actions(cls, ctx, page, record=None):
+        return [ImportAction(PunchImporter).label("Upload punches")
+                .modal_heading("Upload punches")
+                .modal_description("A CSV or Excel file from any machine: one row per punch, "
+                                   "with the machine ID or employee code, and the time.")]
+
+    @classmethod
+    def table(cls, table):
+        return (
+            table.columns([
+                TextColumn("punched_at").label("Time").datetime().sortable(),
+                TextColumn("employee.first_name").label("Employee").placeholder("Not matched")
+                .state(lambda record: record.employee.name if record.employee else None)
+                .description(lambda record: f"ID {record.person}"),
+                TextColumn("device.name").label("Machine").placeholder("—"),
+                TextColumn("source").badge().color("gray")
+                .format_state_using(lambda state: PUNCH_SOURCES.get(state, state)),
+            ])
+            .filters([
+                SelectFilter("employee_id").label("Employee").options(_all_employee_options),
+                SelectFilter("source").options(PUNCH_SOURCES),
+                DateFilter("punched_at").label("Day"),
+            ])
+            .tabs([
+                ListTab("all").label("All"),
+                ListTab("unmatched").label("Not matched").badge(color="warning")
+                .query(lambda query, model: query.where(model.employee_id.is_(None))),
+            ])
+            .bulk_actions([ExportBulkAction(), DeleteBulkAction()])
+            .header_actions([ExportAction()])
+            .default_sort("punched_at", "desc")
+        )
+
+
 RESOURCES = [EmployeeResource, DepartmentResource, AttendanceResource, LeaveRequestResource, LeaveTypeResource,
-             HolidayResource]
+             HolidayResource, BiometricDeviceResource, PunchResource]
 
 __all__ = [
     "RESOURCES",
     "AttendanceResource",
+    "BiometricDeviceResource",
     "DepartmentResource",
     "EmployeeResource",
     "HolidayResource",
     "LeaveRequestResource",
     "LeaveTypeResource",
+    "PunchResource",
     "check_in_action",
     "check_out_action",
     "decide_action",

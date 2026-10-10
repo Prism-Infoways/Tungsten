@@ -59,6 +59,14 @@ def icon(name: str | None, cls: str = "h-5 w-5", stroke: float = 2) -> Markup:
         return Markup("")
     if str(name).lstrip().startswith("<svg"):
         return Markup(name)
+    try:
+        return _svg(name, cls, stroke)  # the same few icons are drawn on every row of every page
+    except TypeError:  # unhashable class or stroke
+        return _svg.__wrapped__(name, cls, stroke)
+
+
+@lru_cache(maxsize=2048)
+def _svg(name: str, cls: str, stroke: float) -> Markup:
     body = _icons().get(normalize(name))
     if body is None:
         body = _icons().get("circle", "")

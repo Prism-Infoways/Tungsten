@@ -154,6 +154,6 @@ Sign in at http://127.0.0.1:8000/admin with admin@example.com / password.
 | [`tungsten-blog`](https://pypi.org/project/tungsten-blog/) | Blog built for SEO, GEO and AEO, with a live score, sitemap and llms.txt | [Guide](https://tungsten.prisminfoways.com/docs/blog.html) |
 | [`tungsten-seo-audit`](https://pypi.org/project/tungsten-seo-audit/) | SEO audit of your website: score, fix tips, AI search checks, history | [Guide](https://tungsten.prisminfoways.com/docs/seo-audit.html) |
 | [`tungsten-security-audit`](https://pypi.org/project/tungsten-security-audit/) | Security audit with a score and fix tips, plus a login log with lockout | [Guide](https://tungsten.prisminfoways.com/docs/security-audit.html) |
-| [`tungsten-hr`](https://pypi.org/project/tungsten-hr/) | HR: employees, departments, attendance with check-in, leave with balances and approval | [Guide](https://tungsten.prisminfoways.com/docs/hr.html) |
+| [`tungsten-hr`](https://pypi.org/project/tungsten-hr/) | HR: employees, attendance with check-in and biometric machines, leave with approval | [Guide](https://tungsten.prisminfoways.com/docs/hr.html) |
 
 Core package: [`tungsten-admin`](https://pypi.org/project/tungsten-admin/). Website and docs: https://tungsten.prisminfoways.com/

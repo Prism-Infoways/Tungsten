@@ -45,7 +45,7 @@ def asset_version(name: str) -> str:
         return VERSION
 
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 VENDOR_FILES = ("chart.umd.min.js", "trix.umd.min.js", "trix.css", "tom-select.complete.min.js", "tom-select.css",
                 "sortable.min.js", "qrcode.js")
 
@@ -427,7 +427,11 @@ class Panel:
         return Markup("".join(out))
 
     def theme_css(self) -> Markup:
-        return Markup(color_tools.css_variables(self.colors))
+        key = repr(sorted(self.colors.items()))  # colors can change after setup, so cache by value
+        cached = getattr(self, "_theme_css", None)
+        if cached is None or cached[0] != key:
+            cached = self._theme_css = (key, Markup(color_tools.css_variables(self.colors)))
+        return cached[1]
 
     def csrf_token(self, ctx: "Context") -> str:
         token = ctx.session.get("tw_csrf")
