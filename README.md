@@ -72,7 +72,7 @@ class ProductResource(Resource):
 | **Theming & UX** | Brand colors (any Tailwind palette or a hex color), logo, dark mode, SPA mode (no full page reloads), unsaved-changes warning, collapsible sidebar, keyboard shortcuts (Ctrl/⌘+S saves). |
 | **Languages** | Every screen can be translated. Hindi ships built in; add any language with a JSON file. Users switch language from the user menu or the login page. |
 | **Database** | Works with a normal SQLAlchemy engine or an async one (`create_async_engine`). `async def` hooks work too. |
-| **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins (official ones for leads, help desk, blog, SEO and security audits, WhatsApp, Facebook leads and AI access), render hooks, CLI generators. |
+| **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins (official ones for leads, help desk, HR, blog, SEO and security audits, WhatsApp, Facebook leads and AI access), render hooks, CLI generators. |
 
 ## Official plugins
 
@@ -85,6 +85,7 @@ Add more with one `pip install`. Each plugin is its own package and turns on wit
 | [`tungsten-whatsapp`](https://pypi.org/project/tungsten-whatsapp/) | WhatsApp for leads: click-to-chat, Cloud API or WhatsApp Web | [Guide](https://tungsten.prisminfoways.com/docs/whatsapp.html) |
 | [`tungsten-mcp`](https://pypi.org/project/tungsten-mcp/) | MCP server, so AI assistants like Claude can read and change your data | [Guide](https://tungsten.prisminfoways.com/docs/mcp.html) |
 | [`tungsten-tickets`](https://pypi.org/project/tungsten-tickets/) | Help desk: tickets, replies, notes, SLA and a customer support page | [Guide](https://tungsten.prisminfoways.com/docs/tickets.html) |
+| [`tungsten-hr`](https://pypi.org/project/tungsten-hr/) | HR: employees, departments, attendance with check-in, leave with balances and approval | [Guide](https://tungsten.prisminfoways.com/docs/hr.html) |
 | [`tungsten-blog`](https://pypi.org/project/tungsten-blog/) | Blog built for SEO, GEO and AEO, with a live score, sitemap and llms.txt | [Guide](https://tungsten.prisminfoways.com/docs/blog.html) |
 | [`tungsten-seo-audit`](https://pypi.org/project/tungsten-seo-audit/) | SEO audit of your website: score, fix tips, AI search checks, history | [Guide](https://tungsten.prisminfoways.com/docs/seo-audit.html) |
 | [`tungsten-security-audit`](https://pypi.org/project/tungsten-security-audit/) | Security audit with a score and fix tips, plus a login log with lockout | [Guide](https://tungsten.prisminfoways.com/docs/security-audit.html) |
