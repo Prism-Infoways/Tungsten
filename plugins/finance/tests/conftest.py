@@ -67,7 +67,7 @@ def panel(tmp_path):
     mails.clear()
     panel = Panel(path="/admin", session_factory=factory, secret_key="test", app_url="https://books.example.com",
                   auth=Auth(User, mailer=lambda to, subject, body: mails.append((to, subject, body))))
-    panel.plugin(FinancePlugin(business_address="12 MG Road, Pune", payment_details="UPI: shop@okhdfc"))
+    panel.plugin(FinancePlugin(state="27", business_address="12 MG Road, Pune", payment_details="UPI: shop@okhdfc"))
     panel.create_tables(engine)
     panel.db = factory  # type: ignore[attr-defined]
     return panel

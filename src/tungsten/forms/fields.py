@@ -1766,6 +1766,9 @@ class Repeater(Field):
             errors.setdefault(path, []).append(__("The :attribute must have at least :min items.", attribute=label, min=self._min_items))
         if self._max_items is not None and len(out) > self._max_items:
             errors.setdefault(path, []).append(__("The :attribute may not have more than :max items.", attribute=label, max=self._max_items))
+        msgs = self.run_rules(form, base, out)
+        if msgs:
+            errors.setdefault(path, []).extend(msgs)
         if self.is_disabled(form, base) or not self.is_dehydrated(form, base):
             return
         if self._dehydrate_state is not None:

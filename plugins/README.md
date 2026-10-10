@@ -12,7 +12,7 @@ Official plugins for Tungsten. Each folder is its own pip package with its own v
 | [hr](hr) | `tungsten-hr` | HR: employees, departments, attendance with check-in and biometric machines, leave requests with balances and approval, holidays |
 | [security-audit](security-audit) | `tungsten-security-audit` | A security audit with a score and fix tips, plus a login log with lockout |
 | [seo-audit](seo-audit) | `tungsten-seo-audit` | SEO audit of your website: score, issues with fix tips, AI search checks, history |
-| [finance](finance) | `tungsten-finance` | Finance and accounts: invoices with GST, payments, expenses, bank balances and profit reports |
+| [finance](finance) | `tungsten-finance` | Finance and accounts like Tally or Zoho Books: GST invoices, bills, double-entry ledger, stock, reports, GSTR-1/3B |
 | [blog](blog) | `tungsten-blog` | A blog built for SEO, GEO and AEO, with a live score in the editor, schema.org data, sitemap and llms.txt |
 
 ## Working on a plugin

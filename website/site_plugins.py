@@ -210,32 +210,36 @@ PLUGINS = [
         "docs": "finance",
         "category": "Business",
         "icon": '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/>',
-        "tagline": "Invoices with GST, payments, expenses and profit reports.",
-        "summary": "tungsten-finance adds simple bookkeeping to your Tungsten panel. Bill customers with GST invoices "
-                   "they can open and print from a link, record payments and expenses, and see your profit, bank "
-                   "balances and who owes you money.",
+        "tagline": "Double-entry books with GST, like Tally, Busy or Zoho Books, inside your panel.",
+        "summary": "tungsten-finance adds full accounts to your Tungsten panel. GST invoices, quotes, credit notes, "
+                   "bills and payments post to a double-entry ledger by themselves, so you get profit and loss, "
+                   "balance sheet, trial balance, ledgers, stock and GSTR-1/3B data without a separate app.",
         "features": [
-            ("Invoices", "Line items with tax %, discount, live totals and numbers like INV-00012."),
-            ("Customer link", "Send the invoice by email; the customer opens and prints it, no login needed."),
-            ("Payments", "Record payments and invoices turn part paid or paid by themselves."),
-            ("Expenses", "Category, vendor, tax inside the bill and the receipt file."),
-            ("Bank and cash", "Accounts with live balances from payments and expenses."),
-            ("Reports", "Profit, spending by category, money owed by how late, and GST to pay."),
+            ("GST invoices", "HSN, discount, CGST and SGST or IGST by place of supply, round off, customer link."),
+            ("Quotes and notes", "Quotes that become invoices, credit notes and debit notes against documents."),
+            ("Bills and payments", "Vendor bills with input GST, payments in and out, expenses with receipts."),
+            ("Double-entry ledger", "Chart of accounts in Tally-style groups, journal and contra vouchers."),
+            ("Reports", "P&L, balance sheet, trial balance, ledger statement, day book, bank reconciliation."),
+            ("GST and stock", "GSTR-3B summary, GSTR-1 tables with HSN summary, stock summary, CSV export."),
         ],
         "setup": ('from tungsten_finance import FinancePlugin\n\n'
                   'panel = Panel(..., app_url="https://admin.example.com", auth=Auth(User, mailer=send_mail))\n'
-                  'panel.plugin(FinancePlugin(business_tax_id="27ABCDE1234F1Z5", payment_details="UPI: shop@okhdfc"))\n'
+                  'panel.plugin(FinancePlugin(state="27", business_tax_id="27ABCDE1234F1Z5", '
+                  'payment_details="UPI: shop@okhdfc"))\n'
                   'panel.create_tables(engine)'),
         "needs": [],
         "faqs": [
+            ("Is it like Tally or Zoho Books?",
+             "Yes for daily accounts: double-entry ledger, GST invoices, bills, notes, vouchers, stock and the main "
+             "reports. E-invoice, e-way bill, TDS, multi-currency and multi-company are not there yet."),
             ("Does it handle GST?",
-             "Yes. Each invoice line has a tax %, 18 by default. Reports show GST charged on invoices, GST paid on "
-             "expenses and what is left to pay."),
+             "Yes. It splits tax into CGST and SGST or IGST by place of supply, and gives GSTR-3B and GSTR-1 "
+             "tables (B2B, B2C, credit notes, HSN) as CSV for your CA."),
+            ("Do I have to post vouchers by hand?",
+             "No. Invoices, bills, notes, payments and expenses post their own vouchers. Journal vouchers are only "
+             "for other entries like depreciation."),
             ("Can customers download the invoice?",
              "Yes. They open a private link and press Print or save as PDF. No login needed."),
-            ("Is it a full accounting system?",
-             "It is simple cash-based bookkeeping for small teams: invoices, payments, expenses and reports. It is "
-             "not a double-entry ledger."),
         ],
     },
     {

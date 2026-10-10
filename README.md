@@ -86,7 +86,7 @@ Add more with one `pip install`. Each plugin is its own package and turns on wit
 | [`tungsten-mcp`](https://pypi.org/project/tungsten-mcp/) | MCP server, so AI assistants like Claude can read and change your data | [Guide](https://tungsten.prisminfoways.com/docs/mcp.html) |
 | [`tungsten-tickets`](https://pypi.org/project/tungsten-tickets/) | Help desk: tickets, replies, notes, SLA and a customer support page | [Guide](https://tungsten.prisminfoways.com/docs/tickets.html) |
 | [`tungsten-hr`](https://pypi.org/project/tungsten-hr/) | HR: employees, attendance with check-in and biometric machines, leave with approval | [Guide](https://tungsten.prisminfoways.com/docs/hr.html) |
-| [`tungsten-finance`](https://pypi.org/project/tungsten-finance/) | Finance: invoices with GST, payments, expenses, bank balances and profit reports | [Guide](https://tungsten.prisminfoways.com/docs/finance.html) |
+| [`tungsten-finance`](https://pypi.org/project/tungsten-finance/) | Accounts like Tally or Zoho Books: GST invoices, bills, ledger, stock, P&L, balance sheet, GSTR-1/3B | [Guide](https://tungsten.prisminfoways.com/docs/finance.html) |
 | [`tungsten-blog`](https://pypi.org/project/tungsten-blog/) | Blog built for SEO, GEO and AEO, with a live score, sitemap and llms.txt | [Guide](https://tungsten.prisminfoways.com/docs/blog.html) |
 | [`tungsten-seo-audit`](https://pypi.org/project/tungsten-seo-audit/) | SEO audit of your website: score, fix tips, AI search checks, history | [Guide](https://tungsten.prisminfoways.com/docs/seo-audit.html) |
 | [`tungsten-security-audit`](https://pypi.org/project/tungsten-security-audit/) | Security audit with a score and fix tips, plus a login log with lockout | [Guide](https://tungsten.prisminfoways.com/docs/security-audit.html) |

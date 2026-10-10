@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tungsten-finance"
-version = "0.1.0"
-description = "Finance and accounts plugin for Tungsten: invoices with GST, payments, expenses, bank balances and profit reports."
+version = "0.2.0"
+description = "Finance and accounts plugin for Tungsten: double-entry books with GST invoices, bills, quotes, notes, stock, P&L, balance sheet and GST returns."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Prism Infoways" }]
-keywords = ["tungsten", "tungsten-admin", "finance", "accounting", "invoices", "expenses", "gst", "fastapi", "admin"]
-dependencies = ["tungsten-admin>=0.1.5"]
+keywords = ["tungsten", "tungsten-admin", "finance", "accounting", "invoices", "expenses", "gst", "gstr", "ledger", "tally", "fastapi", "admin"]
+dependencies = ["tungsten-admin>=0.1.6"]
 
 [project.urls]
 Homepage = "https://tungsten.prisminfoways.com/"

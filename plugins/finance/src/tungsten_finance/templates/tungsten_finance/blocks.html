@@ -1,0 +1,40 @@
+{# Report tables. Each block: title, icon, columns [(label, "start"|"end")], rows [[cell]], foot, note, empty.
+   A cell is text, or a dict with text, url, bold, color ("danger"/"success"), indent. #}
+{% macro cell(value, align, foot=False) -%}
+{% set c = value if value is mapping else {'text': value} %}
+<td class="py-2" style="padding-left:8px;padding-right:8px;{% if align == 'end' %}text-align:right;white-space:nowrap;{% endif %}{% if c.indent %}padding-left:{{ 8 + 16 * c.indent }}px;{% endif %}{% if c.bold or foot %}font-weight:600;{% endif %}">
+{%- if c.url %}<a href="{{ c.url }}" class="text-primary-600 dark:text-primary-400" style="text-decoration:none">{{ c.text }}</a>
+{%- elif c.color == 'danger' %}<span class="text-danger-600 dark:text-danger-400">{{ c.text }}</span>
+{%- elif c.color == 'success' %}<span class="text-success-600 dark:text-success-400">{{ c.text }}</span>
+{%- else %}{{ c.text }}{% endif -%}
+</td>
+{%- endmacro %}
+<div data-finance-blocks style="display:grid;gap:24px;{% if blocks|length > 1 and not wide %}grid-template-columns:repeat(auto-fit,minmax(420px,1fr)){% endif %}">
+{% for b in blocks %}
+<section class="rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="min-width:0{% if b.wide %};grid-column:1/-1{% endif %}">
+  {% if b.title %}
+  <header class="flex items-center gap-x-3 px-6 py-4">
+    {% if b.icon %}<span class="text-gray-400">{{ icon(b.icon, 'h-5 w-5') }}</span>{% endif %}
+    <h3 class="text-base font-semibold text-gray-950 dark:text-white">{{ __(b.title) }}</h3>
+    {% if b.link %}<a href="{{ b.link.url }}" class="text-sm text-primary-600 dark:text-primary-400" style="margin-left:auto;text-decoration:none">{{ __(b.link.label) }}</a>{% endif %}
+  </header>
+  {% endif %}
+  <div class="border-t border-gray-200 dark:border-white/10" style="overflow-x:auto;padding:8px 16px">
+    {% if b.rows %}
+    <table class="w-full text-sm" style="border-collapse:collapse">
+      <thead><tr class="border-b border-gray-200 dark:border-white/10">
+        {% for label, align in b.columns %}<th class="py-2 text-gray-500 dark:text-gray-400" style="padding-left:8px;padding-right:8px;font-weight:500;text-align:{{ 'right' if align == 'end' else 'left' }}">{{ __(label) }}</th>{% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for row in b.rows %}<tr class="border-b border-gray-100 dark:border-white/5">{% for value in row %}{{ cell(value, b.columns[loop.index0][1]) }}{% endfor %}</tr>{% endfor %}
+      </tbody>
+      {% if b.foot %}<tfoot><tr class="border-t border-gray-200 dark:border-white/10">{% for value in b.foot %}{{ cell(value, b.columns[loop.index0][1], True) }}{% endfor %}</tr></tfoot>{% endif %}
+    </table>
+    {% else %}
+    <p class="py-4 text-sm text-gray-500 dark:text-gray-400" style="padding-left:8px">{{ __(b.empty or 'Nothing here for this period.') }}</p>
+    {% endif %}
+    {% if b.note %}<p class="py-2 text-sm text-gray-500 dark:text-gray-400" style="padding-left:8px">{{ b.note }}</p>{% endif %}
+  </div>
+</section>
+{% endfor %}
+</div>
