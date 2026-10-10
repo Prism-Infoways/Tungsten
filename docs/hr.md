@@ -1,6 +1,6 @@
 ---
 title: HR (employees, attendance, leave)
-description: Add HR to your panel with employees, departments, attendance with a check-in button, leave requests with balances and approval, and holidays.
+description: Add HR to your panel with employees, departments, attendance with a check-in button and biometric machines, leave requests with balances and approval, and holidays.
 ---
 
 The `tungsten-hr` plugin adds an **HR** menu to your panel: employees, departments, attendance, leave requests, leave types and holidays. People who log in to the panel can check in, check out and ask for leave. Managers approve it in one click.
@@ -42,6 +42,58 @@ There is one row per person per day: present, work from home, half day, absent, 
 - Select people on the Employees list and use **Mark attendance** to fill a day for many people at once.
 - Tabs: Today, This week, Late, Absent, All.
 
+## Biometric machines
+
+Punches from fingerprint or face machines become attendance. The first punch of a day is the check-in and the last one is the check-out. Late marks and half days work as above.
+
+First, put each person's number on the machine (their user ID or PIN) in the employee's **Machine ID** field. Punches that arrive before that are kept, and they are used as soon as the ID is set. They show under **Punches**, in the "Not matched" tab.
+
+Pick any of the three ways. You can use more than one.
+
+### 1. The machine sends punches (eSSL / ZKTeco ADMS)
+
+Most eSSL and ZKTeco machines have a **Cloud server** or **ADMS** setting. In the machine's menu, open Comm, then Cloud Server Setting:
+
+- Server address: your site, like `hr.example.com` (no `/admin`)
+- Server port: `443` with HTTPS on, or `80`
+- Turn **Domain name** on if you type a name instead of an IP
+
+The machine calls `https://your-site/iclock/cdata` and shows up under **Biometric machines**, switched off. Turn it on and its punches start coming in. To take punches from new machines at once, use `HRPlugin(auto_accept_devices=True)`.
+
+### 2. The panel fetches punches over the office network
+
+When the panel runs in the same network as the machine:
+
+```bash
+pip install "tungsten-hr[zk]"
+```
+
+Add the machine under **Biometric machines** with its IP address (port 4370 by default), then press **Fetch punches**. Only new punches are kept, so you can run it as often as you like, for example every 10 minutes from cron:
+
+```python
+from tungsten_hr import pull_all
+
+panel.with_session(lambda db: pull_all(db))
+```
+
+### 3. API or file, for any machine or software
+
+Upload a CSV or Excel file on the **Punches** screen with two columns: the machine ID or employee code, and the time.
+
+Or send punches from your own software:
+
+```python
+HRPlugin(api_token="long-secret")
+```
+
+```bash
+curl -X POST https://hr.example.com/admin/api/hr/punches \
+  -H "X-HR-Token: long-secret" -H "Content-Type: application/json" \
+  -d '{"punches": [{"employee": "EMP-0002", "time": "2026-11-02 09:12:00"}]}'
+```
+
+`employee` is the machine ID or the employee code. The answer counts what was saved and lists people it could not match. A punch sent twice is saved once.
+
 ## Leave
 
 1. Add **leave types** like Casual (12 days a year), Sick (8) or Unpaid (no limit).
@@ -64,6 +116,9 @@ HRPlugin(
     notify=True,
     mailer=None,                  # defaults to Auth(mailer=...)
     navigation_group="HR",
+    device_push=True,             # take punches from machines at /iclock/cdata
+    auto_accept_devices=False,    # a new machine waits until you turn it on
+    api_token=None,               # turns on POST <panel>/api/hr/punches
 )
 ```
 

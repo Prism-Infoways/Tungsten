@@ -5,13 +5,17 @@ build-backend = "hatchling.build"
 [project]
 name = "tungsten-hr"
 version = "0.1.0"
-description = "HR plugin for Tungsten: employees, departments, attendance with check-in, leave with balances and approval, holidays."
+description = "HR plugin for Tungsten: employees, departments, attendance with check-in and biometric machines, leave with balances and approval, holidays."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Prism Infoways" }]
-keywords = ["tungsten", "tungsten-admin", "hr", "hrms", "attendance", "leave", "employees", "fastapi", "admin"]
+keywords = ["tungsten", "tungsten-admin", "hr", "hrms", "biometric", "zkteco", "essl", "attendance", "leave", "employees", "fastapi", "admin"]
 dependencies = ["tungsten-admin>=0.1.5"]
+
+[project.optional-dependencies]
+# fetch punches from eSSL / ZKTeco machines over the office network
+zk = ["pyzk>=0.9"]
 
 [project.urls]
 Homepage = "https://tungsten.prisminfoways.com/"

@@ -69,7 +69,7 @@ def panel(tmp_path):
     mails.clear()
     panel = Panel(path="/admin", session_factory=factory, secret_key="test", app_url="https://hr.example.com",
                   auth=Auth(User, mailer=lambda to, subject, body: mails.append((to, subject, body))))
-    panel.plugin(HRPlugin())
+    panel.plugin(HRPlugin(api_token="hr-token"))
     panel.create_tables(engine)
     with factory() as db:
         db.info["tungsten_panel"] = panel

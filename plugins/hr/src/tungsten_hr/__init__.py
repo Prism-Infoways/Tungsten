@@ -18,15 +18,28 @@ from typing import Any
 from tungsten import Plugin
 from tungsten.support.evaluate import call
 
-from .models import Attendance, Department, Employee, Holiday, HRBase, LeaveRequest, LeaveType
+from .biometric import add_api_route, add_push_routes, link_punches, pull_all, pull_device, save_punch
+from .models import (
+    Attendance,
+    BiometricDevice,
+    Department,
+    Employee,
+    Holiday,
+    HRBase,
+    LeaveRequest,
+    LeaveType,
+    Punch,
+)
 from .resources import (
     RESOURCES,
     AttendanceResource,
+    BiometricDeviceResource,
     DepartmentResource,
     EmployeeResource,
     HolidayResource,
     LeaveRequestResource,
     LeaveTypeResource,
+    PunchResource,
 )
 from .service import (
     LeaveError,
@@ -60,6 +73,13 @@ class HRPlugin(Plugin):
     - ``email_employees``: email people when their leave is approved or rejected, through
       ``mailer`` or the panel's ``Auth(mailer=...)``.
     - ``notify``: bell notifications for approvers and employees who log in to the panel.
+
+    Biometric machines (see :mod:`tungsten_hr.biometric`):
+
+    - ``device_push``: eSSL / ZKTeco machines send punches to ``/iclock/cdata`` at your site root.
+    - ``auto_accept_devices``: take punches from a new machine at once. Off: it shows on the
+      Devices screen, switched off, until you turn it on.
+    - ``api_token``: turns on ``POST <panel>/api/hr/punches`` (send it in the ``X-HR-Token`` header).
     """
 
     id = "hr"
@@ -68,7 +88,8 @@ class HRPlugin(Plugin):
     def __init__(self, weekend: tuple[int, ...] = (5, 6), late_after: dt.time | None = dt.time(9, 30),
                  half_day_hours: float | None = 4, code_prefix: str = "EMP-", email_employees: bool = True,
                  notify: bool = True, mailer: Any = None, dashboard_widget: bool = True,
-                 navigation_group: str = "HR") -> None:
+                 navigation_group: str = "HR", device_push: bool = True, push_path: str = "/iclock",
+                 auto_accept_devices: bool = False, api_token: str | None = None) -> None:
         self.weekend = tuple(weekend)
         self.late_after = late_after
         self.half_day_hours = half_day_hours
@@ -78,6 +99,10 @@ class HRPlugin(Plugin):
         self.mailer = mailer
         self.dashboard_widget = dashboard_widget
         self.navigation_group = navigation_group
+        self.device_push = device_push
+        self.push_path = push_path
+        self.auto_accept_devices = auto_accept_devices
+        self.api_token = api_token
         self.panel: Any = None
         #: other plugins (payroll, WhatsApp, Slack...) hook in with the methods below
         self.employee_listeners: dict[str, Any] = {}
@@ -106,6 +131,12 @@ class HRPlugin(Plugin):
         panel.navigation_group(self.navigation_group, icon="users")
         if self.dashboard_widget:
             panel.widgets([HRStats])
+        if self.api_token:
+            panel.routes(lambda app, panel: add_api_route(app, panel, self))
+
+    def mount(self, app: Any, panel: Any) -> None:
+        if self.device_push:
+            add_push_routes(app, panel, self)
 
     # ------------------------------------------------------------------ messages
     def leave_link(self, request: LeaveRequest) -> str:
@@ -150,9 +181,40 @@ class HRPlugin(Plugin):
 
 
 __all__ = [
-    "Attendance", "AttendanceResource", "Department", "DepartmentResource", "Employee", "EmployeeResource",
-    "HRBase", "HRPlugin", "HRStats", "Holiday", "HolidayResource", "LeaveError", "LeaveRequest",
-    "LeaveRequestResource", "LeaveType", "LeaveTypeResource", "approve_leave", "check_in", "check_out",
-    "count_days", "decide_leave", "employee_for_user", "leave_balance", "mark_attendance", "month_summary",
-    "reject_leave", "request_leave", "working_days",
+    "Attendance",
+    "AttendanceResource",
+    "BiometricDevice",
+    "BiometricDeviceResource",
+    "Department",
+    "DepartmentResource",
+    "Employee",
+    "EmployeeResource",
+    "HRBase",
+    "HRPlugin",
+    "HRStats",
+    "Holiday",
+    "HolidayResource",
+    "LeaveError",
+    "LeaveRequest",
+    "LeaveRequestResource",
+    "LeaveType",
+    "LeaveTypeResource",
+    "Punch",
+    "PunchResource",
+    "approve_leave",
+    "check_in",
+    "check_out",
+    "count_days",
+    "decide_leave",
+    "employee_for_user",
+    "leave_balance",
+    "link_punches",
+    "mark_attendance",
+    "month_summary",
+    "pull_all",
+    "pull_device",
+    "reject_leave",
+    "request_leave",
+    "save_punch",
+    "working_days",
 ]
