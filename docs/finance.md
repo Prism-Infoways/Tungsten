@@ -31,7 +31,7 @@ This adds four menu groups:
 - **Accounting**: Chart of accounts, Bank & cash, Journal vouchers, Items & stock.
 - **Finance reports**: Overview, Profit and loss, Balance sheet, Trial balance, Ledger statement, Day book, GST returns, Stock summary, Bank reconciliation.
 
-It needs `tungsten-admin` 0.1.6 or newer. `mailer` is your own `send_mail(to, subject, body)` function. `app_url` makes the invoice links in emails full links.
+It needs `tungsten-admin` 0.1.7 or newer. `mailer` is your own `send_mail(to, subject, body)` function. `app_url` makes the invoice links in emails full links.
 
 ## First steps
 
