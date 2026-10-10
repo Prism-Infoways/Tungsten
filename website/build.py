@@ -211,14 +211,14 @@ def build(base_url: str = "") -> None:
         page = pages[slug]
         prev_page = pages[order[i - 1]] if i else None
         next_page = pages[order[i + 1]] if i + 1 < len(order) else None
-        url = f"{SITE_URL}/docs/{slug}.html"
+        url = f"{SITE_URL}/docs/{slug}"
         schema = graph(
             {"@type": "TechArticle", "headline": page["title"], "description": page["description"], "url": url,
              "mainEntityOfPage": url, "dateModified": page["modified"], "inLanguage": "en",
              "image": f"{SITE_URL}/static/img/og-image.jpg", "articleSection": section_of[slug],
              "author": {"@id": f"{SITE_URL}/#org"}, "publisher": {"@id": f"{SITE_URL}/#org"},
              "about": {"@id": f"{SITE_URL}/#software"}, "isPartOf": {"@type": "WebSite", "@id": f"{SITE_URL}/#site"}},
-            crumbs_schema([("Home", f"{SITE_URL}/"), ("Docs", f"{SITE_URL}/docs/introduction.html"),
+            crumbs_schema([("Home", f"{SITE_URL}/"), ("Docs", f"{SITE_URL}/docs/"),
                            (page["title"], url)]),
             ORG)
         out = tpl.render(page=page, pages=pages, section=section_of[slug], prev=prev_page, next=next_page,
@@ -253,7 +253,7 @@ def build(base_url: str = "") -> None:
     index_schema = graph(
         {"@type": "CollectionPage", "name": "Tungsten plugins", "url": index_url, "isPartOf": {"@id": f"{SITE_URL}/#site"},
          "mainEntity": {"@type": "ItemList", "itemListElement": [
-             {"@type": "ListItem", "position": i, "url": f"{SITE_URL}/plugins/{p['slug']}.html", "name": p["name"]}
+             {"@type": "ListItem", "position": i, "url": f"{SITE_URL}/plugins/{p['slug']}", "name": p["name"]}
              for i, p in enumerate(plugins, 1)]}},
         crumbs_schema([("Home", f"{SITE_URL}/"), ("Plugins", index_url)]),
         faq_schema(PLUGIN_FAQS))
@@ -262,7 +262,7 @@ def build(base_url: str = "") -> None:
         encoding="utf-8")
     tpl = env.get_template("plugin.html")
     for p in plugins:
-        url = f"{SITE_URL}/plugins/{p['slug']}.html"
+        url = f"{SITE_URL}/plugins/{p['slug']}"
         related = [o for o in plugins if o is not p and o["category"] == p["category"]]
         related += [o for o in plugins if o is not p and o not in related]
         schema = graph(
@@ -282,18 +282,67 @@ def build(base_url: str = "") -> None:
             crumbs_schema([("Home", f"{SITE_URL}/"), ("Plugins", index_url), (p["name"], url)]),
             faq_schema(p["faqs"]), ORG)
         (plugins_out / f"{p['slug']}.html").write_text(tpl.render(
-            root="../", p=p, faqs=p["faqs"], related=related[:3], canonical=url, schema=schema), encoding="utf-8")
+            root="../", p=p, faqs=p["faqs"], related=related[:3], canonical=url, schema=schema,
+            doc_toc=pages[p["docs"]]["toc"] if p.get("docs") in pages else []), encoding="utf-8")
 
-    site_files(pages, order, plugins)
+    entries = changelog_entries()
+    log_url = f"{SITE_URL}/changelog"
+    log_schema = graph(
+        {"@type": "WebPage", "name": "What's new in Tungsten", "url": log_url, "inLanguage": "en",
+         "dateModified": entries[0]["date"], "isPartOf": {"@id": f"{SITE_URL}/#site"},
+         "about": {"@id": f"{SITE_URL}/#software"},
+         "mainEntity": {"@type": "ItemList", "itemListElement": [
+             {"@type": "ListItem", "position": i, "name": f"{e['date']}: {e['title']}", "url": f"{log_url}#{e['date']}"}
+             for i, e in enumerate(entries, 1)]}},
+        crumbs_schema([("Home", f"{SITE_URL}/"), ("What's new", log_url)]), ORG)
+    (OUT / "changelog.html").write_text(env.get_template("changelog.html").render(
+        root="", entries=entries, canonical=log_url, md_url=f"{SITE_URL}/changelog.md", schema=log_schema),
+        encoding="utf-8")
+    shutil.copy(ROOT / "CHANGELOG.md", OUT / "changelog.md")
+
+    site_files(pages, order, plugins, entries)
+    for page in OUT.rglob("*.html"):
+        page.write_text(clean_links(page.read_text(encoding="utf-8")), encoding="utf-8")
     print(f"built {len(order)} doc pages into {OUT}")
 
 
-def site_files(pages: dict, order: list[str], plugins: list[dict]) -> None:
+def changelog_entries() -> list[dict]:
+    """CHANGELOG.md: one `## YYYY-MM-DD · Title` section per release day, newest first."""
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    entries = []
+    for part in re.split(r"^## ", text, flags=re.M)[1:]:
+        head, _, body = part.partition("\n")
+        day, _, title = head.partition("·")
+        day = day.strip()
+        entries.append({"date": day, "title": title.strip(), "markdown": body.strip(),
+                        "date_label": date.fromisoformat(day).strftime("%-d %B %Y"),
+                        "body": Markup(markdown.markdown(body.strip()))})
+    return entries
+
+
+def clean_links(page: str) -> str:
+    """Internal links without `.html`: `docs/forms.html#x` → `docs/forms#x`, `plugins/index.html` → `plugins/`.
+
+    The server maps `/docs/forms` back to `docs/forms.html` (see .htaccess)."""
+
+    def repl(m: re.Match) -> str:
+        path, anchor = m.group(1), m.group(2) or ""
+        if path == "index.html" or path.endswith("/index.html"):
+            path = path[:-len("index.html")] or "./"
+        else:
+            path = path[:-len(".html")]
+        return f'href="{path}{anchor}"'
+
+    return re.sub(r'href="((?:[^":#?]*/)?[^":#?/]+\.html)(#[^"]*)?"', repl, page)
+
+
+def site_files(pages: dict, order: list[str], plugins: list[dict], entries: list[dict]) -> None:
     """sitemap.xml, robots.txt, llms.txt, llms-full.txt and .htaccess."""
     site_mod = last_modified(SITE, DOCS)
-    urls = [(f"{SITE_URL}/", site_mod, "1.0"), (f"{SITE_URL}/plugins/", last_modified(SITE / "site_plugins.py"), "0.9")]
-    urls += [(f"{SITE_URL}/plugins/{p['slug']}.html", last_modified(SITE / "site_plugins.py"), "0.8") for p in plugins]
-    urls += [(f"{SITE_URL}/docs/{s}.html", pages[s]["modified"], "0.7") for s in order]
+    urls = [(f"{SITE_URL}/", site_mod, "1.0"), (f"{SITE_URL}/plugins/", last_modified(SITE / "site_plugins.py"), "0.9"),
+            (f"{SITE_URL}/changelog", entries[0]["date"], "0.8")]
+    urls += [(f"{SITE_URL}/plugins/{p['slug']}", last_modified(SITE / "site_plugins.py"), "0.8") for p in plugins]
+    urls += [(f"{SITE_URL}/docs/{s}", pages[s]["modified"], "0.7") for s in order]
     (OUT / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + "".join(f"  <url><loc>{u}</loc><lastmod>{m}</lastmod><priority>{p}</priority></url>\n" for u, m, p in urls)
@@ -317,13 +366,15 @@ def site_files(pages: dict, order: list[str], plugins: list[dict]) -> None:
             lines += [f"- [{pages[s]['title']}]({SITE_URL}/docs/{s}.md): {pages[s]['description']}" for s in items]
             lines.append("")
     lines += ["## Plugin pages", ""]
-    lines += [f"- [{p['name']} ({p['package']})]({SITE_URL}/plugins/{p['slug']}.html): {p['summary']}" for p in plugins]
+    lines += [f"- [{p['name']} ({p['package']})]({SITE_URL}/plugins/{p['slug']}): {p['summary']}" for p in plugins]
+    lines += ["", "## What's new", "", f"- [Changelog]({SITE_URL}/changelog.md): newest releases first"]
+    lines += [f"  - {e['date']}: {e['title']}" for e in entries[:5]]
     lines += ["", "## Optional", "", f"- [Full docs in one file]({SITE_URL}/llms-full.txt)",
               "- [PyPI package](https://pypi.org/project/tungsten-admin/)", f"- [GitHub]({REPO})", ""]
     (OUT / "llms.txt").write_text("\n".join(lines), encoding="utf-8")
 
     full = [f"# Tungsten documentation\n\n> {DESCRIPTION}\n"]
-    full += [f"\n\n---\n\n# {pages[s]['title']}\n\nSource: {SITE_URL}/docs/{s}.html\n\n{pages[s]['markdown']}"
+    full += [f"\n\n---\n\n# {pages[s]['title']}\n\nSource: {SITE_URL}/docs/{s}\n\n{pages[s]['markdown']}"
              for s in order]
     full += ["\n\n---\n\n# Plugins\n"]
     full += [f"\n## {p['name']} (`pip install {p['package']}`)\n\n{p['summary']}\n\n"
@@ -343,6 +394,17 @@ RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 RewriteCond %{HTTP_HOST} ^www\\.(.+)$ [NC]
 RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
+# clean addresses: /docs/forms.html and /plugins/index.html redirect to /docs/forms and /plugins/
+RewriteCond %{THE_REQUEST} \\s/+((?:[^?\\s]*/)?)index\\.html[?\\s]
+RewriteRule ^ /%1 [R=301,L]
+RewriteCond %{THE_REQUEST} \\s/+([^?\\s]+)\\.html[?\\s]
+RewriteRule ^ /%1 [R=301,L]
+# ... and /docs/forms serves docs/forms.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.+)$ $1.html [L]
 </IfModule>
 
 <IfModule mod_headers.c>
@@ -382,6 +444,11 @@ if __name__ == "__main__":
         import functools
         import http.server
 
-        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(OUT))
+        class Handler(http.server.SimpleHTTPRequestHandler):
+            def translate_path(self, path):  # /docs/forms → docs/forms.html, like the .htaccess
+                local = super().translate_path(path)
+                return local + ".html" if not Path(local).exists() and Path(local + ".html").exists() else local
+
+        handler = functools.partial(Handler, directory=str(OUT))
         print("serving on http://127.0.0.1:8080")
         http.server.ThreadingHTTPServer(("127.0.0.1", 8080), handler).serve_forever()
