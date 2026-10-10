@@ -1,0 +1,12 @@
+{% extends "tungsten/layout/base.html" %}
+{% block body %}
+<style>@media print { [data-finance-toolbar] { display:none !important } body { background:#fff !important } [data-finance-page] { padding:0 !important } [data-finance-invoice] { border:0 !important; padding:0 !important } }</style>
+<div data-finance-page style="min-height:100%;background:#f3f4f6;padding:32px 16px">
+  <div style="max-width:820px;margin:0 auto">
+    <div data-finance-toolbar style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px">
+      <button type="button" onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:#111827;color:#fff;font-size:14px;font-weight:600;cursor:pointer">{{ icon('printer', 'h-4 w-4') }}{{ __('Print or save as PDF') }}</button>
+    </div>
+    {{ document }}
+  </div>
+</div>
+{% endblock %}
