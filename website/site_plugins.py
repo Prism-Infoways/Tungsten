@@ -44,7 +44,7 @@ PLUGINS = [
         "package": "tungsten-meta-leads",
         "docs": "facebook-leads",
         "category": "Sales",
-        "icon": '<path d="M15 3h-2a4 4 0 0 0-4 4v3H7v4h2v7h4v-7h3l1-4h-4V7a1 1 0 0 1 1-1h2Z"/>',
+        "icon": '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M15.5 8H14a2 2 0 0 0-2 2v11M9.5 13h5"/>',
         "tagline": "Meta lead ads land in your panel the moment someone fills the form.",
         "summary": "tungsten-meta-leads connects your Facebook and Instagram lead forms to Tungsten. Press Connect "
                    "Facebook once and every new lead from your Meta lead ads arrives in tungsten-leads within "
