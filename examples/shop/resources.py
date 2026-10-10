@@ -612,7 +612,7 @@ class CustomerResource(Resource):
                 TextColumn("email").searchable().copyable(),
                 TextColumn("phone").prefix("+91 ").toggleable(),
                 TextColumn("city").description(lambda record: record.state).sortable(),
-                TextColumn("orders_count").label("Orders").state(lambda record: len(record.orders)),
+                TextColumn("orders_count").label("Orders").counts("orders"),
                 TextColumn("created_at").label("Customer since").since().sortable(),
             ])
             .filters([SelectFilter("state").options(list(STATES))])

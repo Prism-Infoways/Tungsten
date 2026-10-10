@@ -233,9 +233,14 @@ class Auth:
         if ctx.user is None:
             return []
         uid = self.user_id(ctx.user)
-        return list(ctx.db.scalars(
+        cached = getattr(ctx, "_roles", None)  # asked for by permission checks and the user menu alike
+        if cached is not None and cached[0] == uid:
+            return list(cached[1])
+        roles = list(ctx.db.scalars(
             select(Role).join(RoleAssignment).where(RoleAssignment.user_id == uid)
         ).all())
+        ctx._roles = (uid, roles)
+        return list(roles)
 
     def permissions(self, ctx: "Context") -> set[str]:
         if ctx._permissions is None:

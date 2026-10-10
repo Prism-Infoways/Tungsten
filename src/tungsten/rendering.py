@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
-from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PackageLoader, Template, select_autoescape
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, PackageLoader, Template, TemplateNotFound, select_autoescape
 from markupsafe import Markup
 
 from .forms.base import grid_class, span_class
@@ -60,6 +60,7 @@ class Renderer:
         loaders = [FileSystemLoader([str(p) for p in template_dirs])] if template_dirs else []
         loaders.append(_PackageLoader("tungsten", "templates"))
         self._loader = ChoiceLoader(loaders)
+        self._builtin: dict[str, bool] = {}
         self.env = Environment(
             loader=self._loader,
             autoescape=select_autoescape(["html", "xml"], default_for_string=True),
@@ -89,8 +90,27 @@ class Renderer:
     def add_dir(self, path: str | Path) -> None:
         """Look for templates in ``path`` too: after your own ``template_dirs``, before the built-in ones."""
         self._loader.loaders.insert(len(self._loader.loaders) - 1, FileSystemLoader(str(path)))
+        self._builtin.clear()
         if self.env.cache is not None:
             self.env.cache.clear()
+
+    def is_builtin(self, name: str) -> bool:
+        """True when ``name`` comes from Tungsten itself, not from a template folder that overrides it.
+
+        Hot paths (table cells) may then draw it in Python instead; an overridden template is always rendered.
+        """
+        found = self._builtin.get(name)
+        if found is None:
+            found = True
+            for loader in self._loader.loaders[:-1]:
+                try:
+                    loader.get_source(self.env, name)
+                except TemplateNotFound:
+                    continue
+                found = False
+                break
+            self._builtin[name] = found
+        return found
 
     def render(self, name: str, **context: Any) -> Markup:
         return Markup(self.env.get_template(name).render(**context))

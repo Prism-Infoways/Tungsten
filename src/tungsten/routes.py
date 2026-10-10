@@ -65,7 +65,7 @@ def build_app(panel: "Panel") -> FastAPI:
         https_only=panel.https_only_cookies,
     )
     # compress pages, CSS and JS (a list page shrinks from ~130 KB to ~15 KB)
-    app.add_middleware(GZipMiddleware, minimum_size=1000)
+    app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)  # level 9 is ~2x slower for ~1% smaller pages
     app.mount("/assets", CachedStaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
     for plugin in panel._plugins:
         if plugin.static:
