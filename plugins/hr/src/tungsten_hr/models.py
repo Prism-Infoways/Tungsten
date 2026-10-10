@@ -65,6 +65,8 @@ class Employee(HRBase):
     job_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
     manager_id: Mapped[int | None] = mapped_column(
         ForeignKey("tungsten_hr_employees.id", ondelete="SET NULL"), nullable=True, index=True)
+    #: the person's number on the biometric machine (the "user ID" or "PIN" punched in)
+    biometric_id: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     #: the panel user who logs in as this employee (for check-in and own leave)
     user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     #: full_time, part_time, contract, intern
@@ -191,3 +193,52 @@ class Holiday(HRBase):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.date:%d %b %Y})"
+
+
+class BiometricDevice(HRBase):
+    """A fingerprint / face machine (eSSL, ZKTeco...). It pushes punches, or the panel pulls them."""
+
+    __tablename__ = "tungsten_hr_devices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    #: the machine's serial number (SN), sent with every push
+    serial_number: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    #: for pulling over the office network
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    port: Mapped[int] = mapped_column(Integer, default=4370)
+    password: Mapped[int] = mapped_column(Integer, default=0)
+    #: punches are only taken from active machines
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_seen_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    last_punch_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Punch(HRBase):
+    """One raw punch from a machine, the API or a file. Attendance is worked out from punches."""
+
+    __tablename__ = "tungsten_hr_punches"
+    __table_args__ = (UniqueConstraint("person", "punched_at", name="uq_tungsten_hr_punch"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    #: what the machine or file sent: the machine ID or the employee code
+    person: Mapped[str] = mapped_column(String(50), index=True)
+    punched_at: Mapped[dt.datetime] = mapped_column(DateTime, index=True)
+    #: None until a person with this machine ID or code is found
+    employee_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tungsten_hr_employees.id", ondelete="CASCADE"), nullable=True, index=True)
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tungsten_hr_devices.id", ondelete="SET NULL"), nullable=True, index=True)
+    #: push (machine sent it), pull (panel fetched it), api, import
+    source: Mapped[str] = mapped_column(String(20), default="push")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
+
+    employee: Mapped[Employee | None] = relationship(lazy="joined")
+    device: Mapped[BiometricDevice | None] = relationship(lazy="joined")
+
+    def __str__(self) -> str:
+        return f"{self.person} {self.punched_at:%d %b %H:%M}"

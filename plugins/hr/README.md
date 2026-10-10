@@ -8,6 +8,7 @@ HR plugin for [Tungsten](https://tungsten.prisminfoways.com/), the admin panel f
 - **Departments** with a head.
 - **Attendance**: one row per person per day (present, work from home, half day, absent, on leave, holiday), check-in and check-out times, hours worked and late marks.
 - A **Check in / Check out** button for each person who logs in to the panel. Short days become half days by themselves.
+- **Biometric machines** (eSSL, ZKTeco and others): the machine sends punches by itself (ADMS / Cloud server), the panel fetches them over the office network, or you send them by API or upload a CSV / Excel file. First punch is the check-in, last is the check-out.
 - **Mark attendance** for many people at once from the Employees list.
 - **Leave requests** with leave types (Casual, Sick, Earned...), days per year, half days, and **balances** (left, used, waiting).
 - Leave days skip **weekends and holidays**. Clashing requests and requests over the balance are stopped with a clear message.
@@ -46,8 +47,26 @@ HRPlugin(
     notify=True,                  # bell notes for approvers and employees
     mailer=None,                  # defaults to Auth(mailer=...)
     navigation_group="HR",
+    device_push=True,             # biometric machines send punches to /iclock/cdata
+    auto_accept_devices=False,    # a new machine waits until you turn it on
+    api_token=None,               # turns on POST <panel>/api/hr/punches
 )
 ```
+
+## Biometric machines
+
+Set each person's **Machine ID** (their user ID / PIN on the machine). Then use any of these:
+
+1. **Machine sends punches**: in the machine's Cloud Server / ADMS setting, put your site address (no `/admin`). It shows up under *Biometric machines*; turn it on.
+2. **Panel fetches them** over the office network: `pip install "tungsten-hr[zk]"`, add the machine's IP, press *Fetch punches* (or run `pull_all(db)` from cron).
+3. **API or file**: `POST <panel>/api/hr/punches` with `X-HR-Token`, or *Upload punches* on the Punches screen.
+
+```bash
+curl -X POST https://hr.example.com/admin/api/hr/punches -H "X-HR-Token: long-secret" \
+  -H "Content-Type: application/json" -d '{"punches": [{"employee": "EMP-0002", "time": "2026-11-02 09:12:00"}]}'
+```
+
+See the [guide](https://tungsten.prisminfoways.com/docs/hr.html#biometric-machines) for the machine settings.
 
 ## From code
 
