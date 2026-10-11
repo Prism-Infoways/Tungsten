@@ -208,6 +208,10 @@
     // keyboard: left / right arrows and "t" move through the calendar when nothing else has focus
     if (!window.__twcalKeys) {
       window.__twcalKeys = true;
+      // a record made elsewhere on the page (like Quick Create's "+ New") shows up right away
+      document.addEventListener('tw-refresh', function () {
+        if (document.querySelector('[data-cal]')) location.reload();
+      });
       document.addEventListener('keydown', function (e) {
         var cal = document.querySelector('[data-cal]');
         var tag = (document.activeElement && document.activeElement.tagName) || '';

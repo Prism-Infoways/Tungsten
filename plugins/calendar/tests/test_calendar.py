@@ -336,7 +336,7 @@ def test_other_plugins_show_on_the_calendar(linked):
     hidden = c.get("/admin/calendar?date=2026-10-12&hide=leads,blog").text
     assert "Neha Gupta" not in hidden and "Launch post" not in hidden and "TCK-00001" in hidden
     # each item links to its record
-    assert re.search(r'href="/admin/tickets/\d+"[^>]*>.*?Due: TCK-00001', page, re.S)
+    assert re.search(r'href="/admin/tickets/\d+"[^>]*>.*?Due: TCK-00001', page, re.DOTALL)
 
 
 def test_links_can_be_limited(tmp_path):
@@ -389,3 +389,31 @@ def test_upcoming_widget(admin, panel):
     r = admin.client.get("/admin/_tw/widget/upcoming-events", headers={"HX-Request": "true"})
     assert r.status_code == 200, r.text
     assert "Tomorrow&#39;s review" in r.text and "Tomorrow" in r.text and "Next month" not in r.text
+
+
+def test_quick_create_makes_calendar_events(tmp_path):
+    quick = pytest.importorskip("tungsten_quick_create")
+    panel = make_panel(tmp_path, [quick.QuickCreatePlugin()])
+    c = client_for(panel)
+    assert c.login().status_code == 303
+    page = c.get("/admin/calendar").text
+    assert "/admin/_quick-create/calendar-events" in page and "tw-refresh" in page  # the calendar reloads after
+    form = c.client.get("/admin/_quick-create/calendar-events", headers={"HX-Request": "true"})
+    assert form.status_code == 200 and 'name="starts_at"' in form.text
+    r = c.post("/admin/_quick-create/calendar-events", {"title": "Quick sync", "kind": "call", "repeat": "none",
+                                                        "starts_at": "2026-10-21T12:00"})
+    assert r.status_code == 200 and "tw-refresh" in r.headers.get("HX-Trigger", "")
+    with panel.db() as db:
+        event = db.scalars(select(CalendarEvent)).one()
+    assert event.title == "Quick sync" and event.user_id == "1"  # the owner is set here too
+
+
+def test_all_day_switch_carries_dates_over():
+    from tungsten_calendar.resources import _switch_all_day
+
+    state = {"starts_at": "2026-10-20T09:00", "ends_at": "2026-10-21T10:00", "start_date": "", "end_date": ""}
+    _switch_all_day(True, state.get, state.__setitem__)
+    assert state["start_date"] == "2026-10-20" and state["end_date"] == "2026-10-21"
+    state = {"starts_at": "", "ends_at": "", "start_date": "2026-11-02", "end_date": ""}
+    _switch_all_day(False, state.get, state.__setitem__)
+    assert state["starts_at"] == "2026-11-02T09:00" and state["ends_at"] == "2026-11-02T10:00"

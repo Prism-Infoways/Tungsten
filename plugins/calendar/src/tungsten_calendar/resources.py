@@ -140,7 +140,7 @@ class CalendarEventResource(Resource):
         def kind_options(ctx):
             return {k: v[0] for k, v in _kinds(ctx).items()}
 
-        not_all_day = lambda get: not get("all_day")  # noqa: E731
+        not_all_day = lambda get: not get("all_day")
         return form.columns(2).schema([
             Section("Event").icon("calendar").columns(2).schema([
                 TextInput("title").required().max_length(200).autofocus().column_span("full"),

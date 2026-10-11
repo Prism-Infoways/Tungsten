@@ -19,8 +19,9 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from tungsten import Plugin
 from tungsten.support.evaluate import call
@@ -164,12 +165,12 @@ class CalendarPlugin(Plugin):
                     item.color = item.color or source.color
                     item.icon = item.icon or source.icon
                     out.append(item)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 log.exception("Calendar source %r failed", key)
                 try:
                     ctx.db.rollback()  # a failed query must not break the next source
                 except Exception:  # noqa: BLE001
-                    pass
+                    log.debug("Rollback after a failed calendar source failed too", exc_info=True)
                 failed.append(source.label)
         out.sort(key=lambda i: (i.start, i.title.lower()))
         return out, failed

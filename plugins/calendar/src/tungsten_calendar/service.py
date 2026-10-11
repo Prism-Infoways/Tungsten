@@ -8,8 +8,9 @@ from __future__ import annotations
 import calendar as _cal
 import datetime as dt
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 try:
     from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -147,7 +148,7 @@ class CalendarItem:
         self.title = str(self.title or "").strip() or "(no title)"
 
     @classmethod
-    def coerce(cls, value: Any, source: str, zone: Any = None) -> "CalendarItem":
+    def coerce(cls, value: Any, source: str, zone: Any = None) -> CalendarItem:
         """Accept a CalendarItem or a dict with the same keys; move times with an offset into ``zone``."""
         if isinstance(value, CalendarItem):
             item = value

@@ -9,8 +9,9 @@ filters (tenancy, "only my records", soft delete) still apply.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from sqlalchemy import extract, func, or_
 
