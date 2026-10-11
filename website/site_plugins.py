@@ -444,6 +444,47 @@ PLUGINS = [
              "No. It reads the environment once at start-up and adds a few hundred bytes to each page. It adds no tables."),
         ],
     },
+    {
+        "slug": "backups",
+        "name": "Backups",
+        "package": "tungsten-backups",
+        "docs": "backups",
+        "category": "Security",
+        "icon": '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 12a9 3 0 0 0 5 2.69"/><path d="M21 9.3V5"/>'
+                '<path d="M3 5v14a9 3 0 0 0 6.47 2.88"/><path d="M12 12v4h4"/>'
+                '<path d="M13 20a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L12 16"/>',
+        "tagline": "Back up your database and files from the panel, and download the zip.",
+        "summary": "tungsten-backups saves a copy of your database (SQLite, PostgreSQL or MySQL) and, if you like, "
+                   "your uploaded files, in a private folder on the server. Admins download it from the panel. "
+                   "Backups run in the background, are checked with SHA-256, old ones are deleted for you, and "
+                   "they can run on a timer or from cron.",
+        "features": [
+            ("One-click backup", "Back up the database, or the database and uploaded files, with one button."),
+            ("Any database", "SQLite copy, pg_dump, mysqldump, or every table as JSON when no tool is installed."),
+            ("Private by design", "Zips stay in a private folder. Only signed-in admins can download them."),
+            ("Checked", "A SHA-256 for every part, and a Check button that reads the whole zip back."),
+            ("Tidy and safe", "Keeps the last 10, checks disk space first, and a failed backup leaves no half file."),
+            ("Automatic", "Back up every few hours while the app runs, or from cron with one command."),
+        ],
+        "setup": ('from tungsten_backups import BackupsPlugin\n\n'
+                  'panel.plugin(BackupsPlugin(folder="storage/backups", every_hours=24))\n'
+                  'panel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Can anyone download my backups?",
+             "No. Backups are saved in a private folder and only signed-in admins with the download permission can "
+             "download them through the panel. There is never a public link."),
+            ("Which databases does it work with?",
+             "SQLite, PostgreSQL (with pg_dump) and MySQL or MariaDB (with mysqldump). Without a dump tool, or with "
+             "another database, every table is saved as JSON lines instead."),
+            ("Can I restore from the panel?",
+             "Not on purpose, so a wrong click can't wipe your data. Stop the app and put the SQLite file back, or "
+             "load database.sql with psql or mysql. The guide shows each step."),
+            ("Does it work with the Security audit plugin?",
+             "Yes. With tungsten-security-audit installed, the audit gets a Recent backup check that warns when "
+             "you have no backup or the newest one is old."),
+        ],
+    },
 ]
 
 PLUGIN_FAQS = [

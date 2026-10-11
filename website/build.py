@@ -52,7 +52,7 @@ NAV = [
     ("More", ["import-export", "multi-tenancy", "translations", "async-database", "plugins-and-hooks", "cli"]),
     ("Plugins", ["leads", "facebook-leads", "whatsapp", "mcp", "tickets", "hr", "finance", "tags", "blog", "seo-audit",
                  "security-audit", "quick-create",
-                 "environment-indicator"]),
+                 "environment-indicator", "backups"]),
 ]
 
 # Answers shown on the home page and as FAQPage schema (answer engines and AI search quote these).
