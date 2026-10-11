@@ -47,6 +47,7 @@ The form is the resource's own form, so fields, layout, live updates, file uploa
 - Any table on the page behind refreshes by itself, so the new record shows up at once.
 - If a field is wrong, the panel stays open with the message under the field and what you typed kept.
 - If saving fails (for example a duplicate in the database), you get a "Not saved" message and the form stays open. The error is logged.
+- With the [Environment indicator](environment-indicator) plugin on Live, the form says "You are on Live. This record goes into real data."
 
 ## Options
 

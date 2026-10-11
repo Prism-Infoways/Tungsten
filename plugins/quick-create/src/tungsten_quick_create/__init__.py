@@ -269,11 +269,25 @@ class QuickCreatePlugin(Plugin):
             log.exception("Quick create: could not link to the new record")
         return None
 
+    def _live_note(self, ctx: Any) -> str | None:
+        """With the environment indicator plugin on live, say so in the form, so nobody adds test data there."""
+        indicator = self.panel.get_plugin("environment-indicator")
+        if indicator is None or not hasattr(indicator, "current"):
+            return None
+        try:
+            env = indicator.current(ctx)
+        except Exception:  # never break the form because of the note
+            log.exception("Quick create: could not read the environment")
+            return None
+        if getattr(env, "is_production", False):
+            return __("You are on :env. This record goes into real data.", env=env.label)
+        return None
+
     def _modal(self, ctx: Any, resource: Any, form: Any) -> Response:
         m = {
             "endpoint": self.panel.url("_quick-create", resource.get_slug()),
             "heading": __("Create :label", label=resource.get_label().lower()),
-            "description": None,
+            "description": self._live_note(ctx),
             "icon": resource.icon,
             "icon_color": "primary",
             "submit_label": __("Create"),
