@@ -19,6 +19,20 @@ def board_state(ctx: Any) -> tuple[str, bool]:
     return (params.get("q") or "").strip()[:100], params.get("mine") in ("1", "true", "on")
 
 
+def quick_create_url(ctx: Any, board: Board) -> str | None:
+    """With the Quick Create plugin, "New" opens the form in a side panel right on the board."""
+    plugin = ctx.panel.get_plugin("quick-create")
+    if plugin is None:
+        return None
+    try:
+        resource = board.resource
+        if resource in plugin.resources() and plugin.allowed(ctx, resource):
+            return ctx.url("_quick-create", resource.get_slug())
+    except Exception:  # noqa: BLE001  (an add-on must never break the board)
+        return None
+    return None
+
+
 def render_board(ctx: Any, board: Board) -> Markup:
     q, mine = board_state(ctx)
     columns = board.get_columns(ctx)
@@ -36,10 +50,12 @@ def render_board(ctx: Any, board: Board) -> Markup:
         lanes.append({"column": other, "cards": [board.card(ctx, r, columns) for r in records], "more": more,
                       "count": counts[""]})
     base = ctx.url("_kanban", board.slug)
+    quick_url = quick_create_url(ctx, board)
     return Markup(ctx.panel.renderer.render(
         "tungsten_kanban/board.html", ctx=ctx, board=board, lanes=lanes, columns=columns, q=q, mine=mine,
         move_url=f"{base}/move", cards_url=f"{base}/cards", page_url=ctx.url(board.slug),
-        sortable=bool(board.order_column), total=sum(counts.values()),
+        sortable=bool(board.order_column), total=sum(counts.values()), quick_url=quick_url,
+        new_label=__("New :thing", thing=board.resource.get_label()),
     ))
 
 
@@ -75,7 +91,7 @@ class BoardPage(Page):
 
         resource = cls.board.resource
         actions = []
-        if resource.has_page("create") and resource.can(ctx, "create"):
+        if resource.has_page("create") and resource.can(ctx, "create") and quick_create_url(ctx, cls.board) is None:
             actions.append(Action("kanban_create").label(__("New :thing", thing=resource.get_label()))
                            .icon("plus").url(resource.get_url(ctx, "create")))
         actions.append(Action("kanban_list").label(__("List view")).icon("list").color("gray")

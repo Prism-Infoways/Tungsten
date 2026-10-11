@@ -186,6 +186,13 @@
     }, function (e) { console.error(e); });
   }
 
+  // a record made in a popup (Quick Create...) asks the page to refresh: redraw the board in place
+  document.addEventListener("tw-refresh", function () {
+    var board = document.querySelector("[data-tk-board]");
+    if (!board || !window.htmx) return;
+    window.htmx.ajax("GET", window.location.href, { target: board, select: "[data-tk-board]", swap: "outerHTML" });
+  });
+
   function boot() {
     init(document);
     if (window.htmx) window.htmx.onLoad(function (el) { if (el) init(el); });

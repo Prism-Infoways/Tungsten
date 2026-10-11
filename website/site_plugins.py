@@ -384,6 +384,37 @@ PLUGINS = [
              "Yes. Cards can be dragged with a finger, and every card has a Move to menu."),
         ],
     },
+    {
+        "slug": "quick-create",
+        "name": "Quick Create",
+        "package": "tungsten-quick-create",
+        "docs": "quick-create",
+        "category": "Productivity",
+        "icon": '<circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>',
+        "tagline": "A + New button in the top bar to create any record from any page.",
+        "summary": "tungsten-quick-create adds a + New button to the top bar of your Tungsten panel. It lists every "
+                   "resource the user may create, from your code and from other plugins, and opens the form in a side "
+                   "panel so a record can be added from any page without losing your place.",
+        "features": [
+            ("From any page", "One + New button in the top bar, with the form in a side panel or popup."),
+            ("Every resource", "Your own resources and those of other plugins: leads, tickets, HR, finance, blog."),
+            ("Permissions", "Users only see what they may create. Roles, policies and tenants are respected."),
+            ("Same form", "Live fields, uploads, validation and create hooks work like the normal create page."),
+            ("Create another", "Save and start the next one, and tables on the page refresh by themselves."),
+            ("Search and shortcut", "Grouped menu with a search box, and an optional keyboard shortcut."),
+        ],
+        "setup": 'from tungsten_quick_create import QuickCreatePlugin\n\npanel.plugin(QuickCreatePlugin())',
+        "needs": [],
+        "faqs": [
+            ("Which forms does Quick Create show?",
+             "Every resource with a create page or create form that the signed-in user may create, grouped like the "
+             "sidebar. Hide one with quick_create = False on the resource, or pick them with include and exclude."),
+            ("Does it need database tables?",
+             "No. It saves through each resource's own create code, so hooks, validation and the activity log run."),
+            ("Can other plugins add their own entries?",
+             "Yes. Call add_link(key, label, url) on the plugin to add a link such as New event or Upload file."),
+        ],
+    },
 ]
 
 PLUGIN_FAQS = [

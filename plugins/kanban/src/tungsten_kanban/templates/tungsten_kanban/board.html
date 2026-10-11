@@ -4,7 +4,7 @@
      data-t-error="{{ __('Could not move the card') }}" data-t-offline="{{ __('Check your internet connection and try again.') }}"
      data-t-expired="{{ __('Your session ended. Refresh the page and sign in again.') }}"
      data-t-not-allowed="{{ __('This card can not go to that column.') }}">
-  {% if board.search or board.assignee %}
+  {% if board.search or board.assignee or quick_url %}
   <form method="get" action="{{ page_url }}" class="tk-toolbar" role="search">
     {% if board.search %}
     <label class="tk-search">
@@ -22,6 +22,8 @@
     {% if board.search %}<button type="submit" class="{{ ui.button_classes('gray', size='sm', outlined=true) }}">{{ __('Search') }}</button>{% endif %}
     {% if q or mine %}<a href="{{ page_url }}" class="{{ ui.button_classes('gray', style='link') }}">{{ __('Clear') }}</a>{% endif %}
     <span class="tk-total">{{ __(':n cards', n=total) }}</span>
+    {% if quick_url %}<button type="button" class="{{ ui.button_classes('primary', size='sm') }}" hx-get="{{ quick_url }}"
+            hx-target="#tw-modal" hx-swap="innerHTML">{{ icon('plus', 'h-4 w-4') }}<span>{{ new_label }}</span></button>{% endif %}
   </form>
   {% endif %}
 

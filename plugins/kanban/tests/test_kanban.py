@@ -358,3 +358,12 @@ def test_card_text_is_escaped(admin, panel):
     html = admin.get("/admin/tasks-board").text
     assert "<script>alert(1)</script>" not in html and "&lt;script&gt;" in html
     assert "<b>bold</b>" not in html
+
+
+def test_new_button_uses_quick_create(admin):
+    html = admin.get("/admin/tasks-board").text
+    assert 'hx-get="/admin/_quick-create/tasks"' in html and "New Task" in html
+    # without Quick Create for a resource, "New" links to its create page
+    html = admin.get("/admin/leave-board").text
+    assert "_quick-create/leave-requests" not in html
+    assert 'href="/admin/leave-requests/create"' in html

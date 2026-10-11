@@ -13,6 +13,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from tungsten_hr import Employee, HRPlugin, LeaveType
 from tungsten_kanban import Board, KanbanPlugin
 from tungsten_leads import LeadsPlugin
+from tungsten_quick_create import QuickCreatePlugin
 from tungsten_tickets import TicketsPlugin
 
 from tungsten import Auth, Panel, Resource, hash_password
@@ -147,6 +148,7 @@ def panel(tmp_path):
     panel.plugin(LeadsPlugin())
     panel.plugin(TicketsPlugin(email_requester=False))
     panel.plugin(HRPlugin())
+    panel.plugin(QuickCreatePlugin(exclude=["leave-requests"]))
     panel.create_tables(engine)
     with factory() as db:
         db.info["tungsten_panel"] = panel

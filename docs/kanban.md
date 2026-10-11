@@ -23,7 +23,7 @@ panel.plugin(KanbanPlugin(boards=[
 ]))
 ```
 
-The board is a page in the menu, next to its resource, at `/admin/tasks-board`. The resource's list gets a **Board view** button, and the board has **List view** and **New** buttons. It needs `tungsten-admin` 0.1.5 or newer. The plugin has no tables of its own.
+The board is a page in the menu, next to its resource, at `/admin/tasks-board`. The resource's list gets a **Board view** button, and the board has **List view** and **New** buttons. With the [Quick Create](quick-create) plugin, **New** opens the form in a side panel and the new card shows on the board right away. It needs `tungsten-admin` 0.1.5 or newer. The plugin has no tables of its own.
 
 ## Ready boards for other plugins
 
