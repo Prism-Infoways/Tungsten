@@ -1,0 +1,51 @@
+{% import "tungsten/components/ui.html" as ui %}
+<div class="tk-board" data-tk-board data-move-url="{{ move_url }}" data-sortable="{{ 'true' if sortable else 'false' }}"
+     data-q="{{ q }}" data-mine="{{ '1' if mine else '' }}"
+     data-t-error="{{ __('Could not move the card') }}" data-t-offline="{{ __('Check your internet connection and try again.') }}"
+     data-t-expired="{{ __('Your session ended. Refresh the page and sign in again.') }}"
+     data-t-not-allowed="{{ __('This card can not go to that column.') }}">
+  {% if board.search or board.assignee or quick_url %}
+  <form method="get" action="{{ page_url }}" class="tk-toolbar" role="search">
+    {% if board.search %}
+    <label class="tk-search">
+      {{ icon('search', 'h-4 w-4 text-gray-400') }}
+      <input type="search" name="q" value="{{ q }}" maxlength="100" placeholder="{{ __('Search cards') }}"
+             aria-label="{{ __('Search cards') }}">
+    </label>
+    {% endif %}
+    {% if board.assignee and ctx.user %}
+    <label class="tk-mine">
+      <input type="checkbox" name="mine" value="1" {% if mine %}checked{% endif %} onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+      <span>{{ __('Only mine') }}</span>
+    </label>
+    {% endif %}
+    {% if board.search %}<button type="submit" class="{{ ui.button_classes('gray', size='sm', outlined=true) }}">{{ __('Search') }}</button>{% endif %}
+    {% if q or mine %}<a href="{{ page_url }}" class="{{ ui.button_classes('gray', style='link') }}">{{ __('Clear') }}</a>{% endif %}
+    <span class="tk-total">{{ __(':n cards', n=total) }}</span>
+    {% if quick_url %}<button type="button" class="{{ ui.button_classes('primary', size='sm') }}" hx-get="{{ quick_url }}"
+            hx-target="#tw-modal" hx-swap="innerHTML">{{ icon('plus', 'h-4 w-4') }}<span>{{ new_label }}</span></button>{% endif %}
+  </form>
+  {% endif %}
+
+  <div class="tk-lanes" role="list">
+    {% for lane in lanes %}
+    {% set column = lane.column %}
+    <section class="tk-lane" role="listitem" data-tk-lane="{{ column.key }}" data-accepts="{{ 'true' if column.accepts else 'false' }}"
+             aria-label="{{ column.label }}">
+      <header class="tk-lane-head">
+        <span class="tk-dot" style="background: rgb(var(--tw-c-{{ column.color }}-500))"></span>
+        <h2 class="tk-lane-title">{{ column.label }}</h2>
+        <span class="tk-count{% if column.limit and lane.count > column.limit %} tk-over{% endif %}" data-tk-count
+              data-limit="{{ column.limit or '' }}"
+              title="{% if column.limit %}{{ __('Limit: :n', n=column.limit) }}{% endif %}">{{ lane.count }}{% if column.limit %}/{{ column.limit }}{% endif %}</span>
+      </header>
+      <div class="tk-cards" data-tk-cards>
+        {% with cards = lane.cards, more = lane.more, column_key = column.key, offset = lane.cards|length %}
+        {% include "tungsten_kanban/cards.html" %}
+        {% endwith %}
+      </div>
+      <p class="tk-empty"{% if lane.cards %} hidden{% endif %} data-tk-empty>{{ __(board.empty_text) }}</p>
+    </section>
+    {% endfor %}
+  </div>
+</div>

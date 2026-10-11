@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="{{ theme_color }}">
+  <meta name="robots" content="noindex">
+  <title>{{ title }} · {{ app_name }}</title>
+  <link rel="icon" href="{{ icon }}">
+  <style>
+    :root { color-scheme: light dark; --bg: {{ background_color }}; --fg: #18181b; --muted: #71717a; --brand: {{ theme_color }}; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #09090b; --fg: #fafafa; --muted: #a1a1aa; } }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--bg); color: var(--fg);
+           font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-align: center; }
+    main { max-width: 360px; }
+    img { width: 72px; height: 72px; border-radius: 18px; }
+    h1 { margin: 20px 0 8px; font-size: 22px; font-weight: 700; }
+    p { margin: 0 0 24px; color: var(--muted); }
+    button { border: 0; border-radius: 10px; padding: 10px 20px; background: var(--brand); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+    button:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="{{ icon }}" alt="{{ app_name }}">
+    <h1>{{ title }}</h1>
+    <p>{{ text }}</p>
+    <button type="button" onclick="location.reload()">{{ retry }}</button>
+  </main>
+  <script>window.addEventListener("online", function () { location.reload(); });</script>
+</body>
+</html>

@@ -377,6 +377,49 @@ PLUGINS = [
         ],
     },
     {
+        "slug": "kanban",
+        "name": "Kanban boards",
+        "package": "tungsten-kanban",
+        "docs": "kanban",
+        "category": "Productivity",
+        "icon": '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7v7M12 7v4M16 7v9"/>',
+        "tagline": "Show any resource as a drag-and-drop board, with columns by status.",
+        "summary": "tungsten-kanban shows the records of any Tungsten resource as a Kanban board. Each column is a "
+                   "status or stage, and dragging a card to another column changes the record. It comes with ready "
+                   "boards for leads, tickets and leave requests, and the server checks every move.",
+        "features": [
+            ("Drag and drop", "Move cards between columns, and up and down when the board has an order field."),
+            ("Phones and keyboards", "Touch dragging, plus a Move to menu on every card."),
+            ("Ready boards", "Lead stages, ticket status and leave requests, when those plugins are added."),
+            ("Safe moves", "Permissions, tenancy, allowed moves and your own rules, checked on the server."),
+            ("No lost changes", "If two people move one card, the second is told and the board refreshes."),
+            ("Search and limits", "Search, Only mine, counts per column, limits per column and Load more."),
+        ],
+        "setup": ('from tungsten_kanban import Board, KanbanPlugin\n\n'
+                  'panel.plugin(KanbanPlugin(boards=[\n'
+                  '    Board(TaskResource, column="status", columns={\n'
+                  '        "todo": ("To do", "gray"),\n'
+                  '        "doing": ("Doing", "primary"),\n'
+                  '        "done": ("Done", "success"),\n'
+                  '    }, order_column="sort"),\n'
+                  ']))'),
+        "needs": [],
+        "faqs": [
+            ("Which records can I show on a board?",
+             "Any Tungsten resource. Pick the field for the columns, such as status or stage, and the values and "
+             "labels of the columns. Enum fields work without listing the columns."),
+            ("Does it work with the leads, tickets and HR plugins?",
+             "Yes. Add them to the same panel and you get a Leads board, a Tickets board and a Leave board. Moves go "
+             "through each plugin's own rules, so a ticket moved to Resolved emails the customer and leave is checked "
+             "against the balance."),
+            ("Can I stop some moves?",
+             "Yes. List the allowed moves with transitions, or return a reason from can_move. People who can't "
+             "edit a record can't move its card."),
+            ("Does it work on a phone?",
+             "Yes. Cards can be dragged with a finger, and every card has a Move to menu."),
+        ],
+    },
+    {
         "slug": "quick-create",
         "name": "Quick Create",
         "package": "tungsten-quick-create",
@@ -483,6 +526,39 @@ PLUGINS = [
             ("Does it work with the Security audit plugin?",
              "Yes. With tungsten-security-audit installed, the audit gets a Recent backup check that warns when "
              "you have no backup or the newest one is old."),
+        ],
+    },
+    {
+        "slug": "pwa",
+        "name": "Install as an app (PWA)",
+        "package": "tungsten-pwa",
+        "docs": "pwa",
+        "category": "Team",
+        "icon": '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 18h.01M12 6v7M9 10l3 3 3-3"/>',
+        "tagline": "Install your panel like an app on phones and computers, with an offline page.",
+        "summary": "tungsten-pwa turns your Tungsten panel into a Progressive Web App. Your team installs it from the "
+                   "browser on Android, iPhone, Windows or Mac, and it opens in its own window with your icon, "
+                   "loads faster and shows a clean offline page. Pages and data are never cached.",
+        "features": [
+            ("Install app button", "One tap in Chrome, Edge and Android. Add to Home Screen on iPhone."),
+            ("Your brand", "App name, icons and theme color from your panel, or your own icons."),
+            ("App shortcuts", "Long press the icon to open pages like New order. Other plugins can add their own."),
+            ("Faster loading", "CSS, JavaScript, fonts and images are kept on the device."),
+            ("Offline page", "A clean offline page and an offline bar, which reload when the internet is back."),
+            ("Safe by design", "Pages and data are never cached, so login, CSRF and permissions work as before."),
+        ],
+        "setup": 'from tungsten_pwa import PWAPlugin\n\npanel.plugin(PWAPlugin())',
+        "needs": [],
+        "faqs": [
+            ("Does it work on iPhone?",
+             "Yes. Open the panel in Safari, tap Share, then Add to Home Screen. It then opens like an app."),
+            ("Can people use the panel with no internet?",
+             "They see a clean offline page that reloads by itself when the internet is back. Pages and data are "
+             "never stored on the device, which keeps data safe on shared or lost phones."),
+            ("Does my site need https?",
+             "Yes. Browsers only allow installing apps over https. On your own computer, localhost works too."),
+            ("How do I remove it later?",
+             "Deploy once with PWAPlugin(uninstall=True). Each browser removes the app's files on its next visit."),
         ],
     },
     {

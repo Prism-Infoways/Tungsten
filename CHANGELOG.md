@@ -4,6 +4,7 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 
 ## 2026-10-11 · HR and Finance on PyPI
 
+- **New plugin: Install as an app** (`tungsten-pwa`). Your team installs the panel like an app on Android, iPhone, Windows and Mac, with app icons, shortcuts, faster loading and an offline page. Pages and data are never cached.
 - **`tungsten-hr` 0.1.0** is on PyPI: `pip install tungsten-hr`. Employees, attendance with check-in and biometric machines, leave with approval, and holidays.
 - **`tungsten-finance` 0.2.0** is on PyPI: `pip install tungsten-finance`. Double-entry books with GST, invoices, payments, expenses and reports. Needs `tungsten-admin` 0.1.7.
 
