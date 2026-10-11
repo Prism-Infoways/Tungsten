@@ -104,6 +104,7 @@ When the environment is Live and your app was created with `FastAPI(debug=True)`
 ## Works with other plugins
 
 - **MCP**: with the [MCP plugin](mcp), AI assistants are told which environment they are working in. On Live they are told that changes affect real data, and to confirm before changing anything.
+- **Quick Create**: with the [Quick Create](quick-create) plugin on Live, its form says "You are on Live. This record goes into real data."
 - **Your own plugins** can show the same badge, for example in a banner:
 
 ```python
