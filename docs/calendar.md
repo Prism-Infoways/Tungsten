@@ -74,6 +74,7 @@ Two more plugins work with the calendar:
 
 - [Tags](tags): events get a tags box, a tags column and a tag filter in **Events**.
 - [Quick Create](quick-create): **+ New → Event** adds an event from any page, and the calendar updates right away.
+- [Install as an app](pwa): the installed app gets a **Calendar** shortcut on its icon.
 
 ## Add your own dates
 

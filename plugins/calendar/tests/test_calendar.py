@@ -433,3 +433,10 @@ def test_events_get_tags_with_the_tags_plugin(tmp_path):
         event = db.scalars(select(CalendarEvent)).one()
         assert panel.get_plugin("tags").tags_for(db, event) == ["Client"]
     assert "Client" in c.get("/admin/calendar-events?tab=all").text
+
+
+def test_pwa_app_shortcut(tmp_path):
+    pwa = pytest.importorskip("tungsten_pwa")
+    panel = make_panel(tmp_path, [pwa.PWAPlugin()])
+    shortcuts = panel.get_plugin("pwa").get_shortcuts()
+    assert {"Calendar": "/admin/calendar"}.items() <= {s["name"]: s["url"] for s in shortcuts}.items()

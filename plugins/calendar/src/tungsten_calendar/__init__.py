@@ -182,6 +182,10 @@ class CalendarPlugin(Plugin):
             return set()
         return set(self.links)
 
+    def pwa_shortcuts(self, panel: Any) -> list[dict[str, str]]:
+        """With the PWA plugin: "Calendar" in the menu of the installed app's icon."""
+        return [{"name": "Calendar", "url": panel.url("calendar"), "description": "Your events and due dates"}]
+
     def _attach_tags(self, panel: Any) -> None:
         """With the Tags plugin, events get a tags box, a tags column and a tag filter."""
         from .resources import CalendarEventResource
