@@ -94,6 +94,7 @@ Add more with one `pip install`. Each plugin is its own package and turns on wit
 | [`tungsten-environment-indicator`](https://pypi.org/project/tungsten-environment-indicator/) | Local / Staging / Live badge, colored line and tab title, so nobody works on live by mistake | [Guide](https://tungsten.prisminfoways.com/docs/environment-indicator) |
 | [`tungsten-quick-create`](https://pypi.org/project/tungsten-quick-create/) | A + New button in the top bar to create any record from any page | [Guide](https://tungsten.prisminfoways.com/docs/quick-create) |
 | [`tungsten-backups`](https://pypi.org/project/tungsten-backups/) | Back up the database and uploaded files from the panel and download the zip | [Guide](https://tungsten.prisminfoways.com/docs/backups.html) |
+| [`tungsten-impersonate`](https://pypi.org/project/tungsten-impersonate/) | Admins log in as any user to see what they see, with a time limit and a log | [Guide](https://tungsten.prisminfoways.com/docs/impersonate) |
 
 ```bash
 pip install tungsten-admin tungsten-tickets tungsten-blog
