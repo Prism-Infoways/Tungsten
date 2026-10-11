@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tungsten-pwa"
+version = "0.1.0"
+description = "PWA plugin for Tungsten: install your FastAPI admin panel like an app on phones and computers, with app icons, shortcuts, faster loading and an offline page."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Prism Infoways" }]
+keywords = ["tungsten", "tungsten-admin", "pwa", "progressive web app", "service worker", "manifest", "offline", "fastapi", "admin"]
+dependencies = ["tungsten-admin>=0.1.5"]
+
+[project.urls]
+Homepage = "https://tungsten.prisminfoways.com/"
+Documentation = "https://tungsten.prisminfoways.com/docs/pwa"
+Repository = "https://github.com/Prism-Infoways/Tungsten"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tungsten_pwa"]

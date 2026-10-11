@@ -72,7 +72,7 @@ class ProductResource(Resource):
 | **Theming & UX** | Brand colors (any Tailwind palette or a hex color), logo, dark mode, SPA mode (no full page reloads), unsaved-changes warning, collapsible sidebar, keyboard shortcuts (Ctrl/⌘+S saves). |
 | **Languages** | Every screen can be translated. Hindi ships built in; add any language with a JSON file. Users switch language from the user menu or the login page. |
 | **Database** | Works with a normal SQLAlchemy engine or an async one (`create_async_engine`). `async def` hooks work too. |
-| **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins (official ones for leads, help desk, HR, blog, SEO and security audits, WhatsApp, Facebook leads and AI access), render hooks, CLI generators. |
+| **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins (official ones for leads, help desk, HR, blog, SEO and security audits, install as an app (PWA), WhatsApp, Facebook leads and AI access), render hooks, CLI generators. |
 
 ## Official plugins
 
@@ -94,6 +94,7 @@ Add more with one `pip install`. Each plugin is its own package and turns on wit
 | [`tungsten-environment-indicator`](https://pypi.org/project/tungsten-environment-indicator/) | Local / Staging / Live badge, colored line and tab title, so nobody works on live by mistake | [Guide](https://tungsten.prisminfoways.com/docs/environment-indicator) |
 | [`tungsten-quick-create`](https://pypi.org/project/tungsten-quick-create/) | A + New button in the top bar to create any record from any page | [Guide](https://tungsten.prisminfoways.com/docs/quick-create) |
 | [`tungsten-backups`](https://pypi.org/project/tungsten-backups/) | Back up the database and uploaded files from the panel and download the zip | [Guide](https://tungsten.prisminfoways.com/docs/backups.html) |
+| [`tungsten-pwa`](https://pypi.org/project/tungsten-pwa/) | Install the panel like an app on phones and computers, with shortcuts and an offline page | [Guide](https://tungsten.prisminfoways.com/docs/pwa) |
 
 ```bash
 pip install tungsten-admin tungsten-tickets tungsten-blog
