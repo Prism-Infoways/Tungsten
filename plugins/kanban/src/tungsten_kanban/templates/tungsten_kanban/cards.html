@@ -1,0 +1,36 @@
+{% import "tungsten/components/ui.html" as ui %}
+{% for card in cards %}
+<article class="tk-card{% if not card.can_move %} tk-locked{% endif %}" data-tk-card="{{ card.key }}"
+         {% if card.targets is not none %}data-targets="{{ card.targets|join(',') }}"{% endif %}
+         {% if card.color %}style="border-inline-start: 3px solid rgb(var(--tw-c-{{ card.color }}-500))"{% endif %}>
+  <div class="tk-card-top">
+    {% if card.can_move %}<span class="tk-grip" aria-hidden="true">{{ icon('grip-vertical', 'h-4 w-4') }}</span>{% endif %}
+    {% if card.url %}<a href="{{ card.url }}" class="tk-card-title">{{ card.title }}</a>
+    {% else %}<span class="tk-card-title">{{ card.title }}</span>{% endif %}
+  </div>
+  {% if card.description %}<p class="tk-card-text">{{ card.description }}</p>{% endif %}
+  {% if card.fields %}
+  <dl class="tk-fields">
+    {% for label, value in card.fields %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}
+  </dl>
+  {% endif %}
+  {% if card.badges or card.can_move %}
+  <div class="tk-card-foot">
+    {% for text, color in card.badges %}{{ ui.badge(text, color) }}{% endfor %}
+    {% if card.can_move and columns|length > 1 %}
+    <select class="tk-move" data-tk-move aria-label="{{ __('Move :card to', card=card.title) }}">
+      <option value="">{{ __('Move to…') }}</option>
+      {% for c in columns %}
+      {% if c.key != column_key and (card.targets is none or c.key in card.targets) %}<option value="{{ c.key }}">{{ c.label }}</option>{% endif %}
+      {% endfor %}
+    </select>
+    {% endif %}
+  </div>
+  {% endif %}
+</article>
+{% endfor %}
+{% if more %}
+<button type="button" class="tk-more" data-tk-more
+        hx-get="{{ cards_url }}?column={{ column_key|urlencode }}&offset={{ offset }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if mine %}&mine=1{% endif %}"
+        hx-target="this" hx-swap="outerHTML">{{ __('Load more') }}</button>
+{% endif %}
