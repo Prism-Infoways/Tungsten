@@ -528,6 +528,39 @@ PLUGINS = [
              "you have no backup or the newest one is old."),
         ],
     },
+    {
+        "slug": "pwa",
+        "name": "Install as an app (PWA)",
+        "package": "tungsten-pwa",
+        "docs": "pwa",
+        "category": "Team",
+        "icon": '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 18h.01M12 6v7M9 10l3 3 3-3"/>',
+        "tagline": "Install your panel like an app on phones and computers, with an offline page.",
+        "summary": "tungsten-pwa turns your Tungsten panel into a Progressive Web App. Your team installs it from the "
+                   "browser on Android, iPhone, Windows or Mac, and it opens in its own window with your icon, "
+                   "loads faster and shows a clean offline page. Pages and data are never cached.",
+        "features": [
+            ("Install app button", "One tap in Chrome, Edge and Android. Add to Home Screen on iPhone."),
+            ("Your brand", "App name, icons and theme color from your panel, or your own icons."),
+            ("App shortcuts", "Long press the icon to open pages like New order. Other plugins can add their own."),
+            ("Faster loading", "CSS, JavaScript, fonts and images are kept on the device."),
+            ("Offline page", "A clean offline page and an offline bar, which reload when the internet is back."),
+            ("Safe by design", "Pages and data are never cached, so login, CSRF and permissions work as before."),
+        ],
+        "setup": 'from tungsten_pwa import PWAPlugin\n\npanel.plugin(PWAPlugin())',
+        "needs": [],
+        "faqs": [
+            ("Does it work on iPhone?",
+             "Yes. Open the panel in Safari, tap Share, then Add to Home Screen. It then opens like an app."),
+            ("Can people use the panel with no internet?",
+             "They see a clean offline page that reloads by itself when the internet is back. Pages and data are "
+             "never stored on the device, which keeps data safe on shared or lost phones."),
+            ("Does my site need https?",
+             "Yes. Browsers only allow installing apps over https. On your own computer, localhost works too."),
+            ("How do I remove it later?",
+             "Deploy once with PWAPlugin(uninstall=True). Each browser removes the app's files on its next visit."),
+        ],
+    },
 ]
 
 PLUGIN_FAQS = [
