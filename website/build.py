@@ -28,7 +28,7 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 
-from site_plugins import PLUGIN_FAQS, PLUGINS
+from site_plugins import BLOG_POSTS, INTRO_POST, PLUGIN_FAQS, PLUGINS, RELATED
 
 ROOT = Path(__file__).resolve().parent.parent
 SITE = Path(__file__).resolve().parent
@@ -169,9 +169,16 @@ def build(base_url: str = "") -> None:
         shutil.copy(video, OUT / "static" / "img" / "promo.mp4")
 
     env = Environment(loader=FileSystemLoader(SITE / "templates"), autoescape=True)
-    plugins = [dict(p, version=package_version(ROOT / "plugins" / p["package"].removeprefix("tungsten-")))
-               for p in PLUGINS]
-    env.globals.update(repo=REPO, nav=NAV, year=2026, site_url=SITE_URL, plugins=plugins)
+    plugins = [dict(p, version=package_version(ROOT / "plugins" / p["package"].removeprefix("tungsten-")),
+                    blog=BLOG_POSTS.get(p["slug"])) for p in PLUGINS]
+    by_slug = {p["slug"]: p for p in plugins}
+    for p in plugins:
+        unknown = [s for s in RELATED.get(p["slug"], []) if s not in by_slug]
+        if unknown:
+            raise SystemExit(f"site_plugins.RELATED[{p['slug']!r}] names unknown plugins: {unknown}")
+        p["works_with"] = [by_slug[s] for s in RELATED.get(p["slug"], [])]
+    plugin_of_doc = {p["docs"]: p for p in plugins if p.get("docs")}
+    env.globals.update(repo=REPO, nav=NAV, year=2026, site_url=SITE_URL, plugins=plugins, intro_post=INTRO_POST)
     # cache-busting version for CSS/JS, so browsers fetch new files after each deploy
     digest = hashlib.sha1()
     for f in [SITE / "static" / "site.css", SITE / "static" / "site.js", *sorted(DOCS.glob("*.md"))]:
@@ -224,6 +231,7 @@ def build(base_url: str = "") -> None:
                            (page["title"], url)]),
             ORG)
         out = tpl.render(page=page, pages=pages, section=section_of[slug], prev=prev_page, next=next_page,
+                         plugin=plugin_of_doc.get(slug),
                          root="../", edit_url=f"{REPO}/blob/HEAD/docs/{slug}.md", canonical=url,
                          md_url=f"{SITE_URL}/docs/{slug}.md", og_type="article", schema=schema)
         (docs_out / f"{slug}.html").write_text(out, encoding="utf-8")
@@ -265,8 +273,11 @@ def build(base_url: str = "") -> None:
     tpl = env.get_template("plugin.html")
     for p in plugins:
         url = f"{SITE_URL}/plugins/{p['slug']}"
-        related = [o for o in plugins if o is not p and o["category"] == p["category"]]
+        related = list(p["works_with"])
+        related += [o for o in plugins if o is not p and o not in related and o["category"] == p["category"]]
         related += [o for o in plugins if o is not p and o not in related]
+        related = related[:6]
+        links = [f"{SITE_URL}/plugins/{o['slug']}" for o in related] + ([p["blog"][1]] if p["blog"] else [])
         schema = graph(
             {"@type": "SoftwareApplication", "name": f"{p['package']}", "alternateName": p["name"],
              "description": p["summary"], "url": url, "applicationCategory": "DeveloperApplication",
@@ -278,13 +289,15 @@ def build(base_url: str = "") -> None:
              "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
              "featureList": [f"{t}: {d}" for t, d in p["features"]],
              "softwareRequirements": ", ".join(["tungsten-admin", *p["needs"]]),
-             "isPartOf": {"@id": f"{SITE_URL}/#software"}, "author": {"@id": f"{SITE_URL}/#org"}},
-            {"@type": "WebPage", "url": url, "name": f"{p['name']} plugin for Tungsten",
+             "isPartOf": {"@id": f"{SITE_URL}/#software"}, "author": {"@id": f"{SITE_URL}/#org"},
+             **({"subjectOf": {"@type": "BlogPosting", "headline": p["blog"][0], "url": p["blog"][1],
+                               "publisher": {"@id": f"{SITE_URL}/#org"}}} if p["blog"] else {})},
+            {"@type": "WebPage", "url": url, "name": f"{p['name']} plugin for Tungsten", "relatedLink": links,
              "speakable": {"@type": "SpeakableSpecification", "cssSelector": [".speakable"]}},
             crumbs_schema([("Home", f"{SITE_URL}/"), ("Plugins", index_url), (p["name"], url)]),
             faq_schema(p["faqs"]), ORG)
         (plugins_out / f"{p['slug']}.html").write_text(tpl.render(
-            root="../", p=p, faqs=p["faqs"], related=related[:3], canonical=url, schema=schema,
+            root="../", p=p, faqs=p["faqs"], related=related, canonical=url, schema=schema,
             doc_toc=pages[p["docs"]]["toc"] if p.get("docs") in pages else []), encoding="utf-8")
 
     entries = changelog_entries()

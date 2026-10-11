@@ -35,11 +35,13 @@
           <div><dt>License</dt><dd>MIT, free</dd></div>
           <div><dt>Needs</dt><dd>tungsten-admin{% for n in p.needs %}, {{ n }}{% endfor %}</dd></div>
           <div><dt>Python</dt><dd>3.10 or newer</dd></div>
+          {% if p.works_with %}<div><dt>Works with</dt><dd class="works-with">{% for o in p.works_with %}<a href="{{ o.slug }}.html">{{ o.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
         </dl>
         <div class="pkg-links">
           <a href="https://pypi.org/project/{{ p.package }}/" rel="noopener">PyPI</a>
           <a href="{{ repo }}/tree/HEAD/plugins/{{ p.package | replace('tungsten-', '') }}" rel="noopener">Source code</a>
           {% if p.docs %}<a href="../docs/{{ p.docs }}.html">Full docs</a>{% endif %}
+          {% if p.blog %}<a href="{{ p.blog[1] }}" rel="noopener">Blog post</a>{% endif %}
         </div>
       </aside>
     </div>
@@ -97,6 +99,17 @@
     </div>
   </section>
   {% endif %}
+
+  <section class="section blog-strip">
+    <div class="wrap">
+      {% set post = p.blog or intro_post %}
+      <a class="blog-card" href="{{ post[1] }}" rel="noopener">
+        <span class="eyebrow">{% if p.blog %}On our blog{% else %}New to Tungsten? Read on our blog{% endif %}</span>
+        <strong>{{ post[0] }}</strong>
+        <span class="blog-card-more">Read the post on prisminfoways.com <span aria-hidden="true">→</span></span>
+      </a>
+    </div>
+  </section>
 
   <section class="section faq-section">
     <div class="wrap faq-grid">
