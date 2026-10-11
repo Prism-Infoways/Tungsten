@@ -99,6 +99,20 @@ class QuickCreatePlugin(Plugin):
     def remove_link(self, key: str) -> None:
         self.links.pop(key, None)
 
+    #: how many "New ..." shortcuts the installed app gets (phones show about four)
+    pwa_shortcut_limit = 4
+
+    def pwa_shortcuts(self, panel: Any) -> list[dict[str, str]]:
+        """App shortcuts for tungsten-pwa: "New ..." for the first resources, then plain links.
+
+        They open the normal create page, which checks the user's permissions as always.
+        """
+        out = [{"name": __("New :label", label=r.get_label()), "url": panel.url(r.get_slug(), "create")}
+               for r in self.resources() if r.has_page("create")]
+        out += [{"name": __(link.label), "url": link.url} for link in sorted(self.links.values(), key=lambda l: l.sort)
+                if isinstance(link.url, str) and link.visible is True]
+        return out[:self.pwa_shortcut_limit]
+
     # ------------------------------------------------------------------ setup
     def register(self, panel: Any) -> None:
         self.panel = panel

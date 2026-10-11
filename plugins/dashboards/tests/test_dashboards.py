@@ -291,3 +291,47 @@ def test_quick_create_gets_a_dashboard_entry(tmp_path):
     assert "/admin/dashboards?new=1" in client.get("/admin/").text
     page = client.get("/admin/dashboards?new=1").text
     assert 'hx-trigger="load"' in page and "new_dashboard" in page
+
+
+def test_works_with_calendar_and_pwa(tmp_path):
+    import pytest
+
+    calendar = pytest.importorskip("tungsten_calendar")
+    pwa = pytest.importorskip("tungsten_pwa")
+    from conftest import Base, PanelClient, User, UserResource, gate
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from tungsten_dashboards import DashboardsPlugin
+
+    from tungsten import Auth, Panel, hash_password
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'c.db'}")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(engine)
+    with factory() as db:
+        db.add(User(name="A", email="admin@example.com", password=hash_password("password"), is_admin=True))
+        db.commit()
+    panel = Panel(path="/admin", session_factory=factory, secret_key="t", auth=Auth(User, gate=gate))
+    panel.resources([UserResource])
+    panel.plugin(calendar.CalendarPlugin())
+    panel.plugin(pwa.PWAPlugin())
+    panel.plugin(DashboardsPlugin())
+    panel.create_tables(engine)
+    panel.db = factory  # type: ignore[attr-defined]
+    app = FastAPI()
+    panel.mount(app)
+    client = PanelClient(TestClient(app))
+    client.login()
+    assert any(s.get("url", "").endswith("/dashboards") for s in panel.get_plugin("pwa").get_shortcuts())
+    new_dashboard(client, "Week", start="group:Calendar")
+    with session(panel) as db:
+        d = db.scalars(select(CustomDashboard)).one()
+    keys = [w for w, _, _ in items(panel, d.id)]
+    assert keys, "calendar widgets should be offered"
+    page = client.get(f"/admin/dashboards?d={d.id}")
+    assert page.status_code == 200
+    with session(panel) as db:
+        item = db.scalars(select(DashboardItem)).first()
+    assert client.get(f"/admin/dashboards/_w/{item.id}").status_code == 200

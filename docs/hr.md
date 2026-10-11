@@ -144,3 +144,7 @@ hr.on_employee_created("payroll", lambda db, employee: ...)
 hr.on_leave_requested("slack", lambda db, request: ...)
 hr.on_leave_decided("whatsapp", lambda db, request, old_status: ...)
 ```
+
+## Works with other plugins
+
+- **[Impersonate](impersonate)**: employees that have a panel login get a **Log in as** button, so an admin can see their check-in and leave pages as they do.

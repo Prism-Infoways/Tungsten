@@ -94,7 +94,7 @@ if dashboards is not None:
     dashboards.add_template("Projects", [OverdueTasks, TasksByStatus])
 ```
 
-With the [Quick Create](quick-create) plugin installed, its **+ New** menu gets a **Dashboard** entry.
+With the [Quick Create](quick-create) plugin installed, its **+ New** menu gets a **Dashboard** entry. With the [PWA](pwa) plugin, the installed app's icon menu gets a **Dashboards** shortcut. Widgets of [Calendar](calendar), [Backups](backups) and every other plugin show up in the **Add widgets** list by themselves.
 
 ## Safe by design
 

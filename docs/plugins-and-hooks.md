@@ -61,6 +61,7 @@ A plugin can call any public `Panel` method on the panel it receives:
 | `panel.navigation_group(label, icon=None, collapsed=False, collapsible=True)` | A sidebar group |
 | `panel.user_menu_item(label, url, icon=None)` | A link in the user menu |
 | `panel.render_hook(name, fn)` | HTML at a named spot (see below) |
+| `panel.record_action(target, factory, row=True, pages=("view", "edit"))` | A button on another resource's rows and record pages (see below) |
 | `panel.routes` | Your own routes (see below) |
 
 ### Adding links
@@ -83,6 +84,24 @@ class DocsPlugin(Plugin):
 ```
 
 `NavigationItem` takes `label`, `url`, `icon`, `group`, `sort`, `badge`, `badge_color`, `parent`, `new_tab` and `visible` (a bool or a closure, e.g. `lambda user: user.is_admin`). See [Navigation](navigation).
+
+### Adding buttons to other resources
+
+A plugin can put a button on a resource it doesn't own, such as your app's users or another plugin's records, without changing that resource's code. `target` is the resource class, its model or its slug, and `factory` returns a fresh `Action` each time:
+
+```python
+from tungsten.actions import Action
+
+
+class AuditPlugin(Plugin):
+    id = "audit"
+
+    def boot(self, panel):
+        panel.record_action(User, lambda: Action("history").icon("history").url(
+            lambda record: f"/admin/history?user={record.id}"))
+```
+
+The button shows at the end of every table row (`row=False` to skip rows) and in the header of the record's view and edit pages (`pages=`). Hide it per record with `.visible(lambda ctx, record: ...)`. The [Impersonate plugin](impersonate) uses this to add **Log in as** to users, HR employees and tickets.
 
 ### Plugin permissions
 
@@ -204,7 +223,8 @@ The names are `chart`, `trix`, `select`, `sortable` and `qr`. `twNeed()` loads e
 | `content.start` | Above the main content of every panel page |
 | `content.end` | Below the main content of every panel page |
 | `auth.login.form.after` | Under the login form |
-| `resource.list.before-table` | On every resource list page, just above the table |
+| `resource.list.before-table` | On every resource list page, just above the table. Also gets `resource`, `host` and `table` |
+| `forms.file-upload.after` | Under every file field that can take more files. Also gets `field`, `v` (the field's view data) and `form` |
 
 ### Hook functions get what they ask for
 
@@ -243,6 +263,15 @@ def products_note(ctx):
 panel.render_hook("resource.list.before-table", products_note)
 ```
 
+On `resource.list.before-table` the function can also ask for `resource` (the resource class), `host` and `table` (the bound table about to be drawn), so it doesn't have to guess from the address:
+
+```python
+def products_note(resource):
+    if resource.get_slug() != "products":
+        return None
+    return Markup('<p class="mb-4 text-sm text-gray-500">Prices include GST.</p>')
+```
+
 ### Rendering a template
 
 For bigger pieces of HTML, render a Jinja template with the panel's renderer. The template can use the same helpers as Tungsten's own templates, such as `__()` and `icon()`:
@@ -274,6 +303,18 @@ The route is served under the panel path, here `/admin/blog/api/stats`.
 > These are plain FastAPI routes. They don't check login, permissions or the CSRF token, so protect them yourself.
 >
 > Any path works, even short ones like `/admin/feed`. Your routes come before the panel's page and resource routes, so a route with the same path as a page or resource (like `/admin/products`) replaces it. Pick paths that don't clash.
+
+## File hooks
+
+Plugins that work with uploads (a media library, a virus scanner, a CDN sync) can use these:
+
+| Method | What it does |
+| --- | --- |
+| `panel.on_upload(key, fn)` | `fn(ctx, path, filename, content_type, size, field)` runs after a form upload is stored. Return another stored path to use it instead (for example the copy you already have). Errors are logged and never lose the upload. |
+| `panel.on_file_pick(key, fn)` | Lets file fields take an already stored file. `fn(ctx, path, field)` returns `True` to allow it. A `file.pick:<field>:<path>` UI action then fills the field; the field's type and size rules still apply. Without a check, picks are refused. |
+| `panel.on_file_names(key, fn)` | `fn(ctx, paths)` returns `{path: "Team photo.png"}`, so file fields show real names instead of the stored id. |
+
+The same `key` replaces an earlier function. See the [media library](media-library) for a plugin built on them.
 
 ## Overriding templates
 

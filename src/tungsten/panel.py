@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
 from dataclasses import replace
 from functools import lru_cache
@@ -180,8 +181,15 @@ class Panel:
         self._nav_items: list[NavigationItem] = []
         self._user_menu_items: list[dict] = []
         self._hooks: dict[str, list[Callable]] = {}
+        self._record_actions: list[dict] = []
         self._plugins: list[Plugin] = []
         self._extra_routes: list[Callable] = []
+        #: ``fn(ctx, path, filename, content_type, size, field)`` after a form upload is stored (see on_upload)
+        self.upload_listeners: dict[str, Callable] = {}
+        #: ``fn(ctx, path, field)`` that lets file fields take an already stored file (see on_file_pick)
+        self.file_pick_checks: dict[str, Callable] = {}
+        #: ``fn(ctx, paths) -> {path: name}``: the names file fields show for stored files (see on_file_names)
+        self.file_name_lookups: dict[str, Callable] = {}
         self._app: Any = None
         self._booted = False
 
@@ -221,6 +229,88 @@ class Panel:
         """Inject HTML at a named spot, e.g. ``"head.end"``, ``"sidebar.nav.end"``, ``"content.start"``."""
         self._hooks.setdefault(name, []).append(fn)
         return self
+
+    def record_action(self, target: Any, factory: Callable[[], Any], row: bool = True,
+                      pages: Iterable[str] = ("view", "edit")) -> "Panel":
+        """Add a button to another resource's rows and record pages, without touching its code.
+
+        Plugins use this to link into each other: ``target`` is a resource class, its model or its
+        slug, and ``factory()`` returns a fresh :class:`Action` (hide it with ``.visible(...)``)::
+
+            panel.record_action(User, lambda: Action("login_as").action(...))
+        """
+        self._record_actions.append({"target": target, "factory": factory, "row": row, "pages": tuple(pages)})
+        return self
+
+    def record_actions_for(self, resource: type[Resource], where: str) -> list:
+        """Fresh actions added with :meth:`record_action` for ``resource``: ``"row"`` or a page name."""
+        out = []
+        for item in self._record_actions:
+            target = item["target"]
+            if target is not resource and target is not resource.model and target != resource.get_slug():
+                continue
+            if (item["row"] if where == "row" else where in item["pages"]):
+                out.append(item["factory"]())
+        return out
+
+    def on_upload(self, key: str, fn: Callable) -> "Panel":
+        """Run ``fn(ctx, path, filename, content_type, size, field)`` after a form upload is stored.
+
+        Return another stored path to use it instead (a media library can swap a duplicate for the
+        file it already has). Errors are logged; they never lose the upload. The same ``key`` replaces ``fn``.
+        """
+        self.upload_listeners[key] = fn
+        return self
+
+    def on_file_pick(self, key: str, fn: Callable) -> "Panel":
+        """Let ``FileUpload`` fields take an already stored file: ``fn(ctx, path, field)`` returns True to allow it.
+
+        A media library plugin uses this for its "Choose from library" button. With no check, picks are refused.
+        """
+        self.file_pick_checks[key] = fn
+        return self
+
+    def on_file_names(self, key: str, fn: Callable) -> "Panel":
+        """Show friendly names in file fields: ``fn(ctx, paths)`` returns ``{path: "Team photo.png"}``.
+
+        Without one, a field shows the stored file name (a random id).
+        """
+        self.file_name_lookups[key] = fn
+        return self
+
+    def file_names(self, ctx: "Context | None", paths: list[str]) -> dict[str, str]:
+        names: dict[str, str] = {}
+        if ctx is None or not paths:
+            return names
+        for key, fn in list(self.file_name_lookups.items()):
+            try:
+                names.update(call(fn, ctx=ctx, paths=list(paths), panel=self) or {})
+            except Exception:
+                logging.getLogger("tungsten").exception("File name lookup %r failed", key)
+        return names
+
+    def uploaded(self, ctx: "Context", path: str, filename: str, content_type: str, size: int, field: Any) -> str:
+        """Tell the upload listeners about a stored upload; returns the path to keep."""
+        for key, fn in list(self.upload_listeners.items()):
+            try:
+                result = call(fn, ctx=ctx, path=path, filename=filename, content_type=content_type, size=size,
+                              field=field, panel=self)
+            except Exception:  # a listener must never lose the user's upload
+                logging.getLogger("tungsten").exception("Upload listener %r failed", key)
+                continue
+            if isinstance(result, str) and result:
+                path = result
+        return path
+
+    def can_pick_file(self, ctx: "Context", path: str, field: Any) -> bool:
+        """True when a pick check allows ``path`` for ``field``."""
+        for key, fn in list(self.file_pick_checks.items()):
+            try:
+                if call(fn, ctx=ctx, path=path, field=field, panel=self):
+                    return True
+            except Exception:
+                logging.getLogger("tungsten").exception("File pick check %r failed", key)
+        return False
 
     def routes(self, fn: Callable) -> Callable:
         """Decorator to add your own routes to the panel app: ``fn(router, panel)``."""
@@ -420,10 +510,11 @@ class Panel:
         return replace(item, active=active, children=children)
 
     # ------------------------------------------------------------------ rendering
-    def hooks(self, name: str, ctx: "Context") -> Markup:
+    def hooks(self, name: str, ctx: "Context", **extra: Any) -> Markup:
+        """HTML of the hooks at ``name``. ``extra`` (like ``resource`` and ``table``) goes to hooks that ask for it."""
         out = []
         for fn in self._hooks.get(name, []):
-            out.append(str(call(fn, ctx=ctx, panel=self, user=ctx.user) or ""))
+            out.append(str(call(fn, ctx=ctx, panel=self, user=ctx.user, **extra) or ""))
         return Markup("".join(out))
 
     def theme_css(self) -> Markup:

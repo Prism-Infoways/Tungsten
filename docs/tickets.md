@@ -121,3 +121,7 @@ TicketsPlugin(
 > Keep `open`, `waiting`, `resolved` and `closed` among your statuses: replies and the support page use them.
 
 With the [MCP plugin](mcp.html) installed, AI assistants like Claude can read and answer tickets too.
+
+## Works with other plugins
+
+- **[Impersonate](impersonate)**: a ticket's page gets **Log in as customer** when a panel user has the requester's email.

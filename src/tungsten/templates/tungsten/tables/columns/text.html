@@ -19,7 +19,7 @@
       {% set inner %}{% set icls = 'h-4 w-4 shrink-0 ' ~ (colors.pick(colors.TEXT, v.icon_color) if v.icon_color else '') %}{% if it.icon and v.icon_position == 'before' %}{{ icon(it.icon, icls) }}{% endif %}{% if it.prefix %}{{ it.prefix }}{% endif %}{{ it.text }}{% if it.suffix %}{{ it.suffix }}{% endif %}{% if it.icon and v.icon_position == 'after' %}{{ icon(it.icon, icls) }}{% endif %}{% endset %}
       <{{ 'li' if v.as_list else 'span' }} class="{{ 'inline-flex items-center gap-1.5' if not v.as_list }} {{ colors.pick(colors.TEXT, it.color) if it.color else 'text-gray-950 dark:text-white' }}"
           {% if it.full %}title="{{ it.full }}"{% endif %}>
-        {% if v.url %}<a href="{{ v.url }}" {% if v.new_tab %}target="_blank" rel="noopener"{% endif %} class="hover:underline">{{ inner }}</a>{% else %}{{ inner }}{% endif %}
+        {% if v.url %}<a href="{{ v.url }}" {% if v.new_tab %}target="_blank" rel="noopener"{% else %}hx-target="body" hx-swap="innerHTML show:window:top"{% endif %} class="hover:underline">{{ inner }}</a>{% else %}{{ inner }}{% endif %}
         {% if v.copyable %}<button type="button" class="text-gray-400 hover:text-gray-600" title="{{ __('Copy') }}" data-tw-local
                 onclick="event.preventDefault(); navigator.clipboard.writeText({{ (it.full or it.text) | string | tojson | forceescape }}); window.twToast && twToast({title: twT('Copied'), status: 'success'})">{{ icon('copy', 'h-3.5 w-3.5') }}</button>{% endif %}
         {%- if not v.as_list and not loop.last %},{% endif -%}

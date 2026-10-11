@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tungsten-backups"
+version = "0.1.0"
+description = "Backups plugin for Tungsten: back up your database and uploaded files from the panel and download the zip."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Prism Infoways" }]
+keywords = ["tungsten", "tungsten-admin", "backup", "database-backup", "sqlite", "postgresql", "mysql", "fastapi", "admin"]
+dependencies = ["tungsten-admin>=0.1.4"]
+
+[project.urls]
+Homepage = "https://tungsten.prisminfoways.com/plugins/backups"
+Documentation = "https://tungsten.prisminfoways.com/docs/backups"
+Repository = "https://github.com/Prism-Infoways/Tungsten"
+
+[project.scripts]
+tungsten-backups = "tungsten_backups.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tungsten_backups"]

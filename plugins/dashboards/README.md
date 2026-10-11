@@ -14,6 +14,7 @@ Custom dashboards for [Tungsten](https://tungsten.prisminfoways.com/), the admin
 - **Permissions** `dashboards.create` and `dashboards.share` for roles.
 - Works with multi-tenancy: dashboards belong to the team they were made in.
 - A broken widget shows a short message in its own box; the rest of the page still loads.
+- Adds a **Dashboards** shortcut to the installed app with the PWA plugin.
 - Adds a **Dashboard** entry to the [Quick Create](https://tungsten.prisminfoways.com/docs/quick-create) + New menu when that plugin is installed.
 
 ## Install

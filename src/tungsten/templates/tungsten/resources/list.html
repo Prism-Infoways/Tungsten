@@ -3,6 +3,6 @@
 {% set subheading = __(resource.description) if resource.description else none %}
 {% include "tungsten/components/page-header.html" %}
 {% with columns = 4 %}{% include "tungsten/components/widgets.html" %}{% endwith %}
-{{ panel.hooks('resource.list.before-table', ctx) }}
+{{ panel.hooks('resource.list.before-table', ctx, resource=resource, host=host, table=table) }}
 {{ table.render() }}
 {% endblock %}

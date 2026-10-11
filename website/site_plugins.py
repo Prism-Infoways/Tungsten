@@ -169,6 +169,37 @@ PLUGINS = [
         ],
     },
     {
+        "slug": "saved-views",
+        "name": "Saved table views",
+        "package": "tungsten-saved-views",
+        "docs": "saved-views",
+        "category": "Productivity",
+        "icon": '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+        "tagline": "Users save their own filters as one-click views like My Leads or Pending.",
+        "summary": "tungsten-saved-views adds a row of views above every table in your Tungsten panel. Users save the "
+                   "filters, search, sort, tab and columns they use often, open them in one click, share them with the "
+                   "team and pick the view each list opens with.",
+        "features": [
+            ("One-click views", "Save filters, search, sort, tab and columns as a tab above the table."),
+            ("Default view", "Each user picks the view a list opens with. All shows everything."),
+            ("Share with the team", "Shared views show to everyone who can open the list."),
+            ("Ready views", "Presets from code with {me} and {today}, plus My tickets and My leads."),
+            ("Every table", "Works on every list, including Leads, Tickets, HR and Finance."),
+            ("Roles and safety", "Share and manage permissions, CSRF checks and owner-only changes."),
+        ],
+        "setup": ('from tungsten_saved_views import SavedViewsPlugin\n\n'
+                  'panel.plugin(SavedViewsPlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("What does a saved view keep?",
+             "The filters, search, sort, tab, page size, grouping and the columns the user can see."),
+            ("Can a view be shared with the whole team?",
+             "Yes. Tick Share with everyone. With roles on, this needs the saved_views.share permission."),
+            ("Can I add views for everyone from code?",
+             "Yes. Call preset() with a name and the table address. {me} becomes the signed-in user."),
+        ],
+    },
+    {
         "slug": "hr",
         "name": "HR (employees, attendance, leave)",
         "package": "tungsten-hr",
@@ -243,6 +274,41 @@ PLUGINS = [
         ],
     },
     {
+        "slug": "tags",
+        "name": "Tags",
+        "package": "tungsten-tags",
+        "docs": "tags",
+        "category": "Productivity",
+        "icon": '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+        "tagline": "Put colored tags on any record and filter by them.",
+        "summary": "tungsten-tags lets you tag leads, tickets, employees, invoices and your own records with labels "
+                   "like VIP or Follow up, then filter any list by tag. One shared list of tags works across every "
+                   "module.",
+        "features": [
+            ("Works everywhere", "Leads, tickets, employees, customers, invoices and bills get tags with no extra code."),
+            ("Filter by tag", "Show rows with any or all of the picked tags."),
+            ("Bulk tagging", "Add or remove tags on many rows at once."),
+            ("Colors and groups", "Ten badge colors, and groups to keep sets of tags apart."),
+            ("Merge and rename", "Merge duplicates like VIP and V.I.P. Every record follows a rename."),
+            ("Your own models", "attach(ProductResource), plus set_tags and add_tags in code."),
+        ],
+        "setup": ('from tungsten_tags import TagsPlugin\n\n'
+                  'panel.plugin(TagsPlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Which records can have tags?",
+             "Leads, tickets, employees, finance contacts, invoices, quotes, bills, notes and expenses, as soon as "
+             "those plugins are on the panel. Any other resource with attach()."),
+            ("Are VIP and vip different tags?",
+             "No. Names ignore capital letters and extra spaces, so they are one tag."),
+            ("What happens when I delete or rename a tag?",
+             "Every record is updated. Deleting a record also removes its tags."),
+            ("Can I find every record with a tag?",
+             "Yes. Open the tag on the Tags page to see how many leads, tickets and more carry it, with links to "
+             "each filtered list."),
+        ],
+    },
+    {
         "slug": "blog",
         "name": "Blog (SEO, GEO, AEO)",
         "package": "tungsten-blog",
@@ -275,6 +341,38 @@ PLUGINS = [
              "/robots.txt and /llms.txt at the site root."),
             ("Why don't my cover images show on the site?",
              "Use LocalStorage(public=True) in your Panel, so visitors can load uploaded images."),
+        ],
+    },
+    {
+        "slug": "media-library",
+        "name": "Media library",
+        "package": "tungsten-media-library",
+        "docs": "media-library",
+        "category": "Marketing",
+        "icon": '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+        "tagline": "Every image and file in one place. Upload once, reuse anywhere.",
+        "summary": "tungsten-media-library keeps every image and file of your Tungsten panel in one place. You upload a "
+                   "file once, add alt text, and pick it again from any file field with a Choose from library button. "
+                   "It shows where each file is used and stops you deleting files that are still in use.",
+        "features": [
+            ("One library", "Images, PDFs, videos and audio with folders, search, tags and alt text."),
+            ("Choose from library", "A picker under every file field. Image fields show only images."),
+            ("Collects uploads", "Files uploaded anywhere in the panel join the library with their real name."),
+            ("Used in", "See every blog post, ticket or employee that uses a file."),
+            ("Safe delete", "Files in use can't be deleted by mistake. Missing files are flagged."),
+            ("No duplicates", "The same file uploaded twice is stored once."),
+        ],
+        "setup": ('from tungsten_media_library import MediaLibraryPlugin\n\n'
+                  'panel = Panel(..., storage=LocalStorage("storage", public=True))\n'
+                  'panel.plugin(MediaLibraryPlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Does the media library copy a file every time I reuse it?",
+             "No. Picking a file from the library points the field to the same stored file. Nothing is uploaded again."),
+            ("Are ticket attachments and HR documents shown in the library?",
+             "No. Files in the tickets, hr and imports folders stay private. You can still attach library files there."),
+            ("Can I delete a file that a blog post uses?",
+             "Not by mistake. The library shows where the file is used and asks you to remove it there first."),
         ],
     },
     {
@@ -339,6 +437,49 @@ PLUGINS = [
              "from the Login log screen, or change the numbers in the options."),
             ("Can I see how my score changes?",
              "Yes. Every audit is saved, and Audit history shows the score over time."),
+        ],
+    },
+    {
+        "slug": "kanban",
+        "name": "Kanban boards",
+        "package": "tungsten-kanban",
+        "docs": "kanban",
+        "category": "Productivity",
+        "icon": '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7v7M12 7v4M16 7v9"/>',
+        "tagline": "Show any resource as a drag-and-drop board, with columns by status.",
+        "summary": "tungsten-kanban shows the records of any Tungsten resource as a Kanban board. Each column is a "
+                   "status or stage, and dragging a card to another column changes the record. It comes with ready "
+                   "boards for leads, tickets and leave requests, and the server checks every move.",
+        "features": [
+            ("Drag and drop", "Move cards between columns, and up and down when the board has an order field."),
+            ("Phones and keyboards", "Touch dragging, plus a Move to menu on every card."),
+            ("Ready boards", "Lead stages, ticket status and leave requests, when those plugins are added."),
+            ("Safe moves", "Permissions, tenancy, allowed moves and your own rules, checked on the server."),
+            ("No lost changes", "If two people move one card, the second is told and the board refreshes."),
+            ("Search and limits", "Search, Only mine, counts per column, limits per column and Load more."),
+        ],
+        "setup": ('from tungsten_kanban import Board, KanbanPlugin\n\n'
+                  'panel.plugin(KanbanPlugin(boards=[\n'
+                  '    Board(TaskResource, column="status", columns={\n'
+                  '        "todo": ("To do", "gray"),\n'
+                  '        "doing": ("Doing", "primary"),\n'
+                  '        "done": ("Done", "success"),\n'
+                  '    }, order_column="sort"),\n'
+                  ']))'),
+        "needs": [],
+        "faqs": [
+            ("Which records can I show on a board?",
+             "Any Tungsten resource. Pick the field for the columns, such as status or stage, and the values and "
+             "labels of the columns. Enum fields work without listing the columns."),
+            ("Does it work with the leads, tickets and HR plugins?",
+             "Yes. Add them to the same panel and you get a Leads board, a Tickets board and a Leave board. Moves go "
+             "through each plugin's own rules, so a ticket moved to Resolved emails the customer and leave is checked "
+             "against the balance."),
+            ("Can I stop some moves?",
+             "Yes. List the allowed moves with transitions, or return a reason from can_move. People who can't "
+             "edit a record can't move its card."),
+            ("Does it work on a phone?",
+             "Yes. Cards can be dragged with a finger, and every card has a Move to menu."),
         ],
     },
     {
@@ -407,6 +548,148 @@ PLUGINS = [
              "Yes. Use hide_in=(\"production\",) to show nothing on live, or visible= to show it only to admins."),
             ("Does it slow the panel down?",
              "No. It reads the environment once at start-up and adds a few hundred bytes to each page. It adds no tables."),
+        ],
+    },
+    {
+        "slug": "backups",
+        "name": "Backups",
+        "package": "tungsten-backups",
+        "docs": "backups",
+        "category": "Security",
+        "icon": '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 12a9 3 0 0 0 5 2.69"/><path d="M21 9.3V5"/>'
+                '<path d="M3 5v14a9 3 0 0 0 6.47 2.88"/><path d="M12 12v4h4"/>'
+                '<path d="M13 20a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L12 16"/>',
+        "tagline": "Back up your database and files from the panel, and download the zip.",
+        "summary": "tungsten-backups saves a copy of your database (SQLite, PostgreSQL or MySQL) and, if you like, "
+                   "your uploaded files, in a private folder on the server. Admins download it from the panel. "
+                   "Backups run in the background, are checked with SHA-256, old ones are deleted for you, and "
+                   "they can run on a timer or from cron.",
+        "features": [
+            ("One-click backup", "Back up the database, or the database and uploaded files, with one button."),
+            ("Any database", "SQLite copy, pg_dump, mysqldump, or every table as JSON when no tool is installed."),
+            ("Private by design", "Zips stay in a private folder. Only signed-in admins can download them."),
+            ("Checked", "A SHA-256 for every part, and a Check button that reads the whole zip back."),
+            ("Tidy and safe", "Keeps the last 10, checks disk space first, and a failed backup leaves no half file."),
+            ("Automatic", "Back up every few hours while the app runs, or from cron with one command."),
+        ],
+        "setup": ('from tungsten_backups import BackupsPlugin\n\n'
+                  'panel.plugin(BackupsPlugin(folder="storage/backups", every_hours=24))\n'
+                  'panel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Can anyone download my backups?",
+             "No. Backups are saved in a private folder and only signed-in admins with the download permission can "
+             "download them through the panel. There is never a public link."),
+            ("Which databases does it work with?",
+             "SQLite, PostgreSQL (with pg_dump) and MySQL or MariaDB (with mysqldump). Without a dump tool, or with "
+             "another database, every table is saved as JSON lines instead."),
+            ("Can I restore from the panel?",
+             "Not on purpose, so a wrong click can't wipe your data. Stop the app and put the SQLite file back, or "
+             "load database.sql with psql or mysql. The guide shows each step."),
+            ("Does it work with the Security audit plugin?",
+             "Yes. With tungsten-security-audit installed, the audit gets a Recent backup check that warns when "
+             "you have no backup or the newest one is old."),
+        ],
+    },
+    {
+        "slug": "pwa",
+        "name": "Install as an app (PWA)",
+        "package": "tungsten-pwa",
+        "docs": "pwa",
+        "category": "Team",
+        "icon": '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 18h.01M12 6v7M9 10l3 3 3-3"/>',
+        "tagline": "Install your panel like an app on phones and computers, with an offline page.",
+        "summary": "tungsten-pwa turns your Tungsten panel into a Progressive Web App. Your team installs it from the "
+                   "browser on Android, iPhone, Windows or Mac, and it opens in its own window with your icon, "
+                   "loads faster and shows a clean offline page. Pages and data are never cached.",
+        "features": [
+            ("Install app button", "One tap in Chrome, Edge and Android. Add to Home Screen on iPhone."),
+            ("Your brand", "App name, icons and theme color from your panel, or your own icons."),
+            ("App shortcuts", "Long press the icon to open pages like New order. Other plugins can add their own."),
+            ("Faster loading", "CSS, JavaScript, fonts and images are kept on the device."),
+            ("Offline page", "A clean offline page and an offline bar, which reload when the internet is back."),
+            ("Safe by design", "Pages and data are never cached, so login, CSRF and permissions work as before."),
+        ],
+        "setup": 'from tungsten_pwa import PWAPlugin\n\npanel.plugin(PWAPlugin())',
+        "needs": [],
+        "faqs": [
+            ("Does it work on iPhone?",
+             "Yes. Open the panel in Safari, tap Share, then Add to Home Screen. It then opens like an app."),
+            ("Can people use the panel with no internet?",
+             "They see a clean offline page that reloads by itself when the internet is back. Pages and data are "
+             "never stored on the device, which keeps data safe on shared or lost phones."),
+            ("Does my site need https?",
+             "Yes. Browsers only allow installing apps over https. On your own computer, localhost works too."),
+            ("How do I remove it later?",
+             "Deploy once with PWAPlugin(uninstall=True). Each browser removes the app's files on its next visit."),
+        ],
+    },
+    {
+        "slug": "calendar",
+        "name": "Calendar (events, leave, follow-ups)",
+        "package": "tungsten-calendar",
+        "docs": "calendar",
+        "category": "Team",
+        "icon": '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
+        "tagline": "Month, week, day and list calendar with your events, leave, follow-ups and due dates in one place.",
+        "summary": "tungsten-calendar adds a calendar to your Tungsten panel. Plan meetings, calls and reminders, drag "
+                   "them to another day, and see who is on leave, which leads need a call and which tickets and "
+                   "invoices are due, all on one screen.",
+        "features": [
+            ("Four views", "Month, week, day and list, with arrow keys to move around."),
+            ("Events", "All-day, multi-day and timed events, with type, color, place and notes."),
+            ("Repeat", "Every day, week, month or year, until a date. Month ends and 29 February just work."),
+            ("Drag and drop", "Drag an event to another day to move it."),
+            ("Linked with your plugins", "Leave, holidays and birthdays from HR, lead follow-ups, ticket due "
+                                         "times, unpaid invoices and blog posts."),
+            ("Phone sync", "A private link for Google Calendar, Outlook or iPhone, and .ics download."),
+        ],
+        "setup": ('from tungsten_calendar import CalendarPlugin\n\n'
+                  'panel.plugin(CalendarPlugin(timezone="Asia/Kolkata"))\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Can I see leave and lead follow-ups on the calendar?",
+             "Yes. When the HR, Leads, Help desk, Finance or Blog plugins are installed, their dates show on the "
+             "calendar by themselves, and each person only sees what they may see."),
+            ("Does it work with Google Calendar?",
+             "Yes. Each person gets a private link to subscribe from Google Calendar, Outlook or an iPhone. "
+             "You can also download an .ics file."),
+            ("Can other plugins add dates?",
+             "Yes. Any plugin can call add_source with a function that returns its items for a date range."),
+            ("Can events repeat?",
+             "Yes. Every day, week, month or year, every N times, until a date or with no end."),
+        ],
+    },
+    {
+        "slug": "impersonate",
+        "name": "Impersonate (log in as a user)",
+        "package": "tungsten-impersonate",
+        "docs": "impersonate",
+        "category": "Security",
+        "icon": '<path d="M18 11c-1.5 0-2.5.5-3 2"/><path d="M4 6a2 2 0 0 0-2 2v4a5 5 0 0 0 5 5 8 8 0 0 1 5 2 8 8 0 0 1 5-2 5 5 0 0 0 5-5V8a2 2 0 0 0-2-2h-3a8 8 0 0 0-5 2 8 8 0 0 0-5-2z"/><path d="M6 11c1.5 0 2.5.5 3 2"/>',
+        "tagline": "Admins log in as any user to see what they see, safely and with a log.",
+        "summary": "tungsten-impersonate lets a support admin log in as another user of a Tungsten panel and see "
+                   "exactly what that user sees, then go back to their own account in one click. Only allowed admins "
+                   "can use it, it ends by itself after 60 minutes, and every use is written to a log.",
+        "features": [
+            ("Log in as", "A button on your users list and user pages, and a picker to find any user."),
+            ("Back to my account", "An orange bar on every page with the user's name and the minutes left."),
+            ("Safe by default", "Never as a super admin, an inactive user or someone with more access than you."),
+            ("Time limit", "You go back to your own account after 60 minutes, or your own limit."),
+            ("Impersonation log", "Who logged in as whom, when, why, for how long, from which IP."),
+            ("Works with other plugins", "HR employees, help desk customers and security audit checks."),
+        ],
+        "setup": ('from tungsten_impersonate import ImpersonatePlugin\n\n'
+                  'panel.plugin(ImpersonatePlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Who can log in as other users?",
+             "With roles, super admins and roles with the \"Log in as other users\" permission. Without roles, every "
+             "panel user. You can also pass your own rule with can_impersonate."),
+            ("Can an admin get more access by logging in as someone?",
+             "No. By default you can't log in as a super admin or as anyone with a permission you don't have."),
+            ("Is every use recorded?",
+             "Yes. The Impersonation log keeps who logged in as whom, when, why, for how long, and how it ended."),
         ],
     },
     {

@@ -104,6 +104,11 @@ class DashboardsPlugin(Plugin):
         quick.add_link("dashboards.new", "Dashboard", lambda ctx: self.url(ctx, new=1), icon="layout-grid",
                        group="Dashboards", visible=lambda ctx: service.can_create(ctx))
 
+    def pwa_shortcuts(self, panel: Any) -> list[dict[str, str]]:
+        """With the PWA plugin: "Dashboards" in the menu of the installed app's icon."""
+        return [{"name": "Dashboards", "url": panel.url(self.page.get_slug()),
+                 "description": "Your own dashboards"}]
+
     def permissions(self) -> list[tuple[str, str]]:
         return [(service.CREATE, "Make own dashboards"),
                 (service.SHARE, "Share dashboards with everyone and set the home page for all")]

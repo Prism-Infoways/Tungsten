@@ -1,0 +1,32 @@
+{#- Files to pick, loaded into the picker. vars: items, field, form_id, refresh, next_url, page, q, library_url -#}
+{% if items %}
+<div {% if page > 1 %}class="mt-3" {% endif %}style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px">
+  {% for f in items %}
+  <button type="button" title="{{ f.name }}"
+          class="group flex flex-col overflow-hidden rounded-lg bg-white text-start ring-1 ring-gray-950/10 transition hover:ring-primary-500 dark:bg-white/5 dark:ring-white/10"
+          hx-post="{{ refresh }}" hx-target="#{{ form_id }}" hx-swap="outerHTML" hx-include="closest form"
+          hx-vals='{{ {"_tw_ui_action": "file.pick:" ~ field ~ ":" ~ f.path} | tojson }}'>
+    <span class="flex w-full items-center justify-center bg-gray-100 text-gray-400 dark:bg-white/5" style="aspect-ratio:1/1">
+      {% if f.kind == 'image' %}<img src="{{ f.url }}" alt="{{ f.alt }}" loading="lazy" decoding="async" class="h-full w-full object-cover">
+      {% else %}{{ icon(f.icon, 'h-8 w-8') }}{% endif %}
+    </span>
+    <span class="grid px-2 py-1.5">
+      <span class="truncate text-xs font-medium text-gray-950 dark:text-white">{{ f.name }}</span>
+      <span class="truncate text-xs text-gray-500 dark:text-gray-400">{{ f.dims or f.size }}</span>
+    </span>
+  </button>
+  {% endfor %}
+</div>
+{% if next_url %}
+<div class="mt-4 flex justify-center" data-media-more>
+  <button type="button" class="tw-btn px-3 py-2 text-sm bg-white ring-1 ring-gray-950/10 dark:bg-transparent dark:ring-white/20 text-gray-700 dark:text-gray-200"
+          hx-get="{{ next_url }}" hx-target="closest [data-media-more]" hx-swap="outerHTML">{{ __('Load more') }}</button>
+</div>
+{% endif %}
+{% else %}
+<div class="flex flex-col items-center gap-2 py-10 text-center">
+  <span class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-white/5">{{ icon('images', 'h-6 w-6') }}</span>
+  <p class="text-sm font-medium text-gray-950 dark:text-white">{{ __('No files found') if q else __('The library is empty') }}</p>
+  <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Upload a file here, or add files in the') }} <a href="{{ library_url }}" target="_blank" class="font-medium text-primary-600 hover:underline dark:text-primary-400">{{ __('Media library') }}</a>.</p>
+</div>
+{% endif %}

@@ -72,7 +72,7 @@ class ProductResource(Resource):
 | **Theming & UX** | Brand colors (any Tailwind palette or a hex color), logo, dark mode, SPA mode (no full page reloads), unsaved-changes warning, collapsible sidebar, keyboard shortcuts (Ctrl/⌘+S saves). |
 | **Languages** | Every screen can be translated. Hindi ships built in; add any language with a JSON file. Users switch language from the user menu or the login page. |
 | **Database** | Works with a normal SQLAlchemy engine or an async one (`create_async_engine`). `async def` hooks work too. |
-| **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins (official ones for leads, help desk, HR, blog, SEO and security audits, WhatsApp, Facebook leads and AI access), render hooks, CLI generators. |
+| **Extras** | CSV/Excel import and export, custom pages, multi-tenancy (teams/companies), plugins (official ones for leads, help desk, HR, blog, SEO and security audits, install as an app (PWA), WhatsApp, Facebook leads and AI access), render hooks, CLI generators. |
 
 ## Official plugins
 
@@ -87,11 +87,16 @@ Add more with one `pip install`. Each plugin is its own package and turns on wit
 | [`tungsten-tickets`](https://pypi.org/project/tungsten-tickets/) | Help desk: tickets, replies, notes, SLA and a customer support page | [Guide](https://tungsten.prisminfoways.com/docs/tickets.html) |
 | [`tungsten-hr`](https://pypi.org/project/tungsten-hr/) | HR: employees, attendance with check-in and biometric machines, leave with approval | [Guide](https://tungsten.prisminfoways.com/docs/hr.html) |
 | [`tungsten-finance`](https://pypi.org/project/tungsten-finance/) | Accounts like Tally or Zoho Books: GST invoices, bills, ledger, stock, P&L, balance sheet, GSTR-1/3B | [Guide](https://tungsten.prisminfoways.com/docs/finance.html) |
+| [`tungsten-tags`](https://pypi.org/project/tungsten-tags/) | Colored tags on any record, a tag filter and bulk tagging | [Guide](https://tungsten.prisminfoways.com/docs/tags.html) |
 | [`tungsten-blog`](https://pypi.org/project/tungsten-blog/) | Blog built for SEO, GEO and AEO, with a live score, sitemap and llms.txt | [Guide](https://tungsten.prisminfoways.com/docs/blog.html) |
 | [`tungsten-seo-audit`](https://pypi.org/project/tungsten-seo-audit/) | SEO audit of your website: score, fix tips, AI search checks, history | [Guide](https://tungsten.prisminfoways.com/docs/seo-audit.html) |
 | [`tungsten-security-audit`](https://pypi.org/project/tungsten-security-audit/) | Security audit with a score and fix tips, plus a login log with lockout | [Guide](https://tungsten.prisminfoways.com/docs/security-audit.html) |
 | [`tungsten-environment-indicator`](https://pypi.org/project/tungsten-environment-indicator/) | Local / Staging / Live badge, colored line and tab title, so nobody works on live by mistake | [Guide](https://tungsten.prisminfoways.com/docs/environment-indicator) |
 | [`tungsten-quick-create`](https://pypi.org/project/tungsten-quick-create/) | A + New button in the top bar to create any record from any page | [Guide](https://tungsten.prisminfoways.com/docs/quick-create) |
+| [`tungsten-backups`](https://pypi.org/project/tungsten-backups/) | Back up the database and uploaded files from the panel and download the zip | [Guide](https://tungsten.prisminfoways.com/docs/backups.html) |
+| [`tungsten-pwa`](https://pypi.org/project/tungsten-pwa/) | Install the panel like an app on phones and computers, with shortcuts and an offline page | [Guide](https://tungsten.prisminfoways.com/docs/pwa) |
+| [`tungsten-saved-views`](https://pypi.org/project/tungsten-saved-views/) | Saved table views: users save filters as one-click tabs like My Leads or Pending | [Guide](https://tungsten.prisminfoways.com/docs/saved-views) |
+| [`tungsten-impersonate`](https://pypi.org/project/tungsten-impersonate/) | Admins log in as any user to see what they see, with a time limit and a log | [Guide](https://tungsten.prisminfoways.com/docs/impersonate) |
 | [`tungsten-dashboards`](https://pypi.org/project/tungsten-dashboards/) | Users build their own dashboards by drag and drop, with widgets from every plugin | [Guide](https://tungsten.prisminfoways.com/docs/dashboards) |
 
 ```bash

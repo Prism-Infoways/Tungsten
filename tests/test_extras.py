@@ -126,6 +126,26 @@ def test_plugin_hooks_and_custom_page():
     assert "About page body" in html and 'id="hello-hook"' in html and ">Help<" in html
 
 
+def test_list_hook_gets_the_resource_and_table():
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    panel = Panel(engine=engine, path="/backoffice", secret_key="x", dashboard=None)
+    panel.resources([ProjectResource])
+    seen = []
+
+    def note(resource, table, host, ctx):
+        seen.append((resource.get_slug(), table.host is host, ctx.request.url.path))
+        return Markup('<p id="list-note">Note</p>')
+
+    panel.render_hook("resource.list.before-table", note)
+    panel.render_hook("resource.list.before-table", lambda: Markup('<p id="old-style">Old</p>'))
+    app = FastAPI()
+    panel.mount(app)
+    html = PanelClient(TestClient(app)).get("/backoffice/projects").text
+    assert 'id="list-note"' in html and 'id="old-style"' in html
+    assert seen == [("projects", True, "/backoffice/projects")]
+
+
 def test_panel_without_auth():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)

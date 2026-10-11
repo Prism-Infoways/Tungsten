@@ -1,0 +1,25 @@
+{#- "Choose from library" under a file field. vars: url (picker), v (field view data), image (bool) -#}
+{#- hx-preserve keeps it open while the form around it refreshes (live fields re-draw the form) -#}
+<div id="{{ pid }}" hx-preserve="true" x-data="{ open: false }" @keydown.escape.stop="open = false" data-media-picker data-tw-local>
+  <button type="button" class="tw-btn px-3 py-2 text-sm bg-white ring-1 ring-gray-950/10 dark:bg-transparent dark:ring-white/20 text-gray-700 dark:text-gray-200"
+          @click="open = true; $nextTick(() => { $refs.q.value = ''; htmx.trigger($refs.grid, 'tw-media-load'); $refs.q.focus(); })">
+    {{ icon('images', 'h-4 w-4') }}<span>{{ __('Choose from library') }}</span>
+  </button>
+  <div x-show="open" x-cloak style="display:none;z-index:60" class="fixed inset-0 flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true" aria-label="{{ __('Media library') }}">
+    <div class="fixed inset-0 bg-gray-950/50 dark:bg-gray-950/75" @click="open = false"></div>
+    <div class="relative flex max-h-full w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="max-height:85vh">
+      <div class="flex items-center gap-x-3 border-b border-gray-100 px-5 py-3 dark:border-white/10">
+        <h2 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Media library') }}</h2>
+        <input type="search" x-ref="q" name="mq" form="tw-media-search" autocomplete="off" placeholder="{{ __('Search files') }}"
+               class="tw-input flex-1 rounded-lg px-3 py-1.5 text-sm ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10"
+               hx-get="{{ url }}" hx-trigger="input changed delay:300ms, search" hx-target="next [data-media-grid]" hx-swap="innerHTML"
+               @keydown.enter.prevent="">
+        <button type="button" class="tw-icon-btn text-gray-400" @click="open = false" aria-label="{{ __('Close') }}">{{ icon('x', 'h-5 w-5') }}</button>
+      </div>
+      <div x-ref="grid" data-media-grid class="flex-1 overflow-y-auto p-5" hx-get="{{ url }}" hx-target="this" hx-trigger="tw-media-load" hx-swap="innerHTML"
+           @click="if ($event.target.closest('button[hx-post]')) open = false">
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Loading...') }}</p>
+      </div>
+    </div>
+  </div>
+</div>

@@ -46,5 +46,6 @@
   {% endif %}
   {% endif %}
   {% if v.disabled and not v.files %}<p class="text-sm text-gray-500">{{ __('No file.') }}</p>{% endif %}
+  {% if form.ctx and not v.disabled and (v.multiple or not v.files) %}{{ form.ctx.panel.hooks('forms.file-upload.after', form.ctx, field=field, v=v, form=form) }}{% endif %}
 </div>
 {% endcall %}

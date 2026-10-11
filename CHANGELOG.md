@@ -2,8 +2,13 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-11 · Calendar plugin
+
+- **New plugin: Calendar** (`tungsten-calendar`). Month, week, day and list views, all-day and repeating events, drag and drop, and a private link for Google Calendar, Outlook or iPhone. Shows leave, holidays and birthdays (HR), lead follow-ups, ticket due times, unpaid invoices and blog posts when those plugins are installed.
+
 ## 2026-10-11 · HR and Finance on PyPI
 
+- **New plugin: Install as an app** (`tungsten-pwa`). Your team installs the panel like an app on Android, iPhone, Windows and Mac, with app icons, shortcuts, faster loading and an offline page. Pages and data are never cached.
 - **`tungsten-hr` 0.1.0** is on PyPI: `pip install tungsten-hr`. Employees, attendance with check-in and biometric machines, leave with approval, and holidays.
 - **`tungsten-finance` 0.2.0** is on PyPI: `pip install tungsten-finance`. Double-entry books with GST, invoices, payments, expenses and reports. Needs `tungsten-admin` 0.1.7.
 
