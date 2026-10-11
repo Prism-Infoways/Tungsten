@@ -95,6 +95,7 @@ Add more with one `pip install`. Each plugin is its own package and turns on wit
 | [`tungsten-quick-create`](https://pypi.org/project/tungsten-quick-create/) | A + New button in the top bar to create any record from any page | [Guide](https://tungsten.prisminfoways.com/docs/quick-create) |
 | [`tungsten-backups`](https://pypi.org/project/tungsten-backups/) | Back up the database and uploaded files from the panel and download the zip | [Guide](https://tungsten.prisminfoways.com/docs/backups.html) |
 | [`tungsten-pwa`](https://pypi.org/project/tungsten-pwa/) | Install the panel like an app on phones and computers, with shortcuts and an offline page | [Guide](https://tungsten.prisminfoways.com/docs/pwa) |
+| [`tungsten-saved-views`](https://pypi.org/project/tungsten-saved-views/) | Saved table views: users save filters as one-click tabs like My Leads or Pending | [Guide](https://tungsten.prisminfoways.com/docs/saved-views) |
 
 ```bash
 pip install tungsten-admin tungsten-tickets tungsten-blog

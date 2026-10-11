@@ -20,12 +20,13 @@ Official plugins for Tungsten. Each folder is its own pip package with its own v
 | [quick-create](quick-create) | `tungsten-quick-create` | A + New button in the top bar to create any record from any page, in a side panel |
 | [backups](backups) | `tungsten-backups` | Back up the database and uploaded files from the panel and download the zip, with checks, pruning and a timer |
 | [pwa](pwa) | `tungsten-pwa` | Install the panel like an app (PWA): manifest, icons, shortcuts, faster loading and an offline page |
+| [saved-views](saved-views) | `tungsten-saved-views` | Saved table views: users save filters, search, sort and columns as one-click tabs, share them and pick a default |
 
 ## Working on a plugin
 
 ```bash
-pip install -e ".[dev]" -e plugins/leads -e plugins/meta-leads -e plugins/whatsapp -e plugins/mcp -e plugins/tickets -e plugins/hr -e plugins/finance -e plugins/tags -e plugins/security-audit -e plugins/seo-audit -e plugins/blog -e plugins/quick-create -e plugins/environment-indicator -e plugins/backups -e plugins/kanban -e plugins/pwa
-for p in leads meta-leads whatsapp mcp tickets hr finance tags security-audit seo-audit blog quick-create environment-indicator backups kanban pwa; do pytest plugins/$p/tests || break; done
+pip install -e ".[dev]" -e plugins/leads -e plugins/meta-leads -e plugins/whatsapp -e plugins/mcp -e plugins/tickets -e plugins/hr -e plugins/finance -e plugins/tags -e plugins/security-audit -e plugins/seo-audit -e plugins/blog -e plugins/quick-create -e plugins/environment-indicator -e plugins/backups -e plugins/kanban -e plugins/pwa -e plugins/saved-views
+for p in leads meta-leads whatsapp mcp tickets hr finance tags security-audit seo-audit blog quick-create environment-indicator backups kanban pwa saved-views; do pytest plugins/$p/tests || break; done
 ```
 
 ## Releasing a plugin
