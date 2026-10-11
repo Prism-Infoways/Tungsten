@@ -66,6 +66,8 @@ When these plugins are installed, ready views are added for you:
 | [Help desk](tickets) | **My tickets**: tickets given to me |
 | [Leads](leads) | **My leads**: leads given to me |
 
+With [Tags](tags) installed, the tag filter is saved like any other filter, so a view like **VIP customers** works out of the box.
+
 Every other list, like HR employees, attendance and leave, or Finance invoices and payments, works with saved views the same way, with no setup.
 
 ## Roles

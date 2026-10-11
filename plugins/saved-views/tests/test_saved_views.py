@@ -483,3 +483,34 @@ def test_async_database(tmp_path):
     assert r.status_code == 303
     html = client.get("/admin/tasks").text
     assert "Beta pending" in html and "Alpha open" not in html
+
+
+def test_tag_filter_from_the_tags_plugin_is_saved(tmp_path):
+    """With tungsten-tags, a view can be "tickets tagged VIP"; it opens with that tag filter on."""
+    tags = pytest.importorskip("tungsten_tags")
+    tickets = pytest.importorskip("tungsten_tickets")
+    panel = make_panel(tmp_path, SavedViewsPlugin())
+    panel.plugin(tickets.TicketsPlugin(portal=False))
+    panel.plugin(tags.TagsPlugin())
+    panel.create_tables(panel.db.kw["bind"])
+    with panel.db() as db:
+        from tungsten_tickets.models import Ticket
+
+        vip, plain = Ticket(subject="Refund for VIP"), Ticket(subject="Printer jam")
+        db.add_all([vip, plain])
+        db.flush()
+        panel.get_plugin("tags").set_tags(db, vip, ["VIP"])
+        db.commit()
+        from tungsten_tags.models import Tag
+
+        tag_id = db.scalars(select(Tag)).first().id
+    client = client_for(panel)
+    client.login()
+    html = client.get("/admin/tickets").text
+    assert "Refund for VIP" in html and "Printer jam" in html
+    r = client.post("/admin/_views/save", {"resource": "tickets", "name": "VIP",
+                                           "query": f"_f=1&filters.tags.values={tag_id}&filters.tags.match=any"})
+    assert r.status_code == 303
+    html = client.get(r.headers["location"]).text
+    assert "Refund for VIP" in html and "Printer jam" not in html
+    assert 'aria-current="page"' in chip(html, "VIP")
