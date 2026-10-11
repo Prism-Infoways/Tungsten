@@ -2,12 +2,17 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-11 · HR and Finance on PyPI
+
+- **`tungsten-hr` 0.1.0** is on PyPI: `pip install tungsten-hr`. Employees, attendance with check-in and biometric machines, leave with approval, and holidays.
+- **`tungsten-finance` 0.2.0** is on PyPI: `pip install tungsten-finance`. Double-entry books with GST, invoices, payments, expenses and reports. Needs `tungsten-admin` 0.1.7.
+
 ## 2026-10-10 · HR, Finance and a faster core
 
 - **New plugin: HR** (`tungsten-hr`). Employees, departments, attendance with check-in, leave with approval, and holidays. Works with biometric machines by push, pull, API or CSV.
 - **New plugin: Finance and accounts** (`tungsten-finance` 0.2.0). Double-entry books like Tally, Busy and Zoho Books: invoices, payments, expenses, GST and reports.
 - **tungsten-admin 0.1.6**: a faster core, with fewer database queries per page and cheaper table rendering.
-- **tungsten-admin 0.1.7**: fixes validation rules inside Repeater fields.
+- **tungsten-admin 0.1.7** on PyPI: fixes validation rules inside Repeater fields.
 - **Website**: a page for every plugin, this What's new page, clean addresses without `.html`, and SEO, GEO and AEO across the site.
 
 ## 2026-10-09 · Help desk, blog and audits
