@@ -420,10 +420,11 @@ class Panel:
         return replace(item, active=active, children=children)
 
     # ------------------------------------------------------------------ rendering
-    def hooks(self, name: str, ctx: "Context") -> Markup:
+    def hooks(self, name: str, ctx: "Context", **extra: Any) -> Markup:
+        """HTML of the hooks at ``name``. ``extra`` (like ``resource`` and ``table``) goes to hooks that ask for it."""
         out = []
         for fn in self._hooks.get(name, []):
-            out.append(str(call(fn, ctx=ctx, panel=self, user=ctx.user) or ""))
+            out.append(str(call(fn, ctx=ctx, panel=self, user=ctx.user, **extra) or ""))
         return Markup("".join(out))
 
     def theme_css(self) -> Markup:
