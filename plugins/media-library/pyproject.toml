@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tungsten-media-library"
+version = "0.1.0"
+description = "Media library plugin for Tungsten: every image and file in one place, upload once and reuse in any file field."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Prism Infoways" }]
+keywords = ["tungsten", "tungsten-admin", "media", "media-library", "uploads", "images", "fastapi", "admin"]
+dependencies = ["tungsten-admin>=0.1.8"]
+
+[project.urls]
+Homepage = "https://tungsten.prisminfoways.com/"
+Documentation = "https://tungsten.prisminfoways.com/docs/media-library"
+Repository = "https://github.com/Prism-Infoways/Tungsten"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tungsten_media_library"]

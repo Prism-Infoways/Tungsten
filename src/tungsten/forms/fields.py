@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import enum
 import html
+import mimetypes
 import re
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any, Callable, Iterator
@@ -1474,6 +1475,23 @@ class FileUpload(Field):
             set_path(form.state, path, stored)
 
     def handle_ui_action(self, form: "Form", path: str, base: str, kind: str, arg: str) -> None:
+        if kind == "pick":  # an already stored file, e.g. from a media library (see Panel.on_file_pick)
+            if self.is_disabled(form, base) or not arg:
+                return
+            ctx = form.ctx
+            if ctx is None or not ctx.panel.can_pick_file(ctx, arg, self):
+                form.add_error(path, __("This file can't be used here."))
+                return
+            content_type = mimetypes.guess_type(arg)[0] or ""
+            error = self.check_upload(arg, content_type, 0)
+            if error:
+                form.add_error(path, error)
+                return
+            if self._multiple and arg in (get_path(form.state, path) or []):
+                return
+            self.accept_upload(form, path, arg)
+            self.call_after_state_updated(form, path, base)
+            return
         if kind == "remove":
             if self._multiple:
                 current = list(get_path(form.state, path) or [])
@@ -1488,8 +1506,10 @@ class FileUpload(Field):
         state = v["state"]
         files = state if isinstance(state, list) else ([state] if state else [])
         storage = form.ctx.panel.storage if form.ctx else None
+        names = form.ctx.panel.file_names(form.ctx, files) if form.ctx and form.ctx.panel.file_name_lookups else {}
         v["files"] = [
-            {"path": f, "url": storage.url(f) if storage else f, "name": str(f).rsplit("/", 1)[-1]} for f in files
+            {"path": f, "url": storage.url(f) if storage else f, "name": names.get(f) or str(f).rsplit("/", 1)[-1]}
+            for f in files
         ]
         v.update(multiple=self._multiple, image=self._image, avatar=self._avatar,
                  accept=",".join(self._accepted or []), max_size=self._max_size)

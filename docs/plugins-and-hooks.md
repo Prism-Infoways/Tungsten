@@ -224,6 +224,7 @@ The names are `chart`, `trix`, `select`, `sortable` and `qr`. `twNeed()` loads e
 | `content.end` | Below the main content of every panel page |
 | `auth.login.form.after` | Under the login form |
 | `resource.list.before-table` | On every resource list page, just above the table. Also gets `resource`, `host` and `table` |
+| `forms.file-upload.after` | Under every file field that can take more files. Also gets `field`, `v` (the field's view data) and `form` |
 
 ### Hook functions get what they ask for
 
@@ -302,6 +303,18 @@ The route is served under the panel path, here `/admin/blog/api/stats`.
 > These are plain FastAPI routes. They don't check login, permissions or the CSRF token, so protect them yourself.
 >
 > Any path works, even short ones like `/admin/feed`. Your routes come before the panel's page and resource routes, so a route with the same path as a page or resource (like `/admin/products`) replaces it. Pick paths that don't clash.
+
+## File hooks
+
+Plugins that work with uploads (a media library, a virus scanner, a CDN sync) can use these:
+
+| Method | What it does |
+| --- | --- |
+| `panel.on_upload(key, fn)` | `fn(ctx, path, filename, content_type, size, field)` runs after a form upload is stored. Return another stored path to use it instead (for example the copy you already have). Errors are logged and never lose the upload. |
+| `panel.on_file_pick(key, fn)` | Lets file fields take an already stored file. `fn(ctx, path, field)` returns `True` to allow it. A `file.pick:<field>:<path>` UI action then fills the field; the field's type and size rules still apply. Without a check, picks are refused. |
+| `panel.on_file_names(key, fn)` | `fn(ctx, paths)` returns `{path: "Team photo.png"}`, so file fields show real names instead of the stored id. |
+
+The same `key` replaces an earlier function. See the [media library](media-library) for a plugin built on them.
 
 ## Overriding templates
 

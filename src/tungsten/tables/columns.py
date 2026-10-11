@@ -549,7 +549,8 @@ def _plain_text_cell(v: dict[str, Any]) -> Markup:
                    f'{e(v.get("weight", ""))} {mono}">\n')
         url = v.get("url")
         if url:
-            target = 'target="_blank" rel="noopener"' if v.get("new_tab") else ""
+            target = 'target="_blank" rel="noopener"' if v.get("new_tab") \
+                else 'hx-target="body" hx-swap="innerHTML show:window:top"'  # see text.html
             link = f'<a href="{e(url)}" {target} class="hover:underline">'
         last = len(entries) - 1
         for i, it in enumerate(entries):

@@ -300,6 +300,7 @@
   "The :attribute must have at least :min items.": ":attribute में कम से कम :min आइटम होने चाहिए।",
   "The file may not be greater than :max kilobytes.": "फ़ाइल :max किलोबाइट से बड़ी नहीं हो सकती।",
   "The file type is not allowed.": "इस प्रकार की फ़ाइल की अनुमति नहीं है।",
+  "This file can't be used here.": "यह फ़ाइल यहाँ इस्तेमाल नहीं हो सकती।",
   "The selected :attribute is invalid.": "चुना गया :attribute सही नहीं है।",
   "The server could not complete the request (:status).": "सर्वर अनुरोध पूरा नहीं कर सका (:status)।",
   "The verification link is no longer valid. It may be old, or your email address may have changed since it was sent.": "सत्यापन लिंक अब मान्य नहीं है। हो सकता है यह पुराना हो, या भेजने के बाद आपका ईमेल पता बदल गया हो।",

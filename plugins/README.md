@@ -23,12 +23,13 @@ Official plugins for Tungsten. Each folder is its own pip package with its own v
 | [saved-views](saved-views) | `tungsten-saved-views` | Saved table views: users save filters, search, sort and columns as one-click tabs, share them and pick a default |
 | [calendar](calendar) | `tungsten-calendar` | Calendar: month, week, day and list views, repeating events, drag and drop, phone sync, and dates from HR, Leads, Tickets, Finance and Blog |
 | [impersonate](impersonate) | `tungsten-impersonate` | "Log in as" any user to see what they see, with a Back bar, a time limit, safety rules and a log |
+| [media-library](media-library) | `tungsten-media-library` | Every image and file in one place: upload once, alt text, "Choose from library" on every file field, where a file is used |
 
 ## Working on a plugin
 
 ```bash
-pip install -e ".[dev]" -e plugins/leads -e plugins/meta-leads -e plugins/whatsapp -e plugins/mcp -e plugins/tickets -e plugins/hr -e plugins/finance -e plugins/tags -e plugins/security-audit -e plugins/seo-audit -e plugins/blog -e plugins/quick-create -e plugins/environment-indicator -e plugins/backups -e plugins/kanban -e plugins/pwa -e plugins/saved-views -e plugins/calendar -e plugins/impersonate
-for p in leads meta-leads whatsapp mcp tickets hr finance tags security-audit seo-audit blog quick-create environment-indicator backups kanban pwa saved-views calendar impersonate; do pytest plugins/$p/tests || break; done
+pip install -e ".[dev]" -e plugins/leads -e plugins/meta-leads -e plugins/whatsapp -e plugins/mcp -e plugins/tickets -e plugins/hr -e plugins/finance -e plugins/tags -e plugins/security-audit -e plugins/seo-audit -e plugins/blog -e plugins/quick-create -e plugins/environment-indicator -e plugins/backups -e plugins/kanban -e plugins/pwa -e plugins/saved-views -e plugins/calendar -e plugins/impersonate -e plugins/media-library
+for p in leads meta-leads whatsapp mcp tickets hr finance tags security-audit seo-audit blog quick-create environment-indicator backups kanban pwa saved-views calendar impersonate media-library; do pytest plugins/$p/tests || break; done
 ```
 
 ## Releasing a plugin
