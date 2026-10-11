@@ -85,3 +85,32 @@ def test_plugin_mount_hook_adds_routes_to_the_main_app():
         app = FastAPI()
         panel.mount(app)
         assert TestClient(app).get("/.well-known/hello").json() == {"panel": path}
+
+
+def test_record_action_adds_buttons_to_another_resource(admin, panel):
+    """``panel.record_action`` lets a plugin put a button on rows and record pages it doesn't own."""
+    from sqlalchemy import select
+
+    from examples.shop.models import Product
+    from tungsten.actions import Action
+
+    pinged = []
+    panel.record_action("products", lambda: Action("ping").label("Ping product").action(
+        lambda record: pinged.append(record.id)))
+    panel.record_action(Product, lambda: Action("page_only").label("Only on the page"), row=False)
+    panel.record_action("brands", lambda: Action("elsewhere").label("Not on products"))
+
+    with panel.sync_session_factory() as db:
+        product_id = db.scalars(select(Product.id).order_by(Product.id)).first()
+    listing = admin.get("/admin/products").text
+    assert "Ping product" in listing
+    assert "Only on the page" not in listing and "Not on products" not in listing
+    edit = admin.get(f"/admin/products/{product_id}/edit").text
+    assert "Ping product" in edit and "Only on the page" in edit and "Not on products" not in edit
+
+    r = admin.post("/admin/_tw/action", {"_tw_host": "resource:products", "_tw_scope": "row", "_tw_name": "ping",
+                                         "_tw_record": str(product_id)})
+    assert r.status_code == 200 and pinged == [product_id]
+    r = admin.post("/admin/_tw/action", {"_tw_host": "resource:products", "_tw_scope": "page",
+                                         "_tw_name": "page_only", "_tw_record": str(product_id)})
+    assert r.status_code in (200, 204)

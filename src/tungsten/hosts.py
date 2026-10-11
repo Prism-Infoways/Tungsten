@@ -194,16 +194,26 @@ class ResourceHost(Host):
 
         table = Table()
         table.ctx = ctx  # so ``table(cls, table)`` can look at the request (bind() sets it again)
-        return self.resource.table(table)
+        table = self.resource.table(table)
+        if table is not None and ctx is not None:
+            extra = ctx.panel.record_actions_for(self.resource, "row")  # buttons other plugins add
+            if extra:
+                table._actions = [*table._actions, *extra]
+        return table
 
     def page_actions(self, ctx: "Context", record: Any = None, page: str | None = None) -> list:
         page = page or ("edit" if record is not None else "list")
-        return list(self.resource.header_actions(ctx, page, record) or [])
+        actions = list(self.resource.header_actions(ctx, page, record) or [])
+        if record is not None:
+            actions = [*ctx.panel.record_actions_for(self.resource, page), *actions]
+        return actions
 
     def all_page_actions(self, ctx: "Context", record: Any = None) -> list:
         out = []
         for page in ("list", "create", "edit", "view"):
             out.extend(self.resource.header_actions(ctx, page, record) or [])
+            if record is not None:
+                out.extend(ctx.panel.record_actions_for(self.resource, page))
         return out
 
     def page_url(self, ctx: "Context") -> str | None:

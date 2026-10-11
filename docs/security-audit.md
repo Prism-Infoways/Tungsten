@@ -131,3 +131,7 @@ panel.plugin(SecurityAuditPlugin(checks=[check_backups]))
 ```
 
 `status` is `pass`, `warn`, `fail`, `info` or `skip`. `severity` is `high`, `medium` or `low`.
+
+## Works with other plugins
+
+- **[Impersonate](impersonate)**: adds checks for who can log in as other users, the time limit and the log.
