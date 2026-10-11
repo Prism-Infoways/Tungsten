@@ -592,6 +592,42 @@ PLUGINS = [
              "Deploy once with PWAPlugin(uninstall=True). Each browser removes the app's files on its next visit."),
         ],
     },
+    {
+        "slug": "calendar",
+        "name": "Calendar (events, leave, follow-ups)",
+        "package": "tungsten-calendar",
+        "docs": "calendar",
+        "category": "Team",
+        "icon": '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
+        "tagline": "Month, week, day and list calendar with your events, leave, follow-ups and due dates in one place.",
+        "summary": "tungsten-calendar adds a calendar to your Tungsten panel. Plan meetings, calls and reminders, drag "
+                   "them to another day, and see who is on leave, which leads need a call and which tickets and "
+                   "invoices are due, all on one screen.",
+        "features": [
+            ("Four views", "Month, week, day and list, with arrow keys to move around."),
+            ("Events", "All-day, multi-day and timed events, with type, color, place and notes."),
+            ("Repeat", "Every day, week, month or year, until a date. Month ends and 29 February just work."),
+            ("Drag and drop", "Drag an event to another day to move it."),
+            ("Linked with your plugins", "Leave, holidays and birthdays from HR, lead follow-ups, ticket due "
+                                         "times, unpaid invoices and blog posts."),
+            ("Phone sync", "A private link for Google Calendar, Outlook or iPhone, and .ics download."),
+        ],
+        "setup": ('from tungsten_calendar import CalendarPlugin\n\n'
+                  'panel.plugin(CalendarPlugin(timezone="Asia/Kolkata"))\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Can I see leave and lead follow-ups on the calendar?",
+             "Yes. When the HR, Leads, Help desk, Finance or Blog plugins are installed, their dates show on the "
+             "calendar by themselves, and each person only sees what they may see."),
+            ("Does it work with Google Calendar?",
+             "Yes. Each person gets a private link to subscribe from Google Calendar, Outlook or an iPhone. "
+             "You can also download an .ics file."),
+            ("Can other plugins add dates?",
+             "Yes. Any plugin can call add_source with a function that returns its items for a date range."),
+            ("Can events repeat?",
+             "Yes. Every day, week, month or year, every N times, until a date or with no end."),
+        ],
+    },
 ]
 
 PLUGIN_FAQS = [

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tungsten-calendar"
+version = "0.1.0"
+description = "Calendar plugin for Tungsten: month, week, day and list views, repeating events, drag and drop, phone sync, and dates from HR, Leads, Tickets, Finance and Blog."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Prism Infoways" }]
+keywords = ["tungsten", "tungsten-admin", "calendar", "events", "scheduling", "ics", "fastapi", "admin"]
+dependencies = ["tungsten-admin>=0.1.7"]
+
+[project.urls]
+Homepage = "https://tungsten.prisminfoways.com/"
+Documentation = "https://tungsten.prisminfoways.com/docs/calendar"
+Repository = "https://github.com/Prism-Infoways/Tungsten"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tungsten_calendar"]

@@ -1,0 +1,221 @@
+{# The calendar: toolbar, source chips, then the month grid, the week/day columns or the list. #}
+{% macro item(c, compact=False) -%}
+<a {% if c.url %}href="{{ c.url }}"{% endif %} class="twcal-item{{ ' twcal-allday' if c.all_day }}{{ ' twcal-cut-l' if c.continues_before }}{{ ' twcal-cut-r' if c.continues_after }}"
+   style="--c:{{ c.strong }};--s:{{ c.soft }}" title="{{ c.title }}{% if c.time %} · {{ c.time }}{% endif %}{% if c.location %} · {{ c.location }}{% endif %} ({{ __(c.source) }})"
+   {% if c.move %}draggable="true" data-cal-move="{{ c.move }}"{% endif %}>
+  {%- if not c.all_day %}<span class="twcal-dot"></span>{% endif -%}
+  {%- if not compact and c.icon %}<span class="twcal-icon">{{ icon(c.icon, 'h-3.5 w-3.5') }}</span>{% endif -%}
+  {%- if not c.all_day and c.time %}<span class="twcal-time">{{ c.short if compact else c.time }}</span>{% endif -%}
+  <span class="twcal-title">{{ c.title }}</span>
+</a>
+{%- endmacro %}
+<style>
+[data-cal]{--line:rgb(var(--tw-c-gray-200));--muted:rgb(var(--tw-c-gray-500));--ink:rgb(var(--tw-c-gray-950));--panel:#fff;--hover:rgb(var(--tw-c-gray-50));--off:rgb(var(--tw-c-gray-50))}
+.dark [data-cal]{--line:rgba(255,255,255,.1);--muted:rgb(var(--tw-c-gray-400));--ink:#fff;--panel:rgb(var(--tw-c-gray-900));--hover:rgba(255,255,255,.05);--off:rgba(255,255,255,.02)}
+[data-cal] .twcal-bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:12px}
+[data-cal] .twcal-nav{display:inline-flex;align-items:center;gap:4px}
+[data-cal] .twcal-btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:36px;height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:14px;font-weight:500;text-decoration:none}
+[data-cal] .twcal-btn:hover{background:var(--hover)}
+[data-cal] .twcal-btn[aria-disabled=true]{opacity:.55}
+[data-cal] .twcal-heading{font-size:20px;font-weight:600;color:var(--ink);margin:0 4px}
+[data-cal] .twcal-views{margin-left:auto;display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+[data-cal] .twcal-views a{padding:7px 14px;font-size:14px;color:var(--muted);text-decoration:none;border-left:1px solid var(--line)}
+[data-cal] .twcal-views a:first-child{border-left:0}
+[data-cal] .twcal-views a[aria-current=page]{background:rgb(var(--tw-c-primary-500) / .12);color:rgb(var(--tw-c-primary-600));font-weight:600}
+.dark [data-cal] .twcal-views a[aria-current=page]{color:rgb(var(--tw-c-primary-400))}
+[data-cal] .twcal-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+[data-cal] .twcal-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);font-size:13px;color:var(--ink);text-decoration:none;background:var(--panel)}
+[data-cal] .twcal-chip i{width:8px;height:8px;border-radius:999px;background:var(--c)}
+[data-cal] .twcal-chip[aria-pressed=false]{color:var(--muted);text-decoration:line-through;opacity:.75}
+[data-cal] .twcal-chip[aria-pressed=false] i{background:transparent;box-shadow:inset 0 0 0 1.5px var(--c)}
+[data-cal] .twcal-box{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}
+[data-cal] .twcal-scroll{overflow-x:auto}
+[data-cal] .twcal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));min-width:640px}
+[data-cal] .twcal-head{padding:8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--line);text-align:center}
+[data-cal] .twcal-cell{min-height:118px;padding:6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:3px;min-width:0;position:relative}
+[data-cal] .twcal-cell:nth-child(7n){border-right:0}
+[data-cal] .twcal-cell.twcal-out{background:var(--off)}
+[data-cal] .twcal-cell.twcal-out .twcal-num{opacity:.5}
+[data-cal] .twcal-cell.twcal-over,[data-cal] .twcal-col.twcal-over{background:rgb(var(--tw-c-primary-500) / .08);outline:2px dashed rgb(var(--tw-c-primary-500) / .5);outline-offset:-3px}
+[data-cal] .twcal-top{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:2px}
+[data-cal] .twcal-num{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 4px;border-radius:999px;font-size:13px;font-weight:500;color:var(--ink);text-decoration:none}
+[data-cal] .twcal-num:hover{background:var(--hover)}
+[data-cal] .twcal-today .twcal-num{background:rgb(var(--tw-c-primary-600));color:#fff}
+[data-cal] .twcal-add{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;color:var(--muted);opacity:0;text-decoration:none}
+[data-cal] .twcal-cell:hover .twcal-add,[data-cal] .twcal-col:hover .twcal-add,[data-cal] .twcal-add:focus{opacity:1}
+[data-cal] .twcal-add:hover{background:var(--hover);color:var(--ink)}
+[data-cal] .twcal-item{display:flex;align-items:center;gap:5px;min-width:0;padding:2px 6px;border-radius:6px;font-size:12px;line-height:18px;color:var(--ink);text-decoration:none;cursor:pointer}
+[data-cal] .twcal-item:hover{background:var(--hover)}
+[data-cal] .twcal-item.twcal-allday{background:var(--s);box-shadow:inset 3px 0 0 var(--c)}
+[data-cal] .twcal-item.twcal-allday:hover{filter:brightness(.97)}
+[data-cal] .twcal-item.twcal-cut-l{border-top-left-radius:0;border-bottom-left-radius:0;box-shadow:none}
+[data-cal] .twcal-item.twcal-cut-r{border-top-right-radius:0;border-bottom-right-radius:0}
+[data-cal] .twcal-item[draggable=true]{cursor:grab}
+[data-cal] .twcal-item.twcal-dragging{opacity:.4}
+[data-cal] .twcal-dot{flex:none;width:7px;height:7px;border-radius:999px;background:var(--c)}
+[data-cal] .twcal-icon{flex:none;display:inline-flex;color:var(--c)}
+[data-cal] .twcal-time{flex:none;color:var(--muted);font-variant-numeric:tabular-nums}
+[data-cal] .twcal-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[data-cal] .twcal-more{font-size:12px;font-weight:500;color:var(--muted);text-decoration:none;padding:0 6px}
+[data-cal] .twcal-more:hover{color:var(--ink)}
+[data-cal] .twcal-cols{display:grid;min-width:0}
+[data-cal] .twcal-cols.twcal-seven{grid-template-columns:repeat(7,minmax(120px,1fr));min-width:840px}
+[data-cal] .twcal-col{border-right:1px solid var(--line);min-height:360px;display:flex;flex-direction:column;min-width:0}
+[data-cal] .twcal-col:last-child{border-right:0}
+[data-cal] .twcal-colhead{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:10px;border-bottom:1px solid var(--line)}
+[data-cal] .twcal-colhead span{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+[data-cal] .twcal-colbody{display:flex;flex-direction:column;gap:4px;padding:8px;flex:1}
+[data-cal] .twcal-colbody .twcal-item{font-size:13px;padding:6px 8px;align-items:flex-start;flex-wrap:wrap;background:var(--s);box-shadow:inset 3px 0 0 var(--c)}
+[data-cal] .twcal-colbody .twcal-item .twcal-dot{display:none}
+[data-cal] .twcal-colbody .twcal-title{white-space:normal;flex-basis:100%}
+[data-cal] .twcal-empty{padding:28px 16px;text-align:center;font-size:14px;color:var(--muted)}
+[data-cal] .twcal-day{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+[data-cal] .twcal-day:last-child{border-bottom:0}
+[data-cal] .twcal-day.twcal-today .twcal-dayname{color:rgb(var(--tw-c-primary-600))}
+[data-cal] .twcal-dayname{font-size:14px;font-weight:600;color:var(--ink);text-decoration:none}
+[data-cal] .twcal-rows{display:grid;gap:2px;min-width:0}
+[data-cal] .twcal-row{display:grid;grid-template-columns:110px 1fr auto;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;font-size:14px;color:var(--ink);text-decoration:none;min-width:0}
+[data-cal] .twcal-row:hover{background:var(--hover)}
+[data-cal] .twcal-row .twcal-meta{font-size:12px;color:var(--muted);white-space:nowrap}
+[data-cal] .twcal-row .twcal-sub{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+[data-cal] .twcal-note{margin-bottom:12px;padding:10px 12px;border-radius:8px;font-size:13px;background:rgb(var(--tw-c-warning-500) / .12);color:rgb(var(--tw-c-warning-700))}
+.dark [data-cal] .twcal-note{color:rgb(var(--tw-c-warning-300))}
+@media (max-width:640px){
+  [data-cal] .twcal-views{margin-left:0}
+  [data-cal] .twcal-heading{font-size:17px;flex-basis:100%;order:-1}
+  [data-cal] .twcal-day{grid-template-columns:1fr;gap:4px}
+  [data-cal] .twcal-row{grid-template-columns:90px 1fr}
+  [data-cal] .twcal-row .twcal-meta{display:none}
+}
+</style>
+<div data-cal data-cal-view="{{ cal.view }}" data-cal-move-url="{{ cal.move_url }}">
+  <div class="twcal-bar">
+    <div class="twcal-nav">
+      <a class="twcal-btn" href="{{ cal.prev_url }}" aria-label="{{ __('Previous') }}" title="{{ __('Previous') }}" data-cal-key="ArrowLeft"><span class="rtl:rotate-180">{{ icon('chevron-left', 'h-4 w-4') }}</span></a>
+      <a class="twcal-btn" href="{{ cal.next_url }}" aria-label="{{ __('Next') }}" title="{{ __('Next') }}" data-cal-key="ArrowRight"><span class="rtl:rotate-180">{{ icon('chevron-right', 'h-4 w-4') }}</span></a>
+      <a class="twcal-btn" href="{{ cal.today_url }}" {% if cal.is_today %}aria-disabled="true"{% endif %} data-cal-key="t">{{ __('Today') }}</a>
+    </div>
+    <h2 class="twcal-heading" data-cal-heading>{{ cal.heading }}</h2>
+    <nav class="twcal-views" aria-label="{{ __('Calendar view') }}">
+      {% for v in cal.views %}<a href="{{ v.url }}" {% if v.active %}aria-current="page"{% endif %}>{{ __(v.label) }}</a>{% endfor %}
+    </nav>
+  </div>
+
+  {% if cal.chips %}
+  <div class="twcal-chips" aria-label="{{ __('Show on the calendar') }}">
+    {% for c in cal.chips %}<a class="twcal-chip" href="{{ c.url }}" aria-pressed="{{ 'false' if c.hidden else 'true' }}" style="--c:{{ c.strong }}" data-cal-source="{{ c.key }}"><i></i>{{ __(c.label) }}</a>{% endfor %}
+  </div>
+  {% endif %}
+
+  {% if cal.failed %}<div class="twcal-note" role="status">{{ __("Couldn't load:") }} {{ cal.failed|join(', ') }}. {{ __('The rest of the calendar is fine.') }}</div>{% endif %}
+
+  <div class="twcal-box">
+  {% if cal.view == 'month' %}
+    <div class="twcal-scroll"><div class="twcal-grid" role="grid" aria-label="{{ cal.heading }}">
+      {% for name in cal.weekdays %}<div class="twcal-head" role="columnheader">{{ name }}</div>{% endfor %}
+      {% for week in cal.weeks %}{% for d in week %}
+      <div class="twcal-cell{{ ' twcal-out' if d.outside }}{{ ' twcal-today' if d.today }}" role="gridcell" data-cal-drop="{{ d.iso }}" data-cal-date="{{ d.iso }}">
+        <div class="twcal-top">
+          <a class="twcal-num" href="{{ d.day_url }}" aria-label="{{ d.label }}">{{ d.num }}</a>
+          {% if d.new_url %}<a class="twcal-add" href="{{ d.new_url }}" title="{{ __('New event') }}" aria-label="{{ __('New event on :day', day=d.label) }}">{{ icon('plus', 'h-4 w-4') }}</a>{% endif %}
+        </div>
+        {% for c in d.shown %}{{ item(c, compact=True) }}{% endfor %}
+        {% if d.more %}<a class="twcal-more" href="{{ d.day_url }}">{{ __('+:n more', n=d.more) }}</a>{% endif %}
+      </div>
+      {% endfor %}{% endfor %}
+    </div></div>
+  {% elif cal.view in ('week', 'day') %}
+    <div class="twcal-scroll"><div class="twcal-cols{{ ' twcal-seven' if cal.view == 'week' }}">
+      {% for d in cal.columns %}
+      <div class="twcal-col{{ ' twcal-today' if d.today }}" data-cal-drop="{{ d.iso }}" data-cal-date="{{ d.iso }}">
+        <div class="twcal-colhead">
+          <span>{{ d.label.split(' ')[0] }}</span>
+          <a class="twcal-num" href="{{ d.day_url }}">{{ d.num }}</a>
+          {% if d.new_url %}<a class="twcal-add" href="{{ d.new_url }}" title="{{ __('New event') }}" aria-label="{{ __('New event on :day', day=d.label) }}">{{ icon('plus', 'h-4 w-4') }}</a>{% endif %}
+        </div>
+        <div class="twcal-colbody">
+          {% for c in d.rows %}{{ item(c) }}{% else %}<div class="twcal-empty" style="padding:16px 4px">{{ __('Free') }}</div>{% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div></div>
+  {% else %}
+    {% for d in cal.agenda %}
+    <div class="twcal-day{{ ' twcal-today' if d.today }}">
+      <a class="twcal-dayname" href="{{ d.day_url }}">{{ __('Today') if d.today else d.date.strftime('%a') }}, {{ d.num }} {{ __(d.date.strftime('%b')) }}</a>
+      <div class="twcal-rows">
+        {% for c in d.rows %}
+        <a class="twcal-row" {% if c.url %}href="{{ c.url }}"{% endif %} style="--c:{{ c.strong }}">
+          <span class="twcal-meta" style="display:inline-flex;align-items:center;gap:8px;color:inherit"><span class="twcal-dot" style="background:{{ c.strong }};width:8px;height:8px;border-radius:999px;flex:none"></span>{{ c.time }}</span>
+          <span style="min-width:0"><span class="twcal-title" style="display:block">{{ c.title }}</span>{% if c.location or c.description %}<span class="twcal-sub">{{ c.location or c.description }}</span>{% endif %}</span>
+          <span class="twcal-meta">{{ __(c.source) }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="twcal-empty">{{ __('Nothing planned from :from to :to.', from=cal.first.strftime('%d %b'), to=cal.last.strftime('%d %b %Y')) }}{% if cal.new_url %} <a href="{{ cal.new_url }}" class="text-primary-600 dark:text-primary-400">{{ __('Add an event') }}</a>{% endif %}</div>
+    {% endfor %}
+  {% endif %}
+  </div>
+</div>
+<script>
+(function () {
+  document.querySelectorAll('[data-cal]:not([data-cal-ready])').forEach(function (root) {
+    root.setAttribute('data-cal-ready', '');
+    var moveUrl = root.getAttribute('data-cal-move-url'), dragged = null;
+    function token() {
+      try { return JSON.parse(document.body.getAttribute('hx-headers') || '{}')['X-CSRF-Token'] || ''; } catch (e) { return ''; }
+    }
+    function dayOf(el) { var cell = el && el.closest('[data-cal-date]'); return cell ? cell.getAttribute('data-cal-date') : null; }
+    function diff(a, b) { return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000); }
+    root.addEventListener('dragstart', function (e) {
+      var el = e.target.closest && e.target.closest('[data-cal-move]');
+      if (!el) return;
+      dragged = { id: el.getAttribute('data-cal-move'), from: dayOf(el), el: el };
+      el.classList.add('twcal-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', dragged.id); } catch (err) {}
+    });
+    root.addEventListener('dragend', function () {
+      if (dragged) dragged.el.classList.remove('twcal-dragging');
+      root.querySelectorAll('.twcal-over').forEach(function (c) { c.classList.remove('twcal-over'); });
+    });
+    root.addEventListener('dragover', function (e) {
+      var cell = dragged && e.target.closest('[data-cal-drop]');
+      if (!cell) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      root.querySelectorAll('.twcal-over').forEach(function (c) { if (c !== cell) c.classList.remove('twcal-over'); });
+      cell.classList.add('twcal-over');
+    });
+    root.addEventListener('drop', function (e) {
+      var cell = dragged && e.target.closest('[data-cal-drop]');
+      if (!cell) return;
+      e.preventDefault();
+      cell.classList.remove('twcal-over');
+      var days = diff(dragged.from, cell.getAttribute('data-cal-drop')), id = dragged.id;
+      dragged = null;
+      if (!days || isNaN(days)) return;
+      if (window.htmx) {
+        htmx.ajax('POST', moveUrl, { values: { id: id, days: days }, headers: { 'X-CSRF-Token': token() }, swap: 'none', source: root });
+      } else {
+        var body = new URLSearchParams({ id: id, days: days });
+        fetch(moveUrl, { method: 'POST', body: body, headers: { 'X-CSRF-Token': token() }, credentials: 'same-origin' })
+          .then(function () { location.reload(); });
+      }
+    });
+    // keyboard: left / right arrows and "t" move through the calendar when nothing else has focus
+    if (!window.__twcalKeys) {
+      window.__twcalKeys = true;
+      document.addEventListener('keydown', function (e) {
+        var cal = document.querySelector('[data-cal]');
+        var tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (!cal || e.altKey || e.ctrlKey || e.metaKey || /INPUT|TEXTAREA|SELECT/.test(tag) || document.querySelector('[role=dialog]:not([hidden])')) return;
+        var link = cal.querySelector('[data-cal-key="' + e.key + '"]');
+        if (link && link.getAttribute('aria-disabled') !== 'true') { e.preventDefault(); link.click(); }
+      });
+    }
+  });
+})();
+</script>
