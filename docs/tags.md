@@ -38,6 +38,8 @@ Each of them gets:
 - a **Tags** filter: show rows with *any* or *all* of the picked tags,
 - **Add tags** and **Remove tags** for the selected rows.
 
+With `tungsten-quick-create`, the **+ New** side panel shows the Tags box too. The tag filter lives in the page address, so a saved or shared link keeps it.
+
 The order of `panel.plugin(...)` calls does not matter. Pass `TagsPlugin(auto_attach=False)` to choose yourself.
 
 ## Your own resources

@@ -310,3 +310,24 @@ def test_attach_checks_the_model(panel, tags):
     with pytest.raises(ValueError):
         tags.attach(Broken, column="nope")
     assert isinstance(tags, TagsPlugin)
+
+
+def test_quick_create_form_saves_tags(tmp_path, panel):
+    """With tungsten-quick-create, the + New side panel shows the Tags box and saves it."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from tungsten_quick_create import QuickCreatePlugin
+
+    from conftest import PanelClient
+
+    panel.plugin(QuickCreatePlugin())
+    app = FastAPI()
+    panel.mount(app)
+    client = PanelClient(TestClient(app))
+    client.login()
+    client.get("/admin/")
+    assert "tungsten_tags" in client.get("/admin/_quick-create/products").text
+    r = client.post("/admin/_quick-create/products", {"name": "Pen", "tungsten_tags": ["Office"]})
+    assert r.status_code in (200, 204), r.text
+    with panel.db() as db:
+        assert taggings(db, "products") == [(1, "Office")]

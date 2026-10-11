@@ -14,7 +14,7 @@ keywords = ["tungsten", "tungsten-admin", "tags", "labels", "taggable", "fastapi
 dependencies = ["tungsten-admin>=0.1.7"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "httpx>=0.27", "tungsten-leads", "tungsten-tickets", "tungsten-hr", "tungsten-finance"]
+dev = ["pytest>=8", "httpx>=0.27", "tungsten-leads", "tungsten-tickets", "tungsten-hr", "tungsten-finance", "tungsten-quick-create"]
 
 [project.urls]
 Homepage = "https://tungsten.prisminfoways.com/plugins/tags"
