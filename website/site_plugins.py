@@ -341,6 +341,43 @@ PLUGINS = [
              "Yes. Every audit is saved, and Audit history shows the score over time."),
         ],
     },
+    {
+        "slug": "environment-indicator",
+        "name": "Environment indicator",
+        "package": "tungsten-environment-indicator",
+        "docs": "environment-indicator",
+        "category": "Security",
+        "icon": '<path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><circle cx="8" cy="7" r="1"/><circle cx="8" cy="17" r="1"/>',
+        "tagline": "A Local, Staging or Live badge, so nobody works on live by mistake.",
+        "summary": "tungsten-environment-indicator shows which copy of your app you are in: a green Local, amber "
+                   "Staging or red Live badge in the top bar and on the sign-in page, a colored line on top of "
+                   "every page, and [Live] in the browser tab title. It reads APP_ENV or similar, and when nothing "
+                   "is set it says Live everywhere except localhost.",
+        "features": [
+            ("Badge in the top bar", "Green Local, blue Development, amber Staging, red Live, or your own names."),
+            ("Colored line", "A thin line in the environment's color on top of every page."),
+            ("Tab title", "[Live] or [Staging] in front of the browser tab title, so tabs never mix up."),
+            ("Sign-in page", "\"You are signing in to Live\" before anyone types a password."),
+            ("Safe guess", "With nothing set, only localhost says Local. A live server behind a proxy still says Live."),
+            ("Git branch and debug", "The branch in the badge, and a warning when live runs in debug mode."),
+            ("Who sees it", "Show it only to admins, or hide it on live for a customer panel."),
+            ("Tells AI too", "With the MCP plugin, AI assistants are told when they work on live data."),
+            ("Light and safe", "No tables, no settings screen. If the badge ever fails, the page still opens."),
+        ],
+        "last_step": "Set APP_ENV where the app runs, restart it and open the panel. The badge is in the top bar.",
+        "setup": ('from tungsten_environment_indicator import EnvironmentIndicatorPlugin\n\n'
+                  'panel.plugin(EnvironmentIndicatorPlugin())\n\n# where the app runs: APP_ENV=staging'),
+        "needs": [],
+        "faqs": [
+            ("How does it know the environment?",
+             "It reads TUNGSTEN_ENV, APP_ENV, ENVIRONMENT, ENV, FASTAPI_ENV or PYTHON_ENV. You can also pass the "
+             "name in code. With none set, localhost is Local and every other address is Live."),
+            ("Can my customers not see the Live badge?",
+             "Yes. Use hide_in=(\"production\",) to show nothing on live, or visible= to show it only to admins."),
+            ("Does it slow the panel down?",
+             "No. It reads the environment once at start-up and adds a few hundred bytes to each page. It adds no tables."),
+        ],
+    },
 ]
 
 PLUGIN_FAQS = [
