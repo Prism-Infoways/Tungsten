@@ -706,3 +706,49 @@ PLUGIN_FAQS = [
     ("Can I build my own plugin?",
      "Yes. A plugin is a Python class that adds resources, pages, widgets, routes and hooks. See Plugins and hooks in the docs."),
 ]
+
+# Plugins that work together, linked from each plugin page and its docs page. Missing slots fill up from the
+# same category.
+RELATED = {
+    "leads": ["facebook-instagram-leads", "whatsapp", "kanban", "calendar", "tags", "quick-create"],
+    "facebook-instagram-leads": ["leads", "whatsapp", "kanban", "tags"],
+    "whatsapp": ["leads", "facebook-instagram-leads", "tickets"],
+    "mcp": ["security-audit", "blog", "saved-views"],
+    "tickets": ["kanban", "tags", "calendar", "whatsapp", "saved-views"],
+    "saved-views": ["tags", "kanban", "quick-create", "leads"],
+    "hr": ["calendar", "finance", "kanban", "tags"],
+    "finance": ["hr", "tags", "calendar"],
+    "tags": ["leads", "tickets", "media-library", "saved-views", "quick-create", "finance"],
+    "blog": ["seo-audit", "media-library", "tags", "calendar"],
+    "media-library": ["tags", "quick-create", "pwa", "blog"],
+    "seo-audit": ["blog", "security-audit"],
+    "security-audit": ["backups", "impersonate", "environment-indicator", "mcp"],
+    "kanban": ["leads", "tickets", "hr", "saved-views", "tags"],
+    "quick-create": ["pwa", "tags", "media-library", "saved-views"],
+    "environment-indicator": ["backups", "security-audit", "impersonate"],
+    "backups": ["security-audit", "environment-indicator", "media-library"],
+    "pwa": ["quick-create", "calendar", "media-library"],
+    "calendar": ["hr", "leads", "tickets", "finance", "blog"],
+    "impersonate": ["security-audit", "environment-indicator", "backups"],
+}
+
+# Published posts on the Prism Infoways blog. Add a plugin here once its post is live (drafts stay out).
+BLOG_POSTS = {
+    "leads": ("Tungsten now brings in Facebook, Instagram and WhatsApp leads",
+              "https://prisminfoways.com/blog-single/tungsten-facebook-instagram-whatsapp-leads"),
+    "facebook-instagram-leads": ("Tungsten now brings in Facebook, Instagram and WhatsApp leads",
+                                 "https://prisminfoways.com/blog-single/tungsten-facebook-instagram-whatsapp-leads"),
+    "whatsapp": ("Tungsten now brings in Facebook, Instagram and WhatsApp leads",
+                 "https://prisminfoways.com/blog-single/tungsten-facebook-instagram-whatsapp-leads"),
+    "mcp": ("Let AI work in your admin panel: the Tungsten MCP plugin for Claude and Cursor",
+            "https://prisminfoways.com/blog-single/tungsten-mcp-plugin-ai-admin-panel"),
+    "tickets": ("4 new free Tungsten plugins: help desk, SEO blog, security and SEO audit",
+                "https://prisminfoways.com/blog-single/tungsten-plugins-help-desk-blog-security-seo-audit"),
+    "blog": ("4 new free Tungsten plugins: help desk, SEO blog, security and SEO audit",
+             "https://prisminfoways.com/blog-single/tungsten-plugins-help-desk-blog-security-seo-audit"),
+    "seo-audit": ("4 new free Tungsten plugins: help desk, SEO blog, security and SEO audit",
+                  "https://prisminfoways.com/blog-single/tungsten-plugins-help-desk-blog-security-seo-audit"),
+    "security-audit": ("4 new free Tungsten plugins: help desk, SEO blog, security and SEO audit",
+                       "https://prisminfoways.com/blog-single/tungsten-plugins-help-desk-blog-security-seo-audit"),
+}
+INTRO_POST = ("FastAPI admin panel made easy: meet Tungsten", "https://prisminfoways.com/blog-single/fastapi-admin-panel-tungsten")

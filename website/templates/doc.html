@@ -32,6 +32,9 @@
         <p class="eyebrow">{{ section }}</p>
         <h1>{{ page.title }}</h1>
         {% if page.description %}<p class="doc-lede">{{ page.description }}</p>{% endif %}
+        {% if plugin %}<p class="doc-plugin">Plugin: <a href="../plugins/{{ plugin.slug }}.html">{{ plugin.name }} plugin page</a>
+          {%- if plugin.works_with %}. Works with {% for o in plugin.works_with %}<a href="../plugins/{{ o.slug }}.html">{{ o.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+          {%- if plugin.blog %}. <a href="{{ plugin.blog[1] }}" rel="noopener">Read the blog post</a>{% endif %}.</p>{% endif %}
       </header>
       <div class="prose">
         {{ page.body }}
