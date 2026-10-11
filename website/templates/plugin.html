@@ -68,7 +68,9 @@
           <li>Install the package: <code>pip install {{ p.package }}</code>{% if p.needs %} (it needs {% for n in p.needs %}<code>{{ n }}</code>{% endfor %} too){% endif %}.</li>
           <li>Turn it on in your panel with <code>panel.plugin(...)</code>, as in the code.</li>
           {% if 'create_tables' in p.setup %}<li>Run <code>panel.create_tables(engine)</code> once to create its tables.</li>{% endif %}
-          <li>{{ p.last_step or 'Restart your app and open the panel. The new screens are in the menu.' }}</li>
+          {% if p.last_step %}<li>{{ p.last_step }}</li>
+          {% elif 'create_tables' in p.setup %}<li>Restart your app and open the panel. The new screens are in the menu.</li>
+          {% else %}<li>Restart your app and open the panel. No tables or extra setup needed.</li>{% endif %}
         </ol>
         {% if p.docs %}<a class="text-link" href="../docs/{{ p.docs }}.html">Full setup guide <span aria-hidden="true">→</span></a>{% endif %}
       </div>
