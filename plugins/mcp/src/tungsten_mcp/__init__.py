@@ -13,6 +13,7 @@ their roles, policies and tenancy apply, and writes go through the resource's fo
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -144,14 +145,30 @@ class McpPlugin(Plugin):
 
     def instructions_for(self, can_write: bool) -> str:
         if self.instructions:
-            return self.instructions
+            return self.instructions + self._plugin_notes()
         text = DEFAULT_INSTRUCTIONS
         if can_write:
             text += (" create_record, update_record and delete_record change data: confirm with the user "
                      "before changing or deleting records they did not ask about.")
         else:
             text += " This connection can only read."
-        return text
+        return text + self._plugin_notes()
+
+    def _plugin_notes(self) -> str:
+        """Notes from other plugins with an ``mcp_instructions()`` method (e.g. "this is the live panel")."""
+        notes = []
+        for plugin in getattr(self.panel, "_plugins", []):
+            fn = getattr(plugin, "mcp_instructions", None)
+            if plugin is self or not callable(fn):
+                continue
+            try:
+                note = fn()
+            except Exception:
+                logging.getLogger("tungsten.mcp").exception("%s.mcp_instructions() failed", type(plugin).__name__)
+                continue
+            if note:
+                notes.append(" " + str(note).strip())
+        return "".join(notes)
 
 
 def _slug(resource: Any) -> str:

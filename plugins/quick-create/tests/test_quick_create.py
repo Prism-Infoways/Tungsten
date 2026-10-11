@@ -268,3 +268,32 @@ def test_create_ticket_and_lead_from_anywhere(full_panel):
         ticket = db.query(Ticket).one()
         assert ticket.number and ticket.due_at is not None  # the plugin's own hooks ran
         assert db.query(Lead).one().name == "Meena"
+
+
+def test_live_note_with_environment_indicator(make_panel):
+    from tungsten import Plugin
+
+    class Env:
+        def __init__(self, live):
+            self.is_production, self.label = live, "Live" if live else "Local"
+
+    class FakeIndicator(Plugin):
+        id = "environment-indicator"
+        live = True
+
+        def current(self, ctx=None):
+            return Env(self.live)
+
+    panel = make_panel()
+    indicator = FakeIndicator()
+    panel.plugin(indicator)
+    client = client_for(panel)
+    assert client.login().status_code == 303
+    client.get("/admin/")
+    assert "This record goes into real data" in client.get("/admin/_quick-create/products", htmx=True).text
+    indicator.live = False
+    assert "real data" not in client.get("/admin/_quick-create/products", htmx=True).text
+
+
+def test_no_live_note_without_indicator(admin):
+    assert "real data" not in admin.get("/admin/_quick-create/products", htmx=True).text

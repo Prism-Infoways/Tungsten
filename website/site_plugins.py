@@ -243,6 +243,41 @@ PLUGINS = [
         ],
     },
     {
+        "slug": "tags",
+        "name": "Tags",
+        "package": "tungsten-tags",
+        "docs": "tags",
+        "category": "Productivity",
+        "icon": '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+        "tagline": "Put colored tags on any record and filter by them.",
+        "summary": "tungsten-tags lets you tag leads, tickets, employees, invoices and your own records with labels "
+                   "like VIP or Follow up, then filter any list by tag. One shared list of tags works across every "
+                   "module.",
+        "features": [
+            ("Works everywhere", "Leads, tickets, employees, customers, invoices and bills get tags with no extra code."),
+            ("Filter by tag", "Show rows with any or all of the picked tags."),
+            ("Bulk tagging", "Add or remove tags on many rows at once."),
+            ("Colors and groups", "Ten badge colors, and groups to keep sets of tags apart."),
+            ("Merge and rename", "Merge duplicates like VIP and V.I.P. Every record follows a rename."),
+            ("Your own models", "attach(ProductResource), plus set_tags and add_tags in code."),
+        ],
+        "setup": ('from tungsten_tags import TagsPlugin\n\n'
+                  'panel.plugin(TagsPlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Which records can have tags?",
+             "Leads, tickets, employees, finance contacts, invoices, quotes, bills, notes and expenses, as soon as "
+             "those plugins are on the panel. Any other resource with attach()."),
+            ("Are VIP and vip different tags?",
+             "No. Names ignore capital letters and extra spaces, so they are one tag."),
+            ("What happens when I delete or rename a tag?",
+             "Every record is updated. Deleting a record also removes its tags."),
+            ("Can I find every record with a tag?",
+             "Yes. Open the tag on the Tags page to see how many leads, tickets and more carry it, with links to "
+             "each filtered list."),
+        ],
+    },
+    {
         "slug": "blog",
         "name": "Blog (SEO, GEO, AEO)",
         "package": "tungsten-blog",
@@ -413,6 +448,43 @@ PLUGINS = [
              "No. It saves through each resource's own create code, so hooks, validation and the activity log run."),
             ("Can other plugins add their own entries?",
              "Yes. Call add_link(key, label, url) on the plugin to add a link such as New event or Upload file."),
+        ],
+    },
+    {
+        "slug": "environment-indicator",
+        "name": "Environment indicator",
+        "package": "tungsten-environment-indicator",
+        "docs": "environment-indicator",
+        "category": "Security",
+        "icon": '<path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><circle cx="8" cy="7" r="1"/><circle cx="8" cy="17" r="1"/>',
+        "tagline": "A Local, Staging or Live badge, so nobody works on live by mistake.",
+        "summary": "tungsten-environment-indicator shows which copy of your app you are in: a green Local, amber "
+                   "Staging or red Live badge in the top bar and on the sign-in page, a colored line on top of "
+                   "every page, and [Live] in the browser tab title. It reads APP_ENV or similar, and when nothing "
+                   "is set it says Live everywhere except localhost.",
+        "features": [
+            ("Badge in the top bar", "Green Local, blue Development, amber Staging, red Live, or your own names."),
+            ("Colored line", "A thin line in the environment's color on top of every page."),
+            ("Tab title", "[Live] or [Staging] in front of the browser tab title, so tabs never mix up."),
+            ("Sign-in page", "\"You are signing in to Live\" before anyone types a password."),
+            ("Safe guess", "With nothing set, only localhost says Local. A live server behind a proxy still says Live."),
+            ("Git branch and debug", "The branch in the badge, and a warning when live runs in debug mode."),
+            ("Who sees it", "Show it only to admins, or hide it on live for a customer panel."),
+            ("Tells AI too", "With the MCP plugin, AI assistants are told when they work on live data."),
+            ("Light and safe", "No tables, no settings screen. If the badge ever fails, the page still opens."),
+        ],
+        "last_step": "Set APP_ENV where the app runs, restart it and open the panel. The badge is in the top bar.",
+        "setup": ('from tungsten_environment_indicator import EnvironmentIndicatorPlugin\n\n'
+                  'panel.plugin(EnvironmentIndicatorPlugin())\n\n# where the app runs: APP_ENV=staging'),
+        "needs": [],
+        "faqs": [
+            ("How does it know the environment?",
+             "It reads TUNGSTEN_ENV, APP_ENV, ENVIRONMENT, ENV, FASTAPI_ENV or PYTHON_ENV. You can also pass the "
+             "name in code. With none set, localhost is Local and every other address is Live."),
+            ("Can my customers not see the Live badge?",
+             "Yes. Use hide_in=(\"production\",) to show nothing on live, or visible= to show it only to admins."),
+            ("Does it slow the panel down?",
+             "No. It reads the environment once at start-up and adds a few hundred bytes to each page. It adds no tables."),
         ],
     },
 ]

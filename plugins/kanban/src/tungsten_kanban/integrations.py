@@ -13,7 +13,7 @@ import datetime as dt
 from collections.abc import Callable
 from typing import Any
 
-from .board import Board, MoveRefused
+from .board import COLORS, Board, MoveRefused
 
 
 def _me(ctx: Any) -> str | None:
@@ -128,6 +128,26 @@ def hr_boards(panel: Any) -> list[Board]:
                      "rejected": [], "cancelled": []},
         can_move=can_move, on_move=on_move, sort_by="start_date",
     )]
+
+
+# ---------------------------------------------------------------------- tags
+def tag_badges(record: Any, board: Board, ctx: Any) -> list:
+    """With the Tags plugin, a card shows its record's tags in their colors."""
+    from types import SimpleNamespace
+
+    from tungsten_tags.components import _colors, record_names, target_of
+    from tungsten_tags.service import tag_key
+
+    target = target_of(ctx, board.resource)
+    if target is None:
+        return []
+    holder = ctx.__dict__.setdefault("_kanban_tags", SimpleNamespace())  # colors are read once a page
+    colors = _colors(holder, target, ctx.db)
+    out = []
+    for name in record_names(holder, target, record, ctx.db):
+        color = colors.get(tag_key(name), "gray")
+        out.append((name, color if color in COLORS else "gray"))
+    return out
 
 
 #: plugin id -> function that makes its boards

@@ -367,3 +367,12 @@ def test_new_button_uses_quick_create(admin):
     html = admin.get("/admin/leave-board").text
     assert "_quick-create/leave-requests" not in html
     assert 'href="/admin/leave-requests/create"' in html
+
+
+def test_cards_show_tags(admin, panel):
+    with panel.db() as db:
+        db.add(Lead(name="Tagged lead", status="new", tags=["VIP", "Delhi"]))
+        db.commit()
+    html = admin.get("/admin/leads-board").text
+    card = html.split("Tagged lead")[1].split("</article>")[0]
+    assert "VIP" in card and "Delhi" in card

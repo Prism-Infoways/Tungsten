@@ -9,7 +9,8 @@
     ]))
 
 With the leads, tickets or HR plugins installed, their boards (lead stages, ticket
-status, leave requests) are added for you. Each board is a page in the menu, and
+status, leave requests) are added for you. With Tags, cards show their tags; with
+Quick Create, "New" opens the form right on the board. Each board is a page in the menu, and
 the resource's list gets a "Board view" button.
 """
 
@@ -118,6 +119,10 @@ class KanbanPlugin(Plugin):
                     if board.slug in self.boards or self.board_for(board.resource) is not None:
                         continue  # the app made its own board for this
                     self.add_board(board)
+        if panel.get_plugin("tags") is not None and "tags" not in self.badge_providers:
+            from .integrations import tag_badges
+
+            self.add_card_badges("tags", tag_badges)
         self._booted = True
         panel.render_hook("head.end", self._assets)
         if self.list_button:

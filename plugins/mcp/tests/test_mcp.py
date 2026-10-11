@@ -237,3 +237,24 @@ def test_custom_tools(admin_mcp, panel, http):
     assert {t["name"] for t in reader.rpc("tools/list")["result"]["tools"]} == set(Tools.READ) | {"shop_hours"}
     assert reader.call("shop_hours")["structuredContent"] == {"open": "9 to 5"}
     assert "can only read" in reader.call("restock", sku="RS-1")["content"][0]["text"]
+
+
+def test_other_plugins_add_notes_to_instructions(panel, admin_mcp):
+    from tungsten import Plugin
+
+    class LiveNote(Plugin):
+        id = "live-note"
+
+        def mcp_instructions(self):
+            return "This panel is the Live (production) environment."
+
+    class Broken(Plugin):
+        id = "broken-note"
+
+        def mcp_instructions(self):
+            raise RuntimeError("no")
+
+    panel.plugin(LiveNote())
+    panel.plugin(Broken())
+    text = admin_mcp.rpc("initialize")["result"]["instructions"]
+    assert text.endswith("This panel is the Live (production) environment.") and "list_resources" in text

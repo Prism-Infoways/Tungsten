@@ -87,9 +87,11 @@ Add more with one `pip install`. Each plugin is its own package and turns on wit
 | [`tungsten-tickets`](https://pypi.org/project/tungsten-tickets/) | Help desk: tickets, replies, notes, SLA and a customer support page | [Guide](https://tungsten.prisminfoways.com/docs/tickets.html) |
 | [`tungsten-hr`](https://pypi.org/project/tungsten-hr/) | HR: employees, attendance with check-in and biometric machines, leave with approval | [Guide](https://tungsten.prisminfoways.com/docs/hr.html) |
 | [`tungsten-finance`](https://pypi.org/project/tungsten-finance/) | Accounts like Tally or Zoho Books: GST invoices, bills, ledger, stock, P&L, balance sheet, GSTR-1/3B | [Guide](https://tungsten.prisminfoways.com/docs/finance.html) |
+| [`tungsten-tags`](https://pypi.org/project/tungsten-tags/) | Colored tags on any record, a tag filter and bulk tagging | [Guide](https://tungsten.prisminfoways.com/docs/tags.html) |
 | [`tungsten-blog`](https://pypi.org/project/tungsten-blog/) | Blog built for SEO, GEO and AEO, with a live score, sitemap and llms.txt | [Guide](https://tungsten.prisminfoways.com/docs/blog.html) |
 | [`tungsten-seo-audit`](https://pypi.org/project/tungsten-seo-audit/) | SEO audit of your website: score, fix tips, AI search checks, history | [Guide](https://tungsten.prisminfoways.com/docs/seo-audit.html) |
 | [`tungsten-security-audit`](https://pypi.org/project/tungsten-security-audit/) | Security audit with a score and fix tips, plus a login log with lockout | [Guide](https://tungsten.prisminfoways.com/docs/security-audit.html) |
+| [`tungsten-environment-indicator`](https://pypi.org/project/tungsten-environment-indicator/) | Local / Staging / Live badge, colored line and tab title, so nobody works on live by mistake | [Guide](https://tungsten.prisminfoways.com/docs/environment-indicator) |
 | [`tungsten-quick-create`](https://pypi.org/project/tungsten-quick-create/) | A + New button in the top bar to create any record from any page | [Guide](https://tungsten.prisminfoways.com/docs/quick-create) |
 
 ```bash

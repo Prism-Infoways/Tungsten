@@ -35,6 +35,8 @@ When these plugins are on the same panel, their boards are added for you. It doe
 | `tungsten-tickets` | **Tickets board**: Open, In progress, Waiting on customer, Resolved, Closed | Changes the status like the ticket page does: it is logged, and the customer gets the "resolved" email |
 | `tungsten-hr` | **Leave board**: Pending, Approved, Rejected, Cancelled | Approves, rejects or cancels with the same checks as the buttons: leave balance, clashes, and no approving your own leave |
 
+With the [Tags](tags) plugin, cards show their record's tags in their colors, on every board.
+
 These boards also have search, **Only mine** (leads and tickets), and badges such as priority, overdue, source and leave type.
 
 ```python
