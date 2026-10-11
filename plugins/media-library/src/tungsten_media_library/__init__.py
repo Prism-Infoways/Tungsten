@@ -129,6 +129,29 @@ class MediaLibraryPlugin(Plugin):
 
     def boot(self, panel: Any) -> None:
         self._track_known_plugins(panel)
+        self._link_plugins(panel)
+
+    def pwa_shortcuts(self, panel: Any) -> list[dict[str, str]]:
+        """With the PWA plugin: "Media library" in the menu of the installed app's icon."""
+        return [{"name": "Media library", "url": panel.url(MediaResource.get_slug()),
+                 "description": "Upload and find images and files"}]
+
+    def _link_plugins(self, panel: Any) -> None:
+        """Tags plugin: the library's tags become shared, colored tags. Quick create: an "Upload files" entry."""
+        tags = panel.get_plugin("tags")
+        if tags is not None and getattr(tags, "auto_attach", True) and hasattr(tags, "attach"):
+            try:
+                if tags.target_for(MediaResource) is None:
+                    tags.attach(MediaResource, column="tags")
+            except Exception:  # an older Tags plugin must not stop the panel
+                log.exception("Could not add tags to the media library")
+        quick = panel.get_plugin("quick-create")
+        if quick is not None and hasattr(quick, "add_link"):
+            try:
+                quick.add_link("media", "Upload files", panel.url(MediaResource.get_slug()), icon="upload",
+                               visible=lambda ctx: MediaResource.can(ctx, "create"))
+            except Exception:
+                log.exception("Could not add the media library to quick create")
 
     def _track_known_plugins(self, panel: Any) -> None:
         """Blog covers, ticket attachments and HR files count as "used" when those plugins are installed."""

@@ -70,6 +70,9 @@ Turn this off with `protect_used=False`.
 | Blog | Covers, social images and author photos from the library. Posts that use a file show in **Used in**. Copy the Markdown line into a post. |
 | Help desk | Attach library files (manuals, price lists) to replies and notes. Ticket attachments stay out of the library. |
 | HR | Attach library files (policies, letters) to employees. Employee documents stay out of the library. |
+| Tags | Library tags become shared, colored tags with a tag filter. |
+| Quick create | An **Upload files** entry in the **+ New** menu. |
+| PWA | A **Media library** shortcut on the installed app's icon. |
 
 None of these is needed. The library works on its own.
 

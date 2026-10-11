@@ -32,6 +32,9 @@ Needs `tungsten-admin` 0.1.8 or newer.
 - **Blog** (`tungsten-blog`): covers, social images and author photos from the library; posts show in "Used in".
 - **Help desk** (`tungsten-tickets`): attach library files to replies and notes.
 - **HR** (`tungsten-hr`): attach library files to employees.
+- **Tags** (`tungsten-tags`): shared, colored tags and a tag filter.
+- **Quick create** (`tungsten-quick-create`): "Upload files" in the + New menu.
+- **PWA** (`tungsten-pwa`): a "Media library" shortcut on the app icon.
 
 None of them is needed.
 
