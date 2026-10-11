@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tungsten-tags"
+version = "0.1.0"
+description = "Tags plugin for Tungsten: put colored tags on any record (leads, tickets, employees, invoices) and filter by them."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Prism Infoways" }]
+keywords = ["tungsten", "tungsten-admin", "tags", "labels", "taggable", "fastapi", "admin"]
+dependencies = ["tungsten-admin>=0.1.7"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "tungsten-leads", "tungsten-tickets", "tungsten-hr", "tungsten-finance", "tungsten-quick-create"]
+
+[project.urls]
+Homepage = "https://tungsten.prisminfoways.com/plugins/tags"
+Documentation = "https://tungsten.prisminfoways.com/docs/tags"
+Repository = "https://github.com/Prism-Infoways/Tungsten"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tungsten_tags"]
