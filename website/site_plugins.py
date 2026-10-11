@@ -692,6 +692,40 @@ PLUGINS = [
              "Yes. The Impersonation log keeps who logged in as whom, when, why, for how long, and how it ended."),
         ],
     },
+    {
+        "slug": "dashboards",
+        "name": "Custom Dashboards",
+        "package": "tungsten-dashboards",
+        "docs": "dashboards",
+        "category": "Productivity",
+        "icon": '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+        "tagline": "Users build their own dashboards by drag and drop, with widgets from every plugin.",
+        "summary": "tungsten-dashboards adds a Dashboards page to your Tungsten panel. Each user builds their own "
+                   "dashboards: pick widgets from your code and from every installed plugin, drag them into place, "
+                   "pick a width, and share a dashboard with everyone or make it your home page.",
+        "features": [
+            ("Drag and drop", "Move widgets by their handle and pick a width. Changes save at once."),
+            ("Widgets from every plugin", "HR, Finance, Tickets, Leads and your own widgets, grouped by plugin."),
+            ("Built-in widgets", "Record counts, quick links and notes, with no code."),
+            ("Private or shared", "Keep a dashboard to yourself or share it. Others can make their own copy."),
+            ("Home page", "Make a dashboard your home page, or the home page for everyone."),
+            ("Safe", "Permissions for making and sharing. A broken widget never breaks the page."),
+        ],
+        "setup": ('from tungsten_dashboards import DashboardsPlugin\n\n'
+                  'panel.plugin(DashboardsPlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Which widgets can users add?",
+             "Every widget from panel.widgets, from your pages and resources, and from installed plugins, plus "
+             "record counts, quick links and notes. Users only see widgets they are allowed to see."),
+            ("Can a dashboard replace the home page?",
+             "Yes. Each user can pick one as their home page, and users allowed to share can set one for everyone."),
+            ("Who can change a shared dashboard?",
+             "Its maker and users with the dashboards.share permission. Others can view it or make their own copy."),
+            ("What happens if a plugin is removed?",
+             "Its widgets are hidden from the dashboard, and the dashboard's maker sees a note to remove them."),
+        ],
+    },
 ]
 
 PLUGIN_FAQS = [

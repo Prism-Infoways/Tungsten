@@ -1,0 +1,29 @@
+{# Fields of a built-in widget. vars: key, values, title, prefix, and resources / links (choices) #}
+{% set choices = resources if key == 'dashboards.counts' else links %}
+<div>
+  <label class="tw-label" for="{{ prefix }}-title">{{ __('Heading') }} <span class="text-gray-400">({{ __('optional') }})</span></label>
+  <input id="{{ prefix }}-title" name="title" class="tw-input mt-1" maxlength="120" value="{{ title or '' }}">
+</div>
+{% if key == 'dashboards.note' %}
+<div>
+  <label class="tw-label" for="{{ prefix }}-text">{{ __('Note') }}</label>
+  <textarea id="{{ prefix }}-text" name="text" rows="4" maxlength="{{ max_note }}" class="tw-input mt-1" required>{{ values.get('text', '') }}</textarea>
+</div>
+{% else %}
+<fieldset>
+  <legend class="tw-label">{{ __('Lists to count') if key == 'dashboards.counts' else __('Links') }}</legend>
+  {% if choices %}
+  <div class="mt-2 grid gap-2 sm:grid-cols-2">
+    {% set picked = values.get('resources' if key == 'dashboards.counts' else 'links', []) %}
+    {% for value, label in choices.items() %}
+    <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+      <input type="checkbox" class="tw-checkbox" name="{{ 'resources' if key == 'dashboards.counts' else 'links' }}" value="{{ value }}" {% if value in picked %}checked{% endif %}>
+      <span class="truncate">{{ label }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('There is nothing you can pick here yet.') }}</p>
+  {% endif %}
+</fieldset>
+{% endif %}

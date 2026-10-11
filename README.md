@@ -97,6 +97,7 @@ Add more with one `pip install`. Each plugin is its own package and turns on wit
 | [`tungsten-pwa`](https://pypi.org/project/tungsten-pwa/) | Install the panel like an app on phones and computers, with shortcuts and an offline page | [Guide](https://tungsten.prisminfoways.com/docs/pwa) |
 | [`tungsten-saved-views`](https://pypi.org/project/tungsten-saved-views/) | Saved table views: users save filters as one-click tabs like My Leads or Pending | [Guide](https://tungsten.prisminfoways.com/docs/saved-views) |
 | [`tungsten-impersonate`](https://pypi.org/project/tungsten-impersonate/) | Admins log in as any user to see what they see, with a time limit and a log | [Guide](https://tungsten.prisminfoways.com/docs/impersonate) |
+| [`tungsten-dashboards`](https://pypi.org/project/tungsten-dashboards/) | Users build their own dashboards by drag and drop, with widgets from every plugin | [Guide](https://tungsten.prisminfoways.com/docs/dashboards) |
 
 ```bash
 pip install tungsten-admin tungsten-tickets tungsten-blog

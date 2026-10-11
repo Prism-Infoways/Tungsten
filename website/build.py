@@ -53,7 +53,7 @@ NAV = [
     ("Plugins", ["leads", "facebook-leads", "whatsapp", "mcp", "tickets", "hr", "finance", "tags", "blog", "seo-audit",
                  "security-audit", "quick-create", "environment-indicator", "backups", "kanban", "pwa",
                  "saved-views", "calendar", "impersonate",
-                 "media-library"]),
+                 "media-library", "dashboards"]),
 ]
 
 # Answers shown on the home page and as FAQPage schema (answer engines and AI search quote these).

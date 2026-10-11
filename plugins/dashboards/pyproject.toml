@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tungsten-dashboards"
+version = "0.1.0"
+description = "Custom dashboards for Tungsten: people build their own dashboards by drag and drop, with widgets from every installed plugin."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Prism Infoways" }]
+keywords = ["tungsten", "tungsten-admin", "dashboard", "custom-dashboard", "drag-and-drop", "widgets", "fastapi", "admin"]
+dependencies = ["tungsten-admin>=0.1.5"]
+
+[project.urls]
+Homepage = "https://tungsten.prisminfoways.com/plugins/dashboards"
+Documentation = "https://tungsten.prisminfoways.com/docs/dashboards"
+Repository = "https://github.com/Prism-Infoways/Tungsten"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tungsten_dashboards"]
