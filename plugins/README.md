@@ -17,12 +17,13 @@ Official plugins for Tungsten. Each folder is its own pip package with its own v
 | [blog](blog) | `tungsten-blog` | A blog built for SEO, GEO and AEO, with a live score in the editor, schema.org data, sitemap and llms.txt |
 | [environment-indicator](environment-indicator) | `tungsten-environment-indicator` | A Local / Staging / Live badge, colored line and tab title, so nobody works on live by mistake |
 | [quick-create](quick-create) | `tungsten-quick-create` | A + New button in the top bar to create any record from any page, in a side panel |
+| [backups](backups) | `tungsten-backups` | Back up the database and uploaded files from the panel and download the zip, with checks, pruning and a timer |
 
 ## Working on a plugin
 
 ```bash
-pip install -e ".[dev]" -e plugins/leads -e plugins/meta-leads -e plugins/whatsapp -e plugins/mcp -e plugins/tickets -e plugins/hr -e plugins/finance -e plugins/tags -e plugins/security-audit -e plugins/seo-audit -e plugins/blog -e plugins/quick-create -e plugins/environment-indicator
-for p in leads meta-leads whatsapp mcp tickets hr finance tags security-audit seo-audit blog quick-create environment-indicator; do pytest plugins/$p/tests || break; done
+pip install -e ".[dev]" -e plugins/leads -e plugins/meta-leads -e plugins/whatsapp -e plugins/mcp -e plugins/tickets -e plugins/hr -e plugins/finance -e plugins/tags -e plugins/security-audit -e plugins/seo-audit -e plugins/blog -e plugins/quick-create -e plugins/environment-indicator -e plugins/backups
+for p in leads meta-leads whatsapp mcp tickets hr finance tags security-audit seo-audit blog quick-create environment-indicator backups; do pytest plugins/$p/tests || break; done
 ```
 
 ## Releasing a plugin
