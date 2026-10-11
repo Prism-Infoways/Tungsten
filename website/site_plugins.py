@@ -243,6 +243,41 @@ PLUGINS = [
         ],
     },
     {
+        "slug": "tags",
+        "name": "Tags",
+        "package": "tungsten-tags",
+        "docs": "tags",
+        "category": "Productivity",
+        "icon": '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+        "tagline": "Put colored tags on any record and filter by them.",
+        "summary": "tungsten-tags lets you tag leads, tickets, employees, invoices and your own records with labels "
+                   "like VIP or Follow up, then filter any list by tag. One shared list of tags works across every "
+                   "module.",
+        "features": [
+            ("Works everywhere", "Leads, tickets, employees, customers, invoices and bills get tags with no extra code."),
+            ("Filter by tag", "Show rows with any or all of the picked tags."),
+            ("Bulk tagging", "Add or remove tags on many rows at once."),
+            ("Colors and groups", "Ten badge colors, and groups to keep sets of tags apart."),
+            ("Merge and rename", "Merge duplicates like VIP and V.I.P. Every record follows a rename."),
+            ("Your own models", "attach(ProductResource), plus set_tags and add_tags in code."),
+        ],
+        "setup": ('from tungsten_tags import TagsPlugin\n\n'
+                  'panel.plugin(TagsPlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Which records can have tags?",
+             "Leads, tickets, employees, finance contacts, invoices, quotes, bills, notes and expenses, as soon as "
+             "those plugins are on the panel. Any other resource with attach()."),
+            ("Are VIP and vip different tags?",
+             "No. Names ignore capital letters and extra spaces, so they are one tag."),
+            ("What happens when I delete or rename a tag?",
+             "Every record is updated. Deleting a record also removes its tags."),
+            ("Can I find every record with a tag?",
+             "Yes. Open the tag on the Tags page to see how many leads, tickets and more carry it, with links to "
+             "each filtered list."),
+        ],
+    },
+    {
         "slug": "blog",
         "name": "Blog (SEO, GEO, AEO)",
         "package": "tungsten-blog",
