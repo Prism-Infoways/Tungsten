@@ -223,7 +223,7 @@ The names are `chart`, `trix`, `select`, `sortable` and `qr`. `twNeed()` loads e
 | `content.start` | Above the main content of every panel page |
 | `content.end` | Below the main content of every panel page |
 | `auth.login.form.after` | Under the login form |
-| `resource.list.before-table` | On every resource list page, just above the table |
+| `resource.list.before-table` | On every resource list page, just above the table. Also gets `resource`, `host` and `table` |
 
 ### Hook functions get what they ask for
 
@@ -260,6 +260,15 @@ def products_note(ctx):
 
 
 panel.render_hook("resource.list.before-table", products_note)
+```
+
+On `resource.list.before-table` the function can also ask for `resource` (the resource class), `host` and `table` (the bound table about to be drawn), so it doesn't have to guess from the address:
+
+```python
+def products_note(resource):
+    if resource.get_slug() != "products":
+        return None
+    return Markup('<p class="mb-4 text-sm text-gray-500">Prices include GST.</p>')
 ```
 
 ### Rendering a template

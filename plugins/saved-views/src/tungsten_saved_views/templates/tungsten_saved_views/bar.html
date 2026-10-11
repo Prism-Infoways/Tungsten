@@ -1,0 +1,176 @@
+{#
+  Saved views bar, drawn above a resource table.
+  vars: items (ViewItem list), active, all_active, all_url, all_match, can_share, default, full,
+        resource (slug), replace_url, redirect_url, csrf_token, action(*parts) -> url
+#}
+{% import "tungsten/components/ui.html" as ui %}
+{% set chip = 'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ring-1 transition' %}
+{% set chip_on = 'bg-white text-primary-600 ring-primary-500 dark:bg-white/5 dark:text-primary-400' %}
+{% set chip_off = 'bg-white text-gray-600 ring-gray-950/10 hover:text-gray-950 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10 dark:hover:text-white' %}
+{% if redirect_url %}<script>window.location.replace({{ redirect_url | tojson }});</script>{% endif %}
+<div class="mb-4 flex flex-wrap items-center gap-2" data-tw-views x-data="{ saving: false, query: '' }"
+     data-on="{{ chip_on }}" data-off="{{ chip_off }}">
+  <span class="me-2 inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">{{ icon('bookmark', 'h-4 w-4') }}<span class="sr-only">{{ __('Saved views') }}</span></span>
+
+  <a href="{{ all_url }}" data-view-match="{{ all_match }}" class="{{ chip }} {{ chip_on if all_active else chip_off }}"
+     {% if all_active %}aria-current="page"{% endif %}>{{ icon('list', 'h-4 w-4') }}{{ __('All') }}</a>
+
+  {% for v in items %}
+  <div class="inline-flex shrink-0 items-center">
+    <a href="{{ v.url }}" data-view-match="{{ v.match }}" title="{{ v.name }}"
+       class="{{ chip }} {{ chip_on if active and active.key == v.key else chip_off }}" style="border-start-end-radius: 0; border-end-end-radius: 0; max-width: 16rem"
+       {% if active and active.key == v.key %}aria-current="page"{% endif %}>
+      {% if v.icon %}{{ icon(v.icon, 'h-4 w-4') }}{% elif v.color != 'gray' %}<span class="h-2 w-2 rounded-full {{ colors.pick(colors.BUTTON, v.color) }}"></span>{% endif %}
+      <span class="truncate">{{ v.name }}</span>
+      {% if v.shared %}<span title="{{ __('Shared with everyone') }}">{{ icon('users', 'h-3.5 w-3.5 text-gray-400') }}</span>{% endif %}
+      {% if v.is_default %}<span title="{{ __('Opens by default') }}">{{ icon('star', 'h-3.5 w-3.5 text-warning-500') }}</span>{% endif %}
+    </a>
+    {% call(part) ui.dropdown(width='w-64') %}
+      {% if part == 'trigger' %}
+      <button type="button" class="{{ chip }} {{ chip_off }}" style="border-start-start-radius: 0; border-end-start-radius: 0; margin-inline-start: -1px; padding-inline: 0.375rem"
+              aria-label="{{ __('Options for :name', name=v.name) }}">{{ icon('chevron-down', 'h-4 w-4') }}</button>
+      {% else %}
+      <form method="post" action="{{ action('default') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token }}">
+        <input type="hidden" name="resource" value="{{ resource }}">
+        <input type="hidden" name="key" value="{{ '' if v.is_default else v.key }}">
+        <button type="submit" class="{{ ui.button_classes('gray', style='dropdown') }}">
+          {{ icon('star', 'h-4 w-4') }}{{ __('Stop opening with this view') if v.is_default else __('Open the list with this view') }}
+        </button>
+      </form>
+      {% if v.editable %}
+      <form method="post" action="{{ action(v.id, 'update') }}" data-tw-view-form>
+        <input type="hidden" name="_token" value="{{ csrf_token }}">
+        <input type="hidden" name="query" value="">
+        <button type="submit" class="{{ ui.button_classes('gray', style='dropdown') }}">{{ icon('refresh-cw', 'h-4 w-4') }}{{ __('Save current filters here') }}</button>
+      </form>
+      <form method="post" action="{{ action(v.id, 'rename') }}" class="border-t border-gray-100 px-2 pb-1 pt-2 dark:border-white/10">
+        <input type="hidden" name="_token" value="{{ csrf_token }}">
+        <input type="hidden" name="_sharing" value="1">
+        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-400" for="tw-view-name-{{ v.id }}">{{ __('Name') }}</label>
+        <div class="flex items-center gap-2">
+          <input id="tw-view-name-{{ v.id }}" name="name" value="{{ v.name }}" maxlength="80" required class="tw-input">
+          <button type="submit" class="{{ ui.button_classes('gray') }}">{{ __('Save') }}</button>
+        </div>
+        {% if can_share %}
+        <label class="mt-2 flex cursor-pointer items-center gap-x-2 text-sm text-gray-700 dark:text-gray-200">
+          <input type="checkbox" name="shared" value="1" class="tw-checkbox" {% if v.shared %}checked{% endif %}>{{ __('Share with everyone') }}
+        </label>
+        {% elif v.shared %}<input type="hidden" name="shared" value="1">{% endif %}
+      </form>
+      <form method="post" action="{{ action(v.id, 'delete') }}" class="border-t border-gray-100 pt-1 dark:border-white/10"
+            onsubmit="return confirm({{ __('Delete the view “:name”?', name=v.name) | tojson | forceescape }})">
+        <input type="hidden" name="_token" value="{{ csrf_token }}">
+        <button type="submit" class="{{ ui.button_classes('danger', style='dropdown') }}">{{ icon('trash-2', 'h-4 w-4') }}{{ __('Delete view') }}</button>
+      </form>
+      {% elif v.preset %}
+      <p class="px-2 pb-2 pt-1 text-xs text-gray-500 dark:text-gray-400">{{ __('A ready view from the app.') }}</p>
+      {% else %}
+      <p class="px-2 pb-2 pt-1 text-xs text-gray-500 dark:text-gray-400">{{ __('Shared by a teammate.') }}</p>
+      {% endif %}
+      {% endif %}
+    {% endcall %}
+  </div>
+  {% endfor %}
+
+  {% if not full %}
+  <button type="button" class="{{ chip }} {{ chip_off }}" style="border-style: dashed" @click="saving = true">
+    {{ icon('plus', 'h-4 w-4') }}{{ __('Save view') }}
+  </button>
+  {% endif %}
+
+  {# ------------------------------------------------------------ save dialog #}
+  <template x-teleport="body">
+  <div x-show="saving" x-cloak @keydown.escape.window="saving = false" class="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-gray-950/50 backdrop-blur-[1px] dark:bg-gray-950/75" @click="saving = false"></div>
+    <form method="post" action="{{ action('save') }}" data-tw-view-form
+          x-effect="saving && $nextTick(() => $el.querySelector('input[name=name]').focus())"
+          class="relative flex max-h-full w-full max-w-md flex-col rounded-2xl bg-white shadow-xl ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+      <input type="hidden" name="_token" value="{{ csrf_token }}">
+      <input type="hidden" name="resource" value="{{ resource }}">
+      <input type="hidden" name="query" value="">
+      <button type="button" class="absolute end-3 top-3 tw-icon-btn text-gray-400" @click="saving = false" aria-label="{{ __('Close') }}">{{ icon('x', 'h-5 w-5') }}</button>
+      <div class="flex items-start gap-x-4 border-b border-gray-100 px-6 py-4 pe-12 dark:border-white/10">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ icon('bookmark', 'h-5 w-5') }}</span>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-950 dark:text-white">{{ __('Save this view') }}</h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('Keeps the filters, search, sort, tab and columns you see now as a tab above the table.') }}</p>
+        </div>
+      </div>
+      <div class="flex flex-col gap-4 px-6 py-5">
+        <div>
+          <label class="tw-label" for="tw-new-view-name">{{ __('Name') }}</label>
+          <input id="tw-new-view-name" name="name" maxlength="80" required class="tw-input mt-1" placeholder="{{ __('e.g. My open leads') }}">
+        </div>
+        <div>
+          <label class="tw-label" for="tw-new-view-color">{{ __('Colour') }}</label>
+          <select id="tw-new-view-color" name="color" class="tw-input mt-1">
+            {% for c, label in [('gray', 'Gray'), ('primary', 'Brand'), ('info', 'Blue'), ('success', 'Green'), ('warning', 'Amber'), ('danger', 'Red')] %}
+            <option value="{{ c }}">{{ __(label) }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if can_share %}
+        <label class="flex cursor-pointer items-center gap-x-3 text-sm text-gray-700 dark:text-gray-200">
+          <input type="checkbox" name="shared" value="1" class="tw-checkbox">{{ __('Share with everyone who can open this list') }}
+        </label>
+        {% endif %}
+        <label class="flex cursor-pointer items-center gap-x-3 text-sm text-gray-700 dark:text-gray-200">
+          <input type="checkbox" name="default" value="1" class="tw-checkbox">{{ __('Open the list with this view') }}
+        </label>
+      </div>
+      <div class="flex flex-row-reverse justify-start gap-3 border-t border-gray-100 px-6 py-4 dark:border-white/10">
+        <button type="submit" class="{{ ui.button_classes('primary') }}">{{ __('Save view') }}</button>
+        <button type="button" class="{{ ui.button_classes('gray') }}" @click="saving = false">{{ __('Cancel') }}</button>
+      </div>
+    </form>
+  </div>
+  </template>
+</div>
+<script>
+(function () {
+  // keys a view keeps; the same rule as service.query_pairs on the server
+  var KEYS = ["tab", "search", "sort", "direction", "per_page", "group"];
+  function pairs(search) {
+    var out = [];
+    new URLSearchParams(search).forEach(function (v, k) {
+      if (v === "") return;
+      if (KEYS.indexOf(k) >= 0 || k.indexOf("filters.") === 0 || k.indexOf("col_search.") === 0) out.push([k, v]);
+    });
+    return out;
+  }
+  function key(search) {
+    var p = pairs(search);
+    p.sort(function (a, b) { return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0); });
+    return JSON.stringify(p);
+  }
+  function mark() {
+    var current = key(window.location.search);
+    document.querySelectorAll("[data-tw-views]").forEach(function (bar) {
+      var on = bar.dataset.on.split(" "), off = bar.dataset.off.split(" "), found = false;
+      bar.querySelectorAll("[data-view-match]").forEach(function (a) {
+        var hit = !found && a.dataset.viewMatch === current;
+        if (hit) found = true;
+        a.classList.remove.apply(a.classList, hit ? off : on);
+        a.classList.add.apply(a.classList, hit ? on : off);
+        if (hit) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+      });
+    });
+  }
+  function fill(form) {
+    var q = form.querySelector("input[name=query]");
+    if (q) q.value = window.location.search.replace(/^\?/, "");
+  }
+  {% if replace_url %}try { history.replaceState(history.state, "", {{ replace_url | tojson }}); } catch (e) {}{% endif %}
+  if (!window.twViewsReady) {
+    window.twViewsReady = true;
+    document.addEventListener("submit", function (e) {
+      if (e.target.matches && e.target.matches("[data-tw-view-form]")) fill(e.target);
+    }, true);
+    ["htmx:afterSettle", "htmx:replacedInHistory", "htmx:pushedIntoHistory", "popstate"].forEach(function (ev) {
+      (ev === "popstate" ? window : document).addEventListener(ev, function () { setTimeout(mark, 0); });
+    });
+  }
+  mark();
+})();
+</script>

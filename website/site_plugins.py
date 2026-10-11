@@ -169,6 +169,37 @@ PLUGINS = [
         ],
     },
     {
+        "slug": "saved-views",
+        "name": "Saved table views",
+        "package": "tungsten-saved-views",
+        "docs": "saved-views",
+        "category": "Productivity",
+        "icon": '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+        "tagline": "Users save their own filters as one-click views like My Leads or Pending.",
+        "summary": "tungsten-saved-views adds a row of views above every table in your Tungsten panel. Users save the "
+                   "filters, search, sort, tab and columns they use often, open them in one click, share them with the "
+                   "team and pick the view each list opens with.",
+        "features": [
+            ("One-click views", "Save filters, search, sort, tab and columns as a tab above the table."),
+            ("Default view", "Each user picks the view a list opens with. All shows everything."),
+            ("Share with the team", "Shared views show to everyone who can open the list."),
+            ("Ready views", "Presets from code with {me} and {today}, plus My tickets and My leads."),
+            ("Every table", "Works on every list, including Leads, Tickets, HR and Finance."),
+            ("Roles and safety", "Share and manage permissions, CSRF checks and owner-only changes."),
+        ],
+        "setup": ('from tungsten_saved_views import SavedViewsPlugin\n\n'
+                  'panel.plugin(SavedViewsPlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("What does a saved view keep?",
+             "The filters, search, sort, tab, page size, grouping and the columns the user can see."),
+            ("Can a view be shared with the whole team?",
+             "Yes. Tick Share with everyone. With roles on, this needs the saved_views.share permission."),
+            ("Can I add views for everyone from code?",
+             "Yes. Call preset() with a name and the table address. {me} becomes the signed-in user."),
+        ],
+    },
+    {
         "slug": "hr",
         "name": "HR (employees, attendance, leave)",
         "package": "tungsten-hr",
