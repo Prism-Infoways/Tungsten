@@ -344,6 +344,38 @@ PLUGINS = [
         ],
     },
     {
+        "slug": "media-library",
+        "name": "Media library",
+        "package": "tungsten-media-library",
+        "docs": "media-library",
+        "category": "Marketing",
+        "icon": '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+        "tagline": "Every image and file in one place. Upload once, reuse anywhere.",
+        "summary": "tungsten-media-library keeps every image and file of your Tungsten panel in one place. You upload a "
+                   "file once, add alt text, and pick it again from any file field with a Choose from library button. "
+                   "It shows where each file is used and stops you deleting files that are still in use.",
+        "features": [
+            ("One library", "Images, PDFs, videos and audio with folders, search, tags and alt text."),
+            ("Choose from library", "A picker under every file field. Image fields show only images."),
+            ("Collects uploads", "Files uploaded anywhere in the panel join the library with their real name."),
+            ("Used in", "See every blog post, ticket or employee that uses a file."),
+            ("Safe delete", "Files in use can't be deleted by mistake. Missing files are flagged."),
+            ("No duplicates", "The same file uploaded twice is stored once."),
+        ],
+        "setup": ('from tungsten_media_library import MediaLibraryPlugin\n\n'
+                  'panel = Panel(..., storage=LocalStorage("storage", public=True))\n'
+                  'panel.plugin(MediaLibraryPlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Does the media library copy a file every time I reuse it?",
+             "No. Picking a file from the library points the field to the same stored file. Nothing is uploaded again."),
+            ("Are ticket attachments and HR documents shown in the library?",
+             "No. Files in the tickets, hr and imports folders stay private. You can still attach library files there."),
+            ("Can I delete a file that a blog post uses?",
+             "Not by mistake. The library shows where the file is used and asks you to remove it there first."),
+        ],
+    },
+    {
         "slug": "seo-audit",
         "name": "SEO audit",
         "package": "tungsten-seo-audit",

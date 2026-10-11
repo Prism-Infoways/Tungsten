@@ -182,7 +182,8 @@
             {% for c in columns %}
             <td class="px-3 py-3 {{ 'whitespace-normal' if c._wrap else 'whitespace-nowrap' }}">
               {% if row.url and not c.editable and not c._url %}
-              <a href="{{ row.url }}" class="block">{{ c.render_cell(table, row.record) }}</a>
+              {#- the table's form sets hx-target/hx-swap; a boosted (SPA) link must not inherit them -#}
+              <a href="{{ row.url }}" class="block" hx-target="body" hx-swap="innerHTML show:window:top">{{ c.render_cell(table, row.record) }}</a>
               {% else %}{{ c.render_cell(table, row.record) }}{% endif %}
             </td>
             {% endfor %}

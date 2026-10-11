@@ -1216,6 +1216,9 @@ class Routes:
             if error is None:
                 try:
                     stored = blocking(self.panel.storage.save, upload.file, upload.filename, field._directory)
+                    if self.panel.upload_listeners:
+                        stored = self.panel.uploaded(ctx, stored, upload.filename, upload.content_type or "",
+                                                     upload.size or 0, field)
                     field.accept_upload(form, path, stored)
                 except ValueError as exc:
                     error = str(exc)
