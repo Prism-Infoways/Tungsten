@@ -1,0 +1,235 @@
+{% extends "tungsten/layout/app.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block content %}
+{% set v = page.view(ctx) %}
+{% set current = v.current %}
+{% set url = v.url %}
+{% if current %}
+{% set title = current.name %}
+{% set subheading = current.description %}
+{% endif %}
+{% set extra_actions %}
+{% if current %}
+  {% if v.editing %}
+  {{ ui.button('Done', 'primary', 'check', href=url(d=current.id)) }}
+  {% elif v.editable %}
+  {{ ui.button('Edit dashboard', 'gray', 'square-pen', href=url(d=current.id, edit=1), outlined=true) }}
+  {% endif %}
+  {% if (v.plugin.home and v.signed_in) or v.can_create %}
+  {% call(part) ui.dropdown() %}
+    {% if part == 'trigger' %}{{ ui.icon_button('ellipsis-vertical', 'More') }}
+    {% else %}
+      {% if v.plugin.home and v.signed_in %}
+      {% set is_home = v.my_home == current.id %}
+      <button type="button" class="{{ ui.button_classes('gray', 'dropdown') }}" hx-post="{{ url(current.id, 'home') }}"
+              hx-vals='{"on": "{{ '0' if is_home else '1' }}"}' hx-swap="none">
+        {{ icon('house', 'h-4 w-4') }}<span>{{ __('Stop using as my home page') if is_home else __('Use as my home page') }}</span>
+      </button>
+      {% endif %}
+      {% if v.can_create %}
+      <button type="button" class="{{ ui.button_classes('gray', 'dropdown') }}" hx-post="{{ url(current.id, 'copy') }}" hx-swap="none">
+        {{ icon('copy', 'h-4 w-4') }}<span>{{ __('Make my own copy') }}</span>
+      </button>
+      {% endif %}
+    {% endif %}
+  {% endcall %}
+  {% endif %}
+{% endif %}
+{% endset %}
+{% include "tungsten/components/page-header.html" %}
+{% if ctx.request.query_params.get('new') and v.can_create %}
+{# ?new=1 (the Quick Create menu links here): open the "New dashboard" form at once #}
+<div hidden hx-get="{{ ctx.url('_tw', 'action') }}" hx-trigger="load" hx-target="#tw-modal" hx-swap="innerHTML"
+     hx-vals="{{ {'_tw_host': host.key, '_tw_scope': 'page', '_tw_name': 'new_dashboard'} | tojson | forceescape }}"></div>
+{% endif %}
+
+{% if v.missing %}
+<div class="mb-6 rounded-lg bg-warning-50 px-4 py-3 text-sm text-warning-700 ring-1 ring-inset ring-warning-600/20 dark:bg-warning-500/10 dark:text-warning-300">
+  {{ __('That dashboard is gone or not shared with you, so here is another one.') if current else __('That dashboard is gone or not shared with you.') }}
+</div>
+{% endif %}
+
+{% if v.dashboards %}
+<nav class="mb-6 flex gap-2 overflow-x-auto pb-1" aria-label="{{ __('Dashboards') }}">
+  {% for d in v.dashboards %}
+  {% set active = current and d.id == current.id %}
+  <a href="{{ url(d=d.id) }}" {% if active %}aria-current="page"{% endif %}
+     class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ring-1 ring-inset {{ 'bg-primary-50 text-primary-700 ring-primary-600/20 dark:bg-primary-500/10 dark:text-primary-300' if active else 'text-gray-600 ring-gray-950/10 hover:bg-gray-100 dark:text-gray-300 dark:ring-white/10 dark:hover:bg-white/5' }}">
+    {% if v.my_home == d.id %}{{ icon('house', 'h-3.5 w-3.5') }}{% elif d.shared %}{{ icon('users', 'h-3.5 w-3.5') }}{% else %}{{ icon('lock', 'h-3.5 w-3.5') }}{% endif %}
+    <span>{{ d.name }}</span>
+  </a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+{% if not current %}
+<div class="tw-card">
+  {% call ui.empty_state(__('No dashboards yet'), __('Click "New dashboard" to build one with the widgets you need.') if v.can_create else __('Nobody has shared a dashboard with you yet.'), 'layout-grid') %}{% endcall %}
+</div>
+{% else %}
+
+{% if v.editing %}
+<div class="tw-card mb-6 p-4" x-data="{ open: false }">
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="text-sm text-gray-600 dark:text-gray-300">{{ icon('move', 'h-4 w-4') }}</span>
+    <p class="min-w-0 flex-1 text-sm text-gray-600 dark:text-gray-300">{{ __('Drag widgets by their handle to move them. Pick a width for each one. Add more from the list below.') }}</p>
+    {{ ui.button('Name and sharing', 'gray', 'settings', size='sm', outlined=true, attrs_='@click="open = !open"'|safe) }}
+  </div>
+  <form x-show="open" x-cloak class="mt-4 grid gap-4 border-t border-gray-100 pt-4 dark:border-white/10 md:grid-cols-2"
+        hx-post="{{ url(current.id, 'settings') }}" hx-swap="none">
+    <div>
+      <label class="tw-label" for="dash-name">{{ __('Name') }}</label>
+      <input id="dash-name" name="name" class="tw-input mt-1" required maxlength="120" value="{{ current.name }}">
+    </div>
+    <div>
+      <label class="tw-label" for="dash-description">{{ __('Description') }} <span class="text-gray-400">({{ __('optional') }})</span></label>
+      <input id="dash-description" name="description" class="tw-input mt-1" maxlength="255" value="{{ current.description or '' }}">
+    </div>
+    <div class="grid gap-2 md:col-span-2">
+      {% if v.can_share %}
+      <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <input type="checkbox" class="tw-checkbox" name="shared" value="1" {% if current.shared %}checked{% endif %}>
+        <span>{{ __('Share with everyone') }}</span>
+      </label>
+      <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <input type="checkbox" class="tw-checkbox" name="home_for_all" value="1" {% if current.home_for_all %}checked{% endif %}>
+        <span>{{ __('Home page for everyone (needs sharing; people can still pick their own)') }}</span>
+      </label>
+      {% elif current.shared %}
+      <input type="hidden" name="shared" value="1">
+      {% if current.home_for_all %}<input type="hidden" name="home_for_all" value="1">{% endif %}
+      {% endif %}
+      {% if v.plugin.home and v.signed_in %}
+      <input type="hidden" name="_my_home_shown" value="1">
+      <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <input type="checkbox" class="tw-checkbox" name="my_home" value="1" {% if v.my_home == current.id %}checked{% endif %}>
+        <span>{{ __('Use as my home page') }}</span>
+      </label>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3 md:col-span-2">
+      {{ ui.button('Save', 'primary', 'check', type='submit', size='sm') }}
+      <span class="ms-auto"></span>
+      <button type="button" class="{{ ui.button_classes('danger', 'button', 'sm', true) }}" hx-post="{{ url(current.id, 'delete') }}" hx-swap="none"
+              hx-confirm="{{ __('Delete this dashboard? This can\'t be undone.') }}">{{ icon('trash-2', 'h-4 w-4') }}<span>{{ __('Delete dashboard') }}</span></button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+{% if current.items %}
+{{ v.board }}
+{% endif %}
+{% if not current.items or not v.board | trim %}
+<div class="tw-card mb-6">
+  {% call ui.empty_state(__('This dashboard is empty'), __('Add widgets from the list below.') if v.editing else (__('Click "Edit dashboard" to add widgets.') if v.editable else __('There is nothing on it you can see yet.')), 'layout-dashboard') %}{% endcall %}
+</div>
+{% endif %}
+
+{% if v.editing %}
+<section class="mt-10" aria-labelledby="dash-add">
+  <h2 id="dash-add" class="mb-4 text-lg font-semibold text-gray-950 dark:text-white">{{ __('Add widgets') }}</h2>
+  {% if not v.catalog %}
+  <div class="tw-card">{% call ui.empty_state(__('No widgets to add'), __('Install plugins or add widgets with panel.widgets([...]).'), 'layout-grid') %}{% endcall %}</div>
+  {% endif %}
+  {% for group, entries in v.catalog.items() %}
+  <h3 class="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ group }}</h3>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    {% for e in entries %}
+    {% set placed = e.widget is not none and e.key in v.placed %}
+    <div class="tw-card flex flex-col gap-3 p-4" {% if not e.widget %}x-data="{ open: false }"{% endif %}>
+      <div class="flex min-w-0 items-start gap-3">
+        <span class="tw-icon-tile h-9 w-9 shrink-0 {{ colors.pick(colors.SOFT_ICON, 'primary') }}">{{ icon(e.icon or 'layout-dashboard', 'h-4 w-4') }}</span>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-semibold text-gray-950 dark:text-white">{{ e.label }}</p>
+          {% if e.description %}<p class="line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{{ e.description }}</p>{% endif %}
+        </div>
+      </div>
+      {% if e.widget %}
+      <div class="mt-auto">
+        {% if placed %}{{ ui.badge(__('On the dashboard'), 'success', 'check') }}
+        {% else %}
+        <button type="button" class="{{ ui.button_classes('primary', 'button', 'sm', true) }}" hx-post="{{ url(current.id, 'add') }}" hx-swap="none"
+                hx-vals="{{ {'widget': e.key, 'span': e.span | string} | tojson | forceescape }}">{{ icon('plus', 'h-4 w-4') }}<span>{{ __('Add') }}</span></button>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="mt-auto">{{ ui.button('Add', 'primary', 'plus', size='sm', outlined=true, attrs_='@click="open = !open" x-show="!open"'|safe) }}</div>
+      <form x-show="open" x-cloak class="grid gap-3" hx-post="{{ url(current.id, 'add') }}" hx-swap="none">
+        <input type="hidden" name="widget" value="{{ e.key }}">
+        <input type="hidden" name="span" value="{{ e.span }}">
+        {% with values = {}, title = '', key = e.key, prefix = 'new-' ~ loop.index ~ '-' ~ e.key.replace('.', '-'), resources = v.resources, links = v.links, max_note = v.max_note %}
+        {% include "tungsten_dashboards/fields.html" %}
+        {% endwith %}
+        <div class="flex gap-2">
+          {{ ui.button('Add', 'primary', 'plus', type='submit', size='sm') }}
+          {{ ui.button('Cancel', 'gray', size='sm', outlined=true, attrs_='@click="open = false"'|safe) }}
+        </div>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% endif %}
+
+<script>
+(function () {
+  "use strict";
+  // Drag to reorder and pick a width: saved at once, no reload.
+  function post(url, values, source) {
+    window.htmx.ajax("POST", url, { values: values, swap: "none", source: source });
+  }
+  function initGrid(grid) {
+    if (grid._twDash || !grid.dataset.dashOrder) return;
+    grid._twDash = true;
+    window.twNeed("sortable").then(function () {
+      window.Sortable.create(grid, {
+        handle: ".dash-handle",
+        draggable: "[data-dash-item]",
+        animation: 150,
+        ghostClass: "opacity-40",
+        forceFallback: true,  // pointer-based dragging: the same on mouse and touch screens
+        scroll: true,
+        onEnd: function (e) {
+          if (e.oldIndex === e.newIndex) return;
+          var keys = Array.prototype.map.call(grid.querySelectorAll(":scope > [data-dash-item]"), function (el) { return el.dataset.dashItem; });
+          post(grid.dataset.dashOrder, { keys: keys }, grid);
+        },
+      });
+    }, function (err) { console.error(err); });
+  }
+  function init(root) {
+    (root.querySelectorAll ? root : document).querySelectorAll("[data-dash-grid]").forEach(initGrid);
+  }
+  if (!window.twDashReady) {
+    window.twDashReady = true;
+    document.addEventListener("change", function (e) {
+      var select = e.target.closest && e.target.closest("select[data-dash-span]");
+      if (!select) return;
+      var item = select.closest("[data-dash-item]");
+      if (item) {
+        ["md:col-span-1", "md:col-span-2", "md:col-span-3", "md:col-span-4"].forEach(function (c) { item.classList.remove(c); });
+        item.classList.add("md:col-span-" + select.value);
+        // charts redraw at their new size
+        setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 50);
+      }
+      post(select.dataset.dashSpan, { span: select.value }, select);
+    });
+    document.addEventListener("htmx:afterRequest", function (e) {
+      var el = e.detail.elt;
+      if (!el || !el.hasAttribute || !el.hasAttribute("data-dash-remove") || !e.detail.successful) return;
+      if (!e.detail.xhr || e.detail.xhr.getResponseHeader("X-Dash-Removed") !== "1") return;
+      var item = el.closest("[data-dash-item]");
+      if (item) item.remove();
+    });
+    document.addEventListener("htmx:load", function (e) { init(e.target); });
+  }
+  // tungsten.js loads after this page on a first visit
+  if (window.twNeed) init(document);
+  else document.addEventListener("DOMContentLoaded", function () { init(document); });
+})();
+</script>
+{% endblock %}

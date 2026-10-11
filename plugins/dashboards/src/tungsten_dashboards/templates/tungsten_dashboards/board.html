@@ -1,0 +1,52 @@
+{# The widget grid of a dashboard. vars: dashboard, items, editing, span_class, spans, render_item, is_lazy,
+   polling, item_label, url, plugin #}
+{% import "tungsten/components/ui.html" as ui %}
+{% if items %}
+<div class="grid grid-cols-1 gap-6 md:grid-cols-4" data-dash-grid
+     {% if editing %}data-dash-order="{{ url(dashboard.id, 'order') }}"{% endif %}>
+  {% for item in items %}
+  {% set builtin = item.widget.startswith('dashboards.') %}
+  <div class="{{ span_class.get(item.span, 'md:col-span-2') }} flex min-w-0 flex-col" data-dash-item="{{ item.id }}"
+       {% if editing and builtin %}x-data="{ open: false }"{% endif %}>
+    {% if editing %}
+    <div class="mb-2 flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
+      <button type="button" class="dash-handle cursor-grab rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200"
+              title="{{ __('Drag to move') }}" aria-label="{{ __('Drag to move') }}">{{ icon('grip-vertical', 'h-4 w-4') }}</button>
+      <span class="min-w-0 truncate text-sm font-medium text-gray-700 dark:text-gray-200">{{ item_label(ctx, plugin, item) }}</span>
+      <span class="ms-auto"></span>
+      <label class="sr-only" for="dash-span-{{ item.id }}">{{ __('Width') }}</label>
+      <select id="dash-span-{{ item.id }}" class="tw-input" style="width: auto; padding-top: .25rem; padding-bottom: .25rem; font-size: .75rem"
+              data-dash-span="{{ url(dashboard.id, 'items', item.id) }}" title="{{ __('Width') }}">
+        {% for n, label in spans.items() %}<option value="{{ n }}" {% if n == item.span %}selected{% endif %}>{{ __(label) }}</option>{% endfor %}
+      </select>
+      {% if builtin %}
+      {{ ui.icon_button('settings', 'Change', bordered=false, attrs_='@click="open = !open"'|safe) }}
+      {% endif %}
+      <button type="button" class="tw-icon-btn {{ colors.pick(colors.ICON_BUTTON, 'danger') }}" title="{{ __('Remove') }}" aria-label="{{ __('Remove') }}"
+              hx-post="{{ url(dashboard.id, 'items', item.id, 'remove') }}" hx-swap="none" data-dash-remove
+              hx-confirm="{{ __('Remove this widget from the dashboard?') }}">{{ icon('trash-2', 'h-4 w-4') }}</button>
+    </div>
+    {% if builtin %}
+    <form x-show="open" x-cloak class="tw-card mb-2 grid gap-3 p-4" hx-post="{{ url(dashboard.id, 'items', item.id) }}" hx-swap="none">
+      <input type="hidden" name="_reload" value="1">
+      {% with values = item.settings or {}, title = item.title, key = item.widget, prefix = 'item-' ~ item.id %}
+      {% include "tungsten_dashboards/fields.html" %}
+      {% endwith %}
+      <div>{{ ui.button('Save', 'primary', 'check', type='submit', size='sm') }}</div>
+    </form>
+    {% endif %}
+    {% endif %}
+    <div class="min-w-0 flex-1">
+      {% set every = polling(ctx, plugin, item) %}
+      {% if is_lazy(ctx, plugin, item) %}
+      <div class="h-full" hx-get="{{ url('_w', item.id) }}" hx-trigger="load{% if every %}, every {{ every }}{% endif %}" hx-swap="innerHTML">
+        <div class="tw-card animate-pulse p-6"><div class="h-4 w-1/3 rounded bg-gray-200 dark:bg-white/10"></div><div class="mt-4 h-8 w-1/2 rounded bg-gray-200 dark:bg-white/10"></div></div>
+      </div>
+      {% elif every %}
+      <div class="h-full" hx-get="{{ url('_w', item.id) }}" hx-trigger="every {{ every }}" hx-swap="innerHTML">{{ render_item(ctx, plugin, item) }}</div>
+      {% else %}{{ render_item(ctx, plugin, item) }}{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

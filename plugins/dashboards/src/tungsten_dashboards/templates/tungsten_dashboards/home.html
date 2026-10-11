@@ -1,0 +1,7 @@
+{# The panel home page when the person picked a dashboard as home. vars: dashboard, board, editable, url #}
+<div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
+  <span class="inline-flex items-center gap-1.5">{{ icon(dashboard.icon or 'layout-dashboard', 'h-4 w-4') }}<span class="font-medium text-gray-700 dark:text-gray-200">{{ dashboard.name }}</span></span>
+  {% if editable %}<a href="{{ url(d=dashboard.id, edit=1) }}" class="tw-card-link">{{ __('Edit') }}</a>{% endif %}
+  <a href="{{ url() }}" class="tw-card-link">{{ __('All dashboards') }}</a>
+</div>
+{{ board }}

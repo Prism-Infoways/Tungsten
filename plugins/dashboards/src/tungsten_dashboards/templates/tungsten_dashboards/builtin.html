@@ -1,0 +1,22 @@
+{# The plugin's own widgets: record counts (body), quick links (links) and notes (text). #}
+{% import "tungsten/components/ui.html" as ui %}
+{% if body is defined %}
+<div class="h-full">
+  {% if item.title %}<h3 class="mb-3 text-base font-semibold text-gray-950 dark:text-white">{{ item.title }}</h3>{% endif %}
+  {{ body }}
+</div>
+{% elif links is defined %}
+{% call ui.card(item.title or __('Quick links'), icon_name='link', classes='h-full', padding='px-6 pb-6 pt-4') %}
+  {% if links %}
+  <div class="flex flex-wrap gap-2">
+    {% for l in links %}{{ ui.button(l.label, 'gray', l.icon, href=l.url, outlined=true, size='sm') }}{% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('None of the picked links can be shown.') }}</p>
+  {% endif %}
+{% endcall %}
+{% else %}
+{% call ui.card(item.title or __('Note'), icon_name='sticky-note', icon_color='warning', classes='h-full', padding='px-6 pb-6 pt-4') %}
+  <div class="break-words text-sm text-gray-700 dark:text-gray-300" style="white-space: pre-line; line-height: 1.5rem">{{ text }}</div>
+{% endcall %}
+{% endif %}
