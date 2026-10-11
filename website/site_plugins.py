@@ -485,6 +485,38 @@ PLUGINS = [
              "you have no backup or the newest one is old."),
         ],
     },
+    {
+        "slug": "impersonate",
+        "name": "Impersonate (log in as a user)",
+        "package": "tungsten-impersonate",
+        "docs": "impersonate",
+        "category": "Security",
+        "icon": '<path d="M18 11c-1.5 0-2.5.5-3 2"/><path d="M4 6a2 2 0 0 0-2 2v4a5 5 0 0 0 5 5 8 8 0 0 1 5 2 8 8 0 0 1 5-2 5 5 0 0 0 5-5V8a2 2 0 0 0-2-2h-3a8 8 0 0 0-5 2 8 8 0 0 0-5-2z"/><path d="M6 11c1.5 0 2.5.5 3 2"/>',
+        "tagline": "Admins log in as any user to see what they see, safely and with a log.",
+        "summary": "tungsten-impersonate lets a support admin log in as another user of a Tungsten panel and see "
+                   "exactly what that user sees, then go back to their own account in one click. Only allowed admins "
+                   "can use it, it ends by itself after 60 minutes, and every use is written to a log.",
+        "features": [
+            ("Log in as", "A button on your users list and user pages, and a picker to find any user."),
+            ("Back to my account", "An orange bar on every page with the user's name and the minutes left."),
+            ("Safe by default", "Never as a super admin, an inactive user or someone with more access than you."),
+            ("Time limit", "You go back to your own account after 60 minutes, or your own limit."),
+            ("Impersonation log", "Who logged in as whom, when, why, for how long, from which IP."),
+            ("Works with other plugins", "HR employees, help desk customers and security audit checks."),
+        ],
+        "setup": ('from tungsten_impersonate import ImpersonatePlugin\n\n'
+                  'panel.plugin(ImpersonatePlugin())\npanel.create_tables(engine)'),
+        "needs": [],
+        "faqs": [
+            ("Who can log in as other users?",
+             "With roles, super admins and roles with the \"Log in as other users\" permission. Without roles, every "
+             "panel user. You can also pass your own rule with can_impersonate."),
+            ("Can an admin get more access by logging in as someone?",
+             "No. By default you can't log in as a super admin or as anyone with a permission you don't have."),
+            ("Is every use recorded?",
+             "Yes. The Impersonation log keeps who logged in as whom, when, why, for how long, and how it ended."),
+        ],
+    },
 ]
 
 PLUGIN_FAQS = [

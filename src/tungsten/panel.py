@@ -180,6 +180,7 @@ class Panel:
         self._nav_items: list[NavigationItem] = []
         self._user_menu_items: list[dict] = []
         self._hooks: dict[str, list[Callable]] = {}
+        self._record_actions: list[dict] = []
         self._plugins: list[Plugin] = []
         self._extra_routes: list[Callable] = []
         self._app: Any = None
@@ -221,6 +222,29 @@ class Panel:
         """Inject HTML at a named spot, e.g. ``"head.end"``, ``"sidebar.nav.end"``, ``"content.start"``."""
         self._hooks.setdefault(name, []).append(fn)
         return self
+
+    def record_action(self, target: Any, factory: Callable[[], Any], row: bool = True,
+                      pages: Iterable[str] = ("view", "edit")) -> "Panel":
+        """Add a button to another resource's rows and record pages, without touching its code.
+
+        Plugins use this to link into each other: ``target`` is a resource class, its model or its
+        slug, and ``factory()`` returns a fresh :class:`Action` (hide it with ``.visible(...)``)::
+
+            panel.record_action(User, lambda: Action("login_as").action(...))
+        """
+        self._record_actions.append({"target": target, "factory": factory, "row": row, "pages": tuple(pages)})
+        return self
+
+    def record_actions_for(self, resource: type[Resource], where: str) -> list:
+        """Fresh actions added with :meth:`record_action` for ``resource``: ``"row"`` or a page name."""
+        out = []
+        for item in self._record_actions:
+            target = item["target"]
+            if target is not resource and target is not resource.model and target != resource.get_slug():
+                continue
+            if (item["row"] if where == "row" else where in item["pages"]):
+                out.append(item["factory"]())
+        return out
 
     def routes(self, fn: Callable) -> Callable:
         """Decorator to add your own routes to the panel app: ``fn(router, panel)``."""

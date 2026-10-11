@@ -1,0 +1,13 @@
+<div role="status" aria-live="polite" id="tw-impersonate-bar"
+     style="position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:.5rem 1rem;padding:.5rem 1rem;background:#b45309;color:#fff;font-size:.875rem;line-height:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,.2)">
+  <span style="display:inline-flex;align-items:center;gap:.5rem">
+    {{ icon('venetian-mask', 'h-4 w-4') }}
+    <span>You are logged in as <strong>{{ user_name }}</strong>{% if minutes_left is not none %} &middot; ends in {{ minutes_left }} min{% endif %}</span>
+  </span>
+  <form method="post" action="{{ leave_url }}" style="margin:0">
+    <input type="hidden" name="_token" value="{{ token }}">
+    <button type="submit" style="display:inline-flex;align-items:center;gap:.375rem;padding:.25rem .75rem;border-radius:.375rem;border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.15);color:#fff;font-weight:600;cursor:pointer">
+      {{ icon('undo-2', 'h-4 w-4') }} Back to my account
+    </button>
+  </form>
+</div>

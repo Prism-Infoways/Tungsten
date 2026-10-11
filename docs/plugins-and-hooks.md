@@ -61,6 +61,7 @@ A plugin can call any public `Panel` method on the panel it receives:
 | `panel.navigation_group(label, icon=None, collapsed=False, collapsible=True)` | A sidebar group |
 | `panel.user_menu_item(label, url, icon=None)` | A link in the user menu |
 | `panel.render_hook(name, fn)` | HTML at a named spot (see below) |
+| `panel.record_action(target, factory, row=True, pages=("view", "edit"))` | A button on another resource's rows and record pages (see below) |
 | `panel.routes` | Your own routes (see below) |
 
 ### Adding links
@@ -83,6 +84,24 @@ class DocsPlugin(Plugin):
 ```
 
 `NavigationItem` takes `label`, `url`, `icon`, `group`, `sort`, `badge`, `badge_color`, `parent`, `new_tab` and `visible` (a bool or a closure, e.g. `lambda user: user.is_admin`). See [Navigation](navigation).
+
+### Adding buttons to other resources
+
+A plugin can put a button on a resource it doesn't own, such as your app's users or another plugin's records, without changing that resource's code. `target` is the resource class, its model or its slug, and `factory` returns a fresh `Action` each time:
+
+```python
+from tungsten.actions import Action
+
+
+class AuditPlugin(Plugin):
+    id = "audit"
+
+    def boot(self, panel):
+        panel.record_action(User, lambda: Action("history").icon("history").url(
+            lambda record: f"/admin/history?user={record.id}"))
+```
+
+The button shows at the end of every table row (`row=False` to skip rows) and in the header of the record's view and edit pages (`pages=`). Hide it per record with `.visible(lambda ctx, record: ...)`. The [Impersonate plugin](impersonate) uses this to add **Log in as** to users, HR employees and tickets.
 
 ### Plugin permissions
 
