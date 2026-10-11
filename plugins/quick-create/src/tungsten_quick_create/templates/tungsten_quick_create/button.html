@@ -1,0 +1,51 @@
+{#
+  The "+ New" button in the top bar. vars: plugin, groups [(label, items)], count, label
+#}
+{% import "tungsten/components/ui.html" as ui %}
+<div data-tw-quick-create>
+{% call(part) ui.dropdown(width='w-64') %}
+  {% if part == 'trigger' %}
+  <button type="button" class="{{ ui.button_classes('primary') }}" aria-haspopup="menu" title="{{ __('Quick create') }}"
+          aria-label="{{ label or __('Quick create') }}"{% if plugin.shortcut %} data-tw-keys="{{ plugin.shortcut }}"{% endif %}>
+    {{ icon(plugin.icon, 'h-4 w-4') }}{% if label %}<span class="hidden md:block">{{ label }}</span>{% endif %}
+  </button>
+  {% else %}
+  <div x-data="{ q: '', m(t) { const q = this.q.toLowerCase().trim(); return !q || t.includes(q); } }" role="menu">
+    {% if count >= plugin.search_from %}
+    <div class="p-1">
+      <input type="search" x-model="q" placeholder="{{ __('Search...') }}" aria-label="{{ __('Search') }}" autocomplete="off"
+             @keydown.enter.prevent="const b = $el.closest('[role=menu]').querySelector('[data-tw-qc-item]:not([style*=\'display: none\'])'); b && b.click()"
+             x-init="$watch('open', v => v ? $nextTick(() => $el.focus()) : (q = ''))"
+             class="w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm ring-1 ring-inset ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
+    </div>
+    {% endif %}
+    <div style="max-height: 24rem; overflow-y: auto;">
+    {% for group_label, items in groups %}
+      <div x-show="{{ items | map(attribute='label') | map('lower') | list | tojson | forceescape }}.some(t => m(t))">
+        {% if group_label %}<p class="px-2 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{{ group_label }}</p>{% endif %}
+        {% for item in items %}
+        {% set needle = item.label | lower | tojson %}
+        {% if item.modal_url %}
+        <button type="button" role="menuitem" data-tw-qc-item class="{{ ui.button_classes('gray', 'dropdown') }}"
+                x-show="m({{ needle | forceescape }})"
+                hx-get="{{ item.modal_url }}" hx-target="#tw-modal" hx-swap="innerHTML">
+          {{ icon(item.icon, 'h-4 w-4 text-gray-400') }}<span class="flex-1 truncate">{{ item.label }}</span>
+        </button>
+        {% else %}
+        <a href="{{ item.url }}" role="menuitem" data-tw-qc-item class="{{ ui.button_classes('gray', 'dropdown') }}"
+           x-show="m({{ needle | forceescape }})">
+          {{ icon(item.icon, 'h-4 w-4 text-gray-400') }}<span class="flex-1 truncate">{{ item.label }}</span>
+        </a>
+        {% endif %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+    </div>
+    {% if count >= plugin.search_from %}
+    <p x-show="!{{ all_labels | tojson | forceescape }}.some(t => m(t))" x-cloak
+       class="px-3 py-3 text-center text-sm text-gray-500">{{ __('No matches') }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+{% endcall %}
+</div>

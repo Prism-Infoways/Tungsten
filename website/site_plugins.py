@@ -376,6 +376,74 @@ PLUGINS = [
              "Yes. Every audit is saved, and Audit history shows the score over time."),
         ],
     },
+    {
+        "slug": "quick-create",
+        "name": "Quick Create",
+        "package": "tungsten-quick-create",
+        "docs": "quick-create",
+        "category": "Productivity",
+        "icon": '<circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>',
+        "tagline": "A + New button in the top bar to create any record from any page.",
+        "summary": "tungsten-quick-create adds a + New button to the top bar of your Tungsten panel. It lists every "
+                   "resource the user may create, from your code and from other plugins, and opens the form in a side "
+                   "panel so a record can be added from any page without losing your place.",
+        "features": [
+            ("From any page", "One + New button in the top bar, with the form in a side panel or popup."),
+            ("Every resource", "Your own resources and those of other plugins: leads, tickets, HR, finance, blog."),
+            ("Permissions", "Users only see what they may create. Roles, policies and tenants are respected."),
+            ("Same form", "Live fields, uploads, validation and create hooks work like the normal create page."),
+            ("Create another", "Save and start the next one, and tables on the page refresh by themselves."),
+            ("Search and shortcut", "Grouped menu with a search box, and an optional keyboard shortcut."),
+        ],
+        "setup": 'from tungsten_quick_create import QuickCreatePlugin\n\npanel.plugin(QuickCreatePlugin())',
+        "needs": [],
+        "faqs": [
+            ("Which forms does Quick Create show?",
+             "Every resource with a create page or create form that the signed-in user may create, grouped like the "
+             "sidebar. Hide one with quick_create = False on the resource, or pick them with include and exclude."),
+            ("Does it need database tables?",
+             "No. It saves through each resource's own create code, so hooks, validation and the activity log run."),
+            ("Can other plugins add their own entries?",
+             "Yes. Call add_link(key, label, url) on the plugin to add a link such as New event or Upload file."),
+        ],
+    },
+    {
+        "slug": "environment-indicator",
+        "name": "Environment indicator",
+        "package": "tungsten-environment-indicator",
+        "docs": "environment-indicator",
+        "category": "Security",
+        "icon": '<path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><circle cx="8" cy="7" r="1"/><circle cx="8" cy="17" r="1"/>',
+        "tagline": "A Local, Staging or Live badge, so nobody works on live by mistake.",
+        "summary": "tungsten-environment-indicator shows which copy of your app you are in: a green Local, amber "
+                   "Staging or red Live badge in the top bar and on the sign-in page, a colored line on top of "
+                   "every page, and [Live] in the browser tab title. It reads APP_ENV or similar, and when nothing "
+                   "is set it says Live everywhere except localhost.",
+        "features": [
+            ("Badge in the top bar", "Green Local, blue Development, amber Staging, red Live, or your own names."),
+            ("Colored line", "A thin line in the environment's color on top of every page."),
+            ("Tab title", "[Live] or [Staging] in front of the browser tab title, so tabs never mix up."),
+            ("Sign-in page", "\"You are signing in to Live\" before anyone types a password."),
+            ("Safe guess", "With nothing set, only localhost says Local. A live server behind a proxy still says Live."),
+            ("Git branch and debug", "The branch in the badge, and a warning when live runs in debug mode."),
+            ("Who sees it", "Show it only to admins, or hide it on live for a customer panel."),
+            ("Tells AI too", "With the MCP plugin, AI assistants are told when they work on live data."),
+            ("Light and safe", "No tables, no settings screen. If the badge ever fails, the page still opens."),
+        ],
+        "last_step": "Set APP_ENV where the app runs, restart it and open the panel. The badge is in the top bar.",
+        "setup": ('from tungsten_environment_indicator import EnvironmentIndicatorPlugin\n\n'
+                  'panel.plugin(EnvironmentIndicatorPlugin())\n\n# where the app runs: APP_ENV=staging'),
+        "needs": [],
+        "faqs": [
+            ("How does it know the environment?",
+             "It reads TUNGSTEN_ENV, APP_ENV, ENVIRONMENT, ENV, FASTAPI_ENV or PYTHON_ENV. You can also pass the "
+             "name in code. With none set, localhost is Local and every other address is Live."),
+            ("Can my customers not see the Live badge?",
+             "Yes. Use hide_in=(\"production\",) to show nothing on live, or visible= to show it only to admins."),
+            ("Does it slow the panel down?",
+             "No. It reads the environment once at start-up and adds a few hundred bytes to each page. It adds no tables."),
+        ],
+    },
 ]
 
 PLUGIN_FAQS = [
