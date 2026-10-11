@@ -67,6 +67,8 @@ PWAPlugin(
 
 ## Shortcuts from other plugins
 
+With [Quick Create](https://tungsten.prisminfoways.com/docs/quick-create) (`tungsten-quick-create`) installed, the app gets *New ...* shortcuts for your first resources by itself.
+
 Any plugin can add app shortcuts with a `pwa_shortcuts` method. It returns `(label, url)` pairs or dicts with `name`, `url` and an optional `description`:
 
 ```python

@@ -20,8 +20,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from markupsafe import Markup, escape
 
@@ -120,7 +121,8 @@ class PWAPlugin(Plugin):
         if self.offline_banner:
             panel.render_hook("body.end", self._offline_bar)
 
-    def add_shortcut(self, label: str, url: str, description: str | None = None, icon: str | None = None) -> "PWAPlugin":
+    def add_shortcut(self, label: str, url: str, description: str | None = None,
+                     icon: str | None = None) -> PWAPlugin:
         """Add an app shortcut. ``url`` is a panel path (``"orders/create"``) or a full path (``"/admin/orders"``)."""
         self._shortcuts.append({"name": label, "url": url, "description": description, "icon": icon})
         self._cache.clear()

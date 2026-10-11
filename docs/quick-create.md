@@ -101,6 +101,10 @@ if quick is not None:
 
 A link whose function fails is left out and logged; the rest of the page keeps working.
 
+## App shortcuts
+
+With the [PWA plugin](pwa) (`tungsten-pwa`), the installed app gets *New ...* shortcuts for the first four resources that have a create page, plus links added with a plain string URL. A long press on the app icon opens them. Change the number with `QuickCreatePlugin.pwa_shortcut_limit`.
+
 ## Questions
 
 **Does it work with my own resources?**

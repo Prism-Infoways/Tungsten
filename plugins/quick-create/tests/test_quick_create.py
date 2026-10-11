@@ -96,6 +96,28 @@ def test_links_from_other_plugins(panel):
     assert "/admin/calendar?new=1" not in client.get("/admin/").text
 
 
+def test_app_shortcuts_for_the_installed_app(panel):
+    plugin = panel.get_plugin("quick-create")
+    plugin.add_link("event", "Event", "/admin/calendar?new=1")
+    plugin.add_link("upload", "Upload file", lambda ctx: "/admin/media/upload")  # needs a request: skipped
+    shortcuts = plugin.pwa_shortcuts(panel)
+    # modal-only notes have no create page to open from the home screen
+    assert shortcuts == [{"name": "New Product", "url": "/admin/products/create"},
+                         {"name": "Event", "url": "/admin/calendar?new=1"}]
+    plugin.pwa_shortcut_limit = 1
+    assert len(plugin.pwa_shortcuts(panel)) == 1
+
+
+def test_app_shortcuts_reach_the_pwa_manifest(panel):
+    pytest.importorskip("tungsten_pwa")
+    from tungsten_pwa import PWAPlugin
+
+    panel.plugin(PWAPlugin())
+    manifest = client_for(panel).get("/admin/_tw/pwa/manifest.webmanifest").json()
+    assert {"name": "New Product", "url": "/admin/products/create"} == {
+        k: manifest["shortcuts"][0][k] for k in ("name", "url")}
+
+
 # ---------------------------------------------------------------------- the form
 def test_open_form_in_side_panel(admin):
     r = admin.get("/admin/_quick-create/products", htmx=True)
