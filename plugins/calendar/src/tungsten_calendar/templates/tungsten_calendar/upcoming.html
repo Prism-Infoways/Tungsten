@@ -1,0 +1,18 @@
+{% import "tungsten/components/ui.html" as ui %}
+{% call ui.card(__(w.heading), __(description), 'px-6 pb-6 pt-4', 'h-full', link, 'Open calendar', w.icon, 'primary') %}
+<ul class="grid gap-1" data-calendar-upcoming>
+  {% for r in rows %}
+  <li>
+    <a {% if r.url %}href="{{ r.url }}"{% endif %} class="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5" style="text-decoration:none">
+      <span class="shrink-0 rounded-full" style="width:8px;height:8px;background:{{ r.strong }}"></span>
+      <span class="shrink-0" style="width:7rem;line-height:1.25"><span class="block text-gray-950 dark:text-white" style="font-weight:500">{{ __(r.day) }}</span><span class="block text-xs text-gray-500 dark:text-gray-400">{{ __(r.time) }}</span></span>
+      <span class="min-w-0 flex-1 truncate font-medium text-gray-950 dark:text-white">{{ r.title }}</span>
+    </a>
+  </li>
+  {% else %}
+  <li class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">{{ __('Nothing coming up. Enjoy the calm!') }}</li>
+  {% endfor %}
+  {% if more %}<li class="px-2 pt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('and :n more', n=more) }}</li>{% endif %}
+  {% if failed %}<li class="px-2 pt-1 text-sm text-warning-600 dark:text-warning-400">{{ __("Couldn't load:") }} {{ failed|join(', ') }}</li>{% endif %}
+</ul>
+{% endcall %}

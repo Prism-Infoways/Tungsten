@@ -21,13 +21,14 @@ Official plugins for Tungsten. Each folder is its own pip package with its own v
 | [backups](backups) | `tungsten-backups` | Back up the database and uploaded files from the panel and download the zip, with checks, pruning and a timer |
 | [pwa](pwa) | `tungsten-pwa` | Install the panel like an app (PWA): manifest, icons, shortcuts, faster loading and an offline page |
 | [saved-views](saved-views) | `tungsten-saved-views` | Saved table views: users save filters, search, sort and columns as one-click tabs, share them and pick a default |
+| [calendar](calendar) | `tungsten-calendar` | Calendar: month, week, day and list views, repeating events, drag and drop, phone sync, and dates from HR, Leads, Tickets, Finance and Blog |
 | [impersonate](impersonate) | `tungsten-impersonate` | "Log in as" any user to see what they see, with a Back bar, a time limit, safety rules and a log |
 
 ## Working on a plugin
 
 ```bash
-pip install -e ".[dev]" -e plugins/leads -e plugins/meta-leads -e plugins/whatsapp -e plugins/mcp -e plugins/tickets -e plugins/hr -e plugins/finance -e plugins/tags -e plugins/security-audit -e plugins/seo-audit -e plugins/blog -e plugins/quick-create -e plugins/environment-indicator -e plugins/backups -e plugins/kanban -e plugins/pwa -e plugins/saved-views -e plugins/impersonate
-for p in leads meta-leads whatsapp mcp tickets hr finance tags security-audit seo-audit blog quick-create environment-indicator backups kanban pwa saved-views impersonate; do pytest plugins/$p/tests || break; done
+pip install -e ".[dev]" -e plugins/leads -e plugins/meta-leads -e plugins/whatsapp -e plugins/mcp -e plugins/tickets -e plugins/hr -e plugins/finance -e plugins/tags -e plugins/security-audit -e plugins/seo-audit -e plugins/blog -e plugins/quick-create -e plugins/environment-indicator -e plugins/backups -e plugins/kanban -e plugins/pwa -e plugins/saved-views -e plugins/calendar -e plugins/impersonate
+for p in leads meta-leads whatsapp mcp tickets hr finance tags security-audit seo-audit blog quick-create environment-indicator backups kanban pwa saved-views calendar impersonate; do pytest plugins/$p/tests || break; done
 ```
 
 ## Releasing a plugin
