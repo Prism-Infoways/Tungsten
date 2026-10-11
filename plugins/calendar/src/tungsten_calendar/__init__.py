@@ -182,6 +182,19 @@ class CalendarPlugin(Plugin):
             return set()
         return set(self.links)
 
+    def _attach_tags(self, panel: Any) -> None:
+        """With the Tags plugin, events get a tags box, a tags column and a tag filter."""
+        from .resources import CalendarEventResource
+
+        tags = panel.get_plugin("tags")
+        if tags is None or not getattr(tags, "auto_attach", True) or not hasattr(tags, "attach"):
+            return
+        try:
+            if tags.target_for(CalendarEventResource) is None:
+                tags.attach(CalendarEventResource)
+        except Exception:  # noqa: BLE001  an older Tags plugin must not stop the panel
+            log.exception("Could not add tags to calendar events")
+
     # ------------------------------------------------------------------ setup
     def register(self, panel: Any) -> None:
         from .feeds import add_routes
@@ -201,6 +214,7 @@ class CalendarPlugin(Plugin):
 
     def boot(self, panel: Any) -> None:
         """Link with the plugins that are installed (all plugins are registered by now)."""
+        self._attach_tags(panel)
         wanted = self._link_keys()
         for plugin_id, key, label, fn, color, icon in LINKS:
             if key in self.sources or key in self._removed or panel.get_plugin(plugin_id) is None:

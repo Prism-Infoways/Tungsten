@@ -70,6 +70,11 @@ The keys are `hr_leave`, `hr_holidays`, `hr_birthdays`, `leads`, `tickets`, `fin
 
 If one plugin fails, the calendar still shows everything else, with a note saying what couldn't load.
 
+Two more plugins work with the calendar:
+
+- [Tags](tags): events get a tags box, a tags column and a tag filter in **Events**.
+- [Quick Create](quick-create): **+ New → Event** adds an event from any page, and the calendar updates right away.
+
 ## Add your own dates
 
 Any plugin or app can put its dates on the calendar with `add_source`. Return `CalendarItem` objects, or dicts with the same keys, for the days `start` to `end` (both included):

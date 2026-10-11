@@ -9,6 +9,7 @@ A calendar for your [Tungsten](https://tungsten.prisminfoways.com/) admin panel:
 - **Private events**: "Only me" events are hidden from everyone else.
 - **Phone sync**: a private link for Google Calendar, Outlook or an iPhone, plus .ics download.
 - **Linked with your plugins**: approved leave, holidays and birthdays (HR), lead follow-ups (Leads), ticket due times (Help desk), unpaid invoices and bills (Finance) and blog posts (Blog). Each person only sees what they may see.
+- **Tags and Quick Create**: with those plugins, events get tags, and "+ New → Event" works from any page.
 - **Hooks**: any plugin can add its own dates with `add_source`.
 - **Dashboard card**: what is coming up in the next 7 days.
 

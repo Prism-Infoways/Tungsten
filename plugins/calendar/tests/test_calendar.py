@@ -417,3 +417,19 @@ def test_all_day_switch_carries_dates_over():
     state = {"starts_at": "", "ends_at": "", "start_date": "2026-11-02", "end_date": ""}
     _switch_all_day(False, state.get, state.__setitem__)
     assert state["starts_at"] == "2026-11-02T09:00" and state["ends_at"] == "2026-11-02T10:00"
+
+
+def test_events_get_tags_with_the_tags_plugin(tmp_path):
+    tags_module = pytest.importorskip("tungsten_tags")
+    panel = make_panel(tmp_path, [tags_module.TagsPlugin()])
+    panel.boot()
+    c = client_for(panel)
+    assert c.login().status_code == 303
+    assert "tungsten_tags" in c.get("/admin/calendar-events/create").text
+    r = c.post("/admin/calendar-events/create", {"title": "Demo for Acme", "kind": "meeting", "repeat": "none",
+                                                 "starts_at": "2026-10-21T12:00", "tungsten_tags": ["Client"]})
+    assert r.status_code == 204, r.text
+    with panel.db() as db:
+        event = db.scalars(select(CalendarEvent)).one()
+        assert panel.get_plugin("tags").tags_for(db, event) == ["Client"]
+    assert "Client" in c.get("/admin/calendar-events?tab=all").text
