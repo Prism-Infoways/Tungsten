@@ -307,7 +307,7 @@ def build(base_url: str = "") -> None:
          "dateModified": entries[0]["date"], "isPartOf": {"@id": f"{SITE_URL}/#site"},
          "about": {"@id": f"{SITE_URL}/#software"},
          "mainEntity": {"@type": "ItemList", "itemListElement": [
-             {"@type": "ListItem", "position": i, "name": f"{e['date']}: {e['title']}", "url": f"{log_url}#{e['date']}"}
+             {"@type": "ListItem", "position": i, "name": f"{e['date']}: {e['title']}", "url": f"{log_url}#{e['id']}"}
              for i, e in enumerate(entries, 1)]}},
         crumbs_schema([("Home", f"{SITE_URL}/"), ("What's new", log_url)]), ORG)
     (OUT / "changelog.html").write_text(env.get_template("changelog.html").render(
@@ -324,12 +324,14 @@ def build(base_url: str = "") -> None:
 def changelog_entries() -> list[dict]:
     """CHANGELOG.md: one `## YYYY-MM-DD · Title` section per release day, newest first."""
     text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    entries = []
+    entries, seen = [], {}
     for part in re.split(r"^## ", text, flags=re.M)[1:]:
         head, _, body = part.partition("\n")
         day, _, title = head.partition("·")
         day = day.strip()
-        entries.append({"date": day, "title": title.strip(), "markdown": body.strip(),
+        seen[day] = seen.get(day, 0) + 1
+        anchor = day if seen[day] == 1 else f"{day}-{seen[day]}"  # two releases on one day get unique ids
+        entries.append({"date": day, "id": anchor, "title": title.strip(), "markdown": body.strip(),
                         "date_label": date.fromisoformat(day).strftime("%-d %B %Y"),
                         "body": Markup(markdown.markdown(body.strip()))})
     return entries
