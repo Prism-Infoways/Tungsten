@@ -18,7 +18,7 @@
   <section class="section">
     <div class="wrap"><div class="log">
       {% for e in entries %}
-      <article class="log-entry" id="{{ e.date }}">
+      <article class="log-entry" id="{{ e.id }}">
         <div class="log-date"><time datetime="{{ e.date }}">{{ e.date_label }}</time>{% if loop.first %}<br><span class="plugin-tag">Latest</span>{% endif %}</div>
         <div>
           <h2>{{ e.title }}</h2>

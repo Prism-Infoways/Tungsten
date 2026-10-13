@@ -2,13 +2,29 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
-## 2026-10-11 · Calendar plugin
+## 2026-10-13 · Six new plugins on PyPI
 
+- **tungsten-admin 0.1.8** is on PyPI: `pip install -U tungsten-admin`. It adds the hooks that Impersonate, Media library and Saved views need.
+- Now on PyPI, version 0.1.0 each: `tungsten-quick-create`, `tungsten-kanban`, `tungsten-impersonate`, `tungsten-saved-views`, `tungsten-media-library` and `tungsten-dashboards`.
+- `tungsten-calendar`, `tungsten-tags`, `tungsten-pwa`, `tungsten-backups` and `tungsten-environment-indicator` follow next.
+- **Website**: every plugin page now shows the plugins it works with and links to its blog post, and each plugin's docs page links back to it.
+
+## 2026-10-11 · Eleven new plugins
+
+- **New plugin: Quick Create** (`tungsten-quick-create`). A + New button in the top bar to create any record from any page.
+- **New plugin: Kanban boards** (`tungsten-kanban`). Show any resource as a drag-and-drop board, with columns by status. Ready boards for leads, tickets and leave.
+- **New plugin: Custom Dashboards** (`tungsten-dashboards`). Users build their own dashboards by drag and drop, with widgets from every plugin.
 - **New plugin: Calendar** (`tungsten-calendar`). Month, week, day and list views, all-day and repeating events, drag and drop, and a private link for Google Calendar, Outlook or iPhone. Shows leave, holidays and birthdays (HR), lead follow-ups, ticket due times, unpaid invoices and blog posts when those plugins are installed.
+- **New plugin: Tags** (`tungsten-tags`). Put colored tags on any record and filter by them.
+- **New plugin: Saved table views** (`tungsten-saved-views`). Users save their own filters as one-click views like My Leads or Pending.
+- **New plugin: Media library** (`tungsten-media-library`). Every image and file in one place. Upload once, reuse anywhere.
+- **New plugin: Install as an app** (`tungsten-pwa`). Your team installs the panel like an app on Android, iPhone, Windows and Mac, with app icons, shortcuts, faster loading and an offline page. Pages and data are never cached.
+- **New plugin: Impersonate** (`tungsten-impersonate`). Admins log in as any user to see what they see, safely and with a log.
+- **New plugin: Backups** (`tungsten-backups`). Back up your database and files from the panel, and download the zip.
+- **New plugin: Environment indicator** (`tungsten-environment-indicator`). A Local, Staging or Live badge, so nobody works on live by mistake.
 
 ## 2026-10-11 · HR and Finance on PyPI
 
-- **New plugin: Install as an app** (`tungsten-pwa`). Your team installs the panel like an app on Android, iPhone, Windows and Mac, with app icons, shortcuts, faster loading and an offline page. Pages and data are never cached.
 - **`tungsten-hr` 0.1.0** is on PyPI: `pip install tungsten-hr`. Employees, attendance with check-in and biometric machines, leave with approval, and holidays.
 - **`tungsten-finance` 0.2.0** is on PyPI: `pip install tungsten-finance`. Double-entry books with GST, invoices, payments, expenses and reports. Needs `tungsten-admin` 0.1.7.
 
