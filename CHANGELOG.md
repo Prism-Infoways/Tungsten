@@ -2,11 +2,11 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
-## 2026-10-13 · Six new plugins on PyPI
+## 2026-10-13 · Ten new plugins on PyPI
 
 - **tungsten-admin 0.1.8** is on PyPI: `pip install -U tungsten-admin`. It adds the hooks that Impersonate, Media library and Saved views need.
-- Now on PyPI, version 0.1.0 each: `tungsten-quick-create`, `tungsten-kanban`, `tungsten-impersonate`, `tungsten-saved-views`, `tungsten-media-library` and `tungsten-dashboards`.
-- `tungsten-calendar`, `tungsten-tags`, `tungsten-pwa`, `tungsten-backups` and `tungsten-environment-indicator` follow next.
+- Now on PyPI, version 0.1.0 each: `tungsten-quick-create`, `tungsten-kanban`, `tungsten-dashboards`, `tungsten-calendar`, `tungsten-tags`, `tungsten-saved-views`, `tungsten-media-library`, `tungsten-pwa`, `tungsten-impersonate` and `tungsten-backups`.
+- `tungsten-environment-indicator` follows next.
 - **Website**: every plugin page now shows the plugins it works with and links to its blog post, and each plugin's docs page links back to it.
 
 ## 2026-10-11 · Eleven new plugins
