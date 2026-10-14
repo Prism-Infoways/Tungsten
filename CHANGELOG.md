@@ -16,7 +16,7 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 
 - **`tungsten-admin` 0.1.9** is on PyPI: `pip install -U tungsten-admin`. It has all the Filament-style work below: navigation and teams, forms, tables, actions and exports, login and security, notifications and the activity log, custom themes, infolists and relation managers.
 - **After upgrading, run `panel.create_tables(engine)` once.** It adds the new tables for login and security and for per-team roles. Your data is not touched.
-- **New: `tungsten-filament`** moves a Laravel Filament admin to Tungsten (models, resources, forms, tables, filters, actions and relation managers) on the same database and logins. It goes up on PyPI next.
+- **New: `tungsten-filament`** moves a Laravel Filament admin to Tungsten (models, resources, forms, tables, filters, actions and relation managers) on the same database and logins. **`tungsten-filament` 0.1.0** is on PyPI too: `pip install tungsten-filament`.
 
 ## 2026-10-14 · Navigation and teams like Filament
 
@@ -107,13 +107,13 @@ _In `tungsten-admin` 0.1.9._
 
 ## 2026-10-14 · Move from Filament to Tungsten
 
-- **New tool: Filament migration** (`tungsten-filament`). Point it at a Laravel Filament project and it writes a Tungsten admin: models from your migrations, relations, PHP enums, resources, forms, tables, filters, actions, infolists and relation managers, for Filament 3 and 4. The new admin runs on the same database and people sign in with the same passwords. What it cannot convert is marked in the code and listed in a report. Not on PyPI yet.
+- **New tool: Filament migration** (`tungsten-filament`). Point it at a Laravel Filament project and it writes a Tungsten admin: models from your migrations, relations, PHP enums, resources, forms, tables, filters, actions, infolists and relation managers, for Filament 3 and 4. The new admin runs on the same database and people sign in with the same passwords. What it cannot convert is marked in the code and listed in a report. On PyPI as `tungsten-filament` 0.1.0: `pip install tungsten-filament`.
 
 ## 2026-10-13 · Ten new plugins on PyPI
 
 - **tungsten-admin 0.1.8** is on PyPI: `pip install -U tungsten-admin`. It adds the hooks that Impersonate, Media library and Saved views need.
 - Now on PyPI, version 0.1.0 each: `tungsten-quick-create`, `tungsten-kanban`, `tungsten-dashboards`, `tungsten-calendar`, `tungsten-tags`, `tungsten-saved-views`, `tungsten-media-library`, `tungsten-pwa`, `tungsten-impersonate` and `tungsten-backups`.
-- `tungsten-environment-indicator` follows next.
+- `tungsten-environment-indicator` 0.1.0 followed on 2026-10-14, so all eleven plugins from 2026-10-11 are on PyPI.
 - **Website**: every plugin page now shows the plugins it works with and links to its blog post, and each plugin's docs page links back to it.
 
 ## 2026-10-11 · Eleven new plugins
