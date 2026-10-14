@@ -273,7 +273,7 @@ class JobRunner:
                 while not await adb.run_sync(step):
                     await asyncio.sleep(0)
             except Exception as exc:  # noqa: BLE001 - recorded on the job
-                await adb.run_sync(lambda db: self._fail(db, job_id, exc))
+                await adb.run_sync(self._fail, job_id, exc)
 
 
 def chunks(items: list, size: int):
