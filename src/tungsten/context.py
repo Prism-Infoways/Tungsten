@@ -23,13 +23,25 @@ class Context:
         self.request = request
         self.db = db
         self.user: Any = None
-        self.tenant: Any = None
+        self._tenant: Any = None
         self.notifications: list[dict] = []
         self.events: dict[str, Any] = {}
         self.redirect_to: str | None = None
         #: the custom page (or dashboard) being drawn; its ``filters_form`` feeds ``filters``
         self.page: Any = None
         self._permissions: set[str] | None = None
+
+    @property
+    def tenant(self) -> Any:
+        """The current tenant (``None`` without tenancy)."""
+        return self._tenant
+
+    @tenant.setter
+    def tenant(self, value: Any) -> None:
+        self._tenant = value
+        tenancy = getattr(self.panel, "tenancy", None)
+        if getattr(tenancy, "scope_session", False):
+            tenancy.bind(self)  # every ORM query on this session is filtered by the tenant
 
     # ------------------------------------------------------------------ helpers
     @property

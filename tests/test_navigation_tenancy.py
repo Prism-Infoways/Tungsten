@@ -398,3 +398,66 @@ def test_record_sub_navigation_lists_relation_pages():
     nav = edit[edit.index("data-tw-sub-navigation"):]
     active = nav[:nav.index('aria-current="page"')]
     assert active.rindex('href="/admin/teams/1/edit"') > active.rindex('href="/admin/teams/1"')
+
+
+# ---------------------------------------------------------------- session-level scope (issue #74)
+def _job_ctx(panel, Session, email, tenant_key):
+    from tungsten.jobs import background_context
+
+    db = Session()
+    member = db.scalars(select(Member).where(Member.email == email)).one()
+    return background_context(panel, db, str(member.id), tenant_key)
+
+
+def test_scope_session_filters_every_query():
+    from sqlalchemy import func, update
+
+    _, Session, panel = make_app(scope_session=True)
+    ctx = _job_ctx(panel, Session, "ann@x.com", "1")  # Red
+    db = ctx.db
+    assert [p.name for p in db.scalars(select(Project))] == ["Red rocket"]
+    assert db.scalar(select(func.count()).select_from(Project)) == 1
+    assert db.get(Project, 2) is None  # Blue's
+    # stepping outside on purpose
+    with panel.tenancy.unscoped():
+        assert db.scalar(select(func.count()).select_from(Project)) == 3
+    assert len(db.scalars(select(Project).execution_options(tungsten_unscoped=True)).all()) == 3
+    # updates only touch the tenant's rows
+    db.execute(update(Project).values(name="renamed"))
+    db.commit()
+    with Session() as other:
+        assert sorted(other.scalars(select(Project.name))) == ["Blue bird", "Green leaf", "renamed"]
+    # new rows get the tenant
+    db.add(Project(name="Made in a job"))
+    db.commit()
+    with Session() as other:
+        assert other.scalars(select(Project).where(Project.name == "Made in a job")).one().team_id == 1
+    # the tenant model itself is not filtered, and a lazy load of another tenant's rows is
+    blue = db.get(Team, 2)
+    assert blue is not None and blue.projects == []
+    db.close()
+
+
+def test_scope_session_without_a_tenant_shows_nothing():
+    _, Session, panel = make_app(scope_session=True)
+    ctx = _job_ctx(panel, Session, "bob@x.com", None)
+    assert ctx.tenant is None and ctx.db.scalars(select(Project)).all() == []
+    ctx.db.close()
+
+
+def test_scope_session_is_off_by_default():
+    _, Session, panel = make_app()
+    ctx = _job_ctx(panel, Session, "ann@x.com", "1")
+    assert len(ctx.db.scalars(select(Project)).all()) == 3
+    ctx.db.close()
+
+
+def test_scope_session_panel_pages_still_work():
+    app, Session, _ = make_app(scope_session=True)
+    c = PanelClient(TestClient(app))
+    c.login("ann@x.com")
+    html = c.get("/admin/blue/projects").text
+    assert "Blue bird" in html and "Red rocket" not in html
+    assert c.get("/admin/red/projects/2/edit").status_code == 404
+    r = c.post("/admin/blue/projects/create", {"name": "Blue boat"})
+    assert r.status_code == 204

@@ -89,6 +89,7 @@ That's all. `ProductResource` needs no changes.
 | `can_edit_profile` | everyone | Who may open the team settings page |
 | `billing` | `None` | A `BillingProvider`. See [Billing](#billing). |
 | `require_subscription` | `False` | Send users of an unsubscribed tenant to billing first |
+| `scope_session` | `False` | Filter **every** ORM query on the panel's sessions, not only Tungsten's. See [Scope every query](#scope-every-query). |
 
 The `tenants` function can run any query:
 
@@ -263,7 +264,7 @@ class ShopStats(StatsOverviewWidget):
 
 ## What is not scoped automatically
 
-Tenancy filters the queries Tungsten builds. It does not change queries you write yourself. Take care with these:
+Tenancy filters the queries Tungsten builds. It does not change queries you write yourself, unless you turn on [Scope every query](#scope-every-query). Take care with these:
 
 | Where | What to do |
 | --- | --- |
@@ -284,6 +285,35 @@ Select("category_id").relationship(
 
 > [!NOTE]
 > `.unique()` checks only the current tenant's records. If a column must be unique across **all** tenants (for example a login email), keep a unique index in the database as well. The database then refuses a duplicate from another tenant (the user sees an error page instead of a message under the field).
+
+## Scope every query
+
+With `scope_session=True`, Tenancy works like a Laravel global scope: every ORM query on the panel's database session gets the tenant filter, whoever wrote it. That covers your widgets, `navigation_badge()`, `Resource.query()`, select options, importer lookups, custom pages, background jobs and custom MCP tools, so one forgotten `where(...)` can no longer show another tenant's rows.
+
+```python
+Tenancy(Company, ownership="company_id", tenants=lambda user: [user.company], scope_session=True)
+```
+
+- `select()`, `update()` and `delete()` on an owned model, and relationship loads, only see the current tenant's rows. A signed-in user without a tenant sees none.
+- New rows of an owned model get the tenant's id when they are saved, if it is not set.
+- Owned models are your models (from the same `DeclarativeBase` as the tenant model) with the `ownership` column, or a many-to-one relationship of that name. A resource's `tenant_scoped = False` and `tenant_ownership` are followed.
+- Jobs get the tenant they were started in, so their queries are filtered too.
+- Before sign-in nothing is filtered, so the login page can find the user.
+
+Step outside the filter on purpose, for example on a super-admin screen or a report over all tenants:
+
+```python
+from sqlalchemy import func, select
+
+with panel.tenancy.unscoped():
+    total = ctx.db.scalar(select(func.count()).select_from(Order))
+
+# or for one statement
+rows = ctx.db.scalars(select(Order).execution_options(tungsten_unscoped=True)).all()
+```
+
+> [!NOTE]
+> Only sessions the panel gives you (`ctx.db`, a job's `db`) are filtered. Raw SQL (`text(...)`) and a `Session` you open yourself are not. Many-to-many ownership (`tenant_ownership` naming a list relationship) is filtered on Tungsten's pages but not by `scope_session`.
 
 ## Combining with permissions
 
