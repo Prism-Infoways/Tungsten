@@ -501,5 +501,14 @@
   "Files made in the background are kept for :days days. Other exports download again with fresh data.": "बैकग्राउंड में बनी फ़ाइलें :days दिन तक रखी जाती हैं। बाकी एक्सपोर्ट नए डेटा के साथ फिर से डाउनलोड होते हैं।",
   "Export started": "एक्सपोर्ट शुरू हुआ",
   "You will get a notification when it is done.": "काम पूरा होने पर आपको सूचना मिलेगी।",
-  "Too many attempts": "बहुत ज़्यादा कोशिशें"
+  "Too many attempts": "बहुत ज़्यादा कोशिशें",
+  "Create a new :label to work in.": "काम करने के लिए नया :label बनाएँ।",
+  "Register :label": ":label रजिस्टर करें",
+  "Billing": "बिलिंग",
+  "Choose :label": ":label चुनें",
+  "There is no active subscription. Please contact us to subscribe.": "कोई सक्रिय सब्सक्रिप्शन नहीं है। सब्सक्राइब करने के लिए हमसे संपर्क करें।",
+  "Register": "रजिस्टर करें",
+  ":label settings": ":label सेटिंग्स",
+  "Your subscription is active.": "आपका सब्सक्रिप्शन सक्रिय है।",
+  "Team": "टीम"
 }

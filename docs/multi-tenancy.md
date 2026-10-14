@@ -79,6 +79,16 @@ That's all. `ProductResource` needs no changes.
 | `tenants` | required | A function that returns the tenants the user may use. It can ask for `user`, `db` and `ctx`. |
 | `label_attribute` | `"name"` | The tenant attribute shown in the switcher |
 | `session_key` | `"tw_tenant"` | Where the chosen tenant is kept in the session |
+| `url` | `False` | Put the tenant in every URL: `/admin/{tenant}/products`. See [Tenant in the URL](#tenant-in-the-url). |
+| `slug_attribute` | the primary key | The tenant attribute used in the URL, e.g. `"slug"` |
+| `label` | the model's name | What a tenant is called in menus ("Team", "Company") |
+| `avatar_attribute` | `None` | A tenant attribute holding an image URL for the switcher |
+| `registration` | `None` | Fields of the "Register team" page. See [Sign-up and settings pages](#sign-up-and-settings-pages). |
+| `on_register` | `None` | Runs after a tenant is registered, to link the user to it |
+| `profile` | `None` | Fields of the team settings page |
+| `can_edit_profile` | everyone | Who may open the team settings page |
+| `billing` | `None` | A `BillingProvider`. See [Billing](#billing). |
+| `require_subscription` | `False` | Send users of an unsubscribed tenant to billing first |
 
 The `tenants` function can run any query:
 
@@ -95,12 +105,86 @@ Tenancy(
 
 ## Switching tenants
 
-When a user belongs to tenants, a switcher appears at the top of the sidebar. It shows the current tenant's name. Picking another tenant reloads the panel at the dashboard, showing that tenant's data.
+When a user belongs to tenants, a switcher appears at the top of the sidebar (or in the top bar with `top_navigation=True`). It shows the current tenant's name. Picking another tenant reloads the panel at the dashboard, showing that tenant's data.
 
 - The choice is saved in the session, so it is kept between pages.
 - The first time, or when the saved tenant is no longer in the user's list, the first tenant from `tenants` is used.
 - Signing out forgets the choice.
 - Users can only switch to tenants that your `tenants` function returns.
+
+## Tenant in the URL
+
+With `url=True` the tenant is part of every link, like Filament's `/admin/{tenant}/...`:
+
+```python
+Tenancy(Team, ownership="team_id", tenants=lambda user: user.teams,
+        url=True, slug_attribute="slug")
+```
+
+- `/admin/acme/products` shows the products of the team whose `slug` is `acme`. Without `slug_attribute` the id is used (`/admin/1/products`).
+- Every link Tungsten builds (`panel.url(...)`, `Resource.get_url(...)`, table reloads, actions) gets the tenant added for you.
+- Two browser tabs can show two different teams.
+- A team the user is not in returns "Page not found".
+- `/admin/` and old links without a tenant (like `/admin/products`) go to the last team the user used.
+- Sign-in pages, assets and uploaded files have no tenant in their URL.
+- The switcher becomes a list of links. Use `panel.tenancy.url(ctx, team, "products")` to link into another team yourself.
+
+A team's slug can't be the name of one of the panel's own routes, like `login`, `profile`, `tenant` or `assets`.
+
+## Sign-up and settings pages
+
+Let users create their own teams, and edit the current team:
+
+```python
+from tungsten.forms import FileUpload, TextInput
+
+Tenancy(
+    Team, ownership="team_id", tenants=lambda user: user.teams, url=True, slug_attribute="slug",
+    registration=[
+        TextInput("name").required(),
+        TextInput("slug").required().unique().helper_text("Used in links: /admin/your-slug"),
+    ],
+    on_register=lambda tenant, user: user.teams.append(tenant),
+    profile=[TextInput("name").required(), FileUpload("logo").image()],
+    can_edit_profile=lambda user, tenant: tenant.owner_id == user.id,
+)
+```
+
+- **Register team** (`/admin/tenant/new`) shows the `registration` fields. On save, Tungsten creates the tenant, runs `on_register` (it can ask for `tenant`, `user`, `db` and `ctx`), makes the new team current and opens it.
+- A signed-in user with **no** team is sent to this page instead of an empty panel.
+- **Team settings** (`/admin/{tenant}/tenant/profile`) edits the current team with the `profile` fields. Only users allowed by `can_edit_profile` see it.
+- Both pages are in the tenant switcher. Both fields lists can also be a function `fn(form) -> form` for full control of the layout.
+
+## Billing
+
+Plug in any payment provider by subclassing `BillingProvider`:
+
+```python
+from tungsten.tenancy import BillingProvider
+
+
+class StripeBilling(BillingProvider):
+    def is_subscribed(self, ctx, tenant):
+        return tenant.subscription_status == "active"
+
+    def billing_url(self, ctx, tenant):
+        session = stripe.billing_portal.Session.create(
+            customer=tenant.stripe_customer_id, return_url=ctx.panel.absolute_url(ctx, ctx.url()))
+        return session.url
+
+
+Tenancy(Team, ..., billing=StripeBilling(), require_subscription=True)
+```
+
+| Method | Default | What it does |
+| --- | --- | --- |
+| `is_subscribed(ctx, tenant)` | `True` | Whether the tenant has paid. |
+| `billing_url(ctx, tenant)` | `None` | Where the **Billing** link sends the user (your provider's page). |
+| `content(ctx, tenant)` | `None` | HTML for a billing page inside the panel, used when `billing_url` returns `None`. |
+| `can_manage(ctx, tenant)` | `True` | Who sees the Billing link. |
+
+- The tenant switcher gets a **Billing** link (`/admin/{tenant}/tenant/billing`).
+- With `require_subscription=True`, every panel page of an unsubscribed tenant sends the user to billing first. The billing, team settings, profile and sign-out pages stay open.
 
 ## What gets scoped
 
@@ -187,7 +271,7 @@ Tenancy filters the queries Tungsten builds. It does not change queries you writ
 | `navigation_badge()` and `Resource.query()` | Your own queries: add the tenant filter if needed. |
 | Select options from `.options(...)` | Your own list or query: filter by `tenant` if needed. |
 | Your own `Importer.resolve_record()` | Filter by `ctx.tenant` in your query. |
-| Roles and permissions | Roles are shared by all tenants. |
+| Roles and permissions | Roles are shared by all tenants. Give roles per tenant with `RolesField().per_tenant()`, see [Roles per tenant](roles-and-permissions#roles-per-tenant). |
 
 You can still narrow relationship options further with `modify_query`. The closure can ask for `query` and `tenant`:
 

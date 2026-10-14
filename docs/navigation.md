@@ -240,6 +240,92 @@ For example, a link that only staff can see:
 NavigationItem("Server status", "/status", icon="activity", visible=lambda user: user.is_staff)
 ```
 
+## Clusters
+
+A cluster puts several resources and pages behind **one** menu item, with their own sub-menu. Use it for areas with many small screens, like Settings:
+
+```python
+from tungsten.navigation import Cluster
+
+
+class Settings(Cluster):
+    icon = "settings"
+    navigation_group = "Admin"
+    description = "Taxes, currencies and shop details."   # optional line under the sub-menu title
+
+
+class TaxResource(Resource):
+    model = Tax
+    cluster = Settings
+
+
+class ShopDetails(Page):
+    cluster = Settings
+    navigation_sort = -1      # first in the sub-menu
+```
+
+- The main menu shows one **Settings** item. It is highlighted while any page of the cluster is open.
+- Clicking it (or opening `/admin/settings`) goes to the first page of the cluster the user may open.
+- Every page of the cluster shows the sub-menu beside the content. Members are sorted by their `navigation_sort`, then by label, and only show when the user may open them.
+- A cluster with no page the user may open is hidden.
+
+`Cluster` takes these class attributes:
+
+| Attribute | Default | What it does |
+| --- | --- | --- |
+| `label` | from the class name | The name in the menu and above the sub-menu. |
+| `slug` | from the class name | The URL that opens the first page (`/admin/settings`). |
+| `icon` | `"squares-2x2"` | The menu icon. |
+| `active_icon` | `None` | An icon shown while the cluster is open. |
+| `navigation_group` | `None` | The menu group of the cluster's item. |
+| `navigation_sort` | `0` | Its order in that group. |
+| `navigation_label` | `None` | A different label for the menu item. |
+| `sub_navigation_position` | `"start"` | `"start"` (beside the page), `"end"` (on the other side) or `"top"` (tabs above). |
+| `description` | `None` | A short line under the sub-menu title. |
+
+Members keep their own URLs (`/admin/taxes`), so old links keep working.
+
+## Sub-menu on a record's pages
+
+Give a resource's record pages their own sub-menu with `record_sub_navigation`. It lists page names and/or your own `NavigationItem` links:
+
+```python
+class CustomerResource(Resource):
+    model = Customer
+    record_sub_navigation = ("view", "edit")
+    sub_navigation_position = "top"      # tabs; or "start" / "end" for a side menu
+```
+
+The View and Edit links only show when the resource has that page and the user may open it. For links that depend on the record, override `get_record_sub_navigation`:
+
+```python
+class CustomerResource(Resource):
+    record_sub_navigation = ("view", "edit")
+
+    @classmethod
+    def get_record_sub_navigation(cls, ctx, record):
+        return super().get_record_sub_navigation(ctx, record) + [
+            NavigationItem("Orders", OrderResource.get_url(ctx, customer=record.id), icon="shopping-cart"),
+        ]
+```
+
+The link of the page you are on is highlighted. A record sub-menu wins over a cluster's sub-menu on that record's pages.
+
+## Menu along the top
+
+To show the menu in a bar along the top instead of the sidebar:
+
+```python
+panel = Panel(..., top_navigation=True)
+```
+
+- Items without a group show as links in the bar.
+- Each group becomes a dropdown with its items. Items with children also open a dropdown.
+- The brand and the tenant switcher move into the bar.
+- On phones the menu button still opens the usual side menu.
+
+Plugins can add HTML at the start or end of the bar with the `topbar.nav.start` and `topbar.nav.end` render hooks.
+
 ## The dashboard item
 
 The dashboard is a page too. To change its label, icon or position, subclass `Dashboard` and pass it to the panel:
