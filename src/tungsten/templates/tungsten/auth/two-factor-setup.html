@@ -13,7 +13,8 @@
     <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl {{ colors.pick(colors.SOFT_ICON, 'success' if step in ('enabled', 'codes') else 'warning') }}">{{ icon('shield-check' if step in ('enabled', 'codes') else 'shield-alert', 'h-6 w-6') }}</span>
     <div class="flex-1">
       <h2 class="text-base font-semibold text-gray-950 dark:text-white">
-        {% if step in ('enabled', 'codes') %}{{ __('Two-factor authentication is on') }}{% else %}{{ __('Two-factor authentication is off') }}{% endif %}
+        {% if email_method %}{% if step in ('enabled', 'codes') %}{{ __('Authenticator app is on') }}{% else %}{{ __('Authenticator app is off') }}{% endif %}
+        {% elif step in ('enabled', 'codes') %}{{ __('Two-factor authentication is on') }}{% else %}{{ __('Two-factor authentication is off') }}{% endif %}
       </h2>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
         {% if step in ('enabled', 'codes') %}{{ __("You'll be asked for a code from your authenticator app when you sign in.") }}{% if remaining %} You have {{ remaining }} recovery codes left.{% endif %}

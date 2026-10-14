@@ -2,6 +2,14 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-14 · Safer sign-in
+
+- **Two-factor codes by email.** `Auth(two_factor_email=True)`: users can get their sign-in code by email instead of (or as well as) an authenticator app.
+- **Verified email change.** A new email on the profile page only takes effect after its owner opens the link sent to it. The old address gets a notice with a link to stop the change.
+- **Idle timeout.** `Auth(idle_timeout=30)` signs people out after 30 minutes without activity. Background polling doesn't count.
+- **API tokens, like Laravel Sanctum.** `Auth(api_tokens=True)`: users make tokens with abilities and an expiry on an API tokens page; protect your routes with `Depends(panel.api_user("orders:read"))`.
+- **Security headers** on every panel page: HSTS (over HTTPS), X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy and a Content Security Policy. Change them with `Panel(security_headers=..., content_security_policy=...)`, or add `SecurityHeadersMiddleware` to your whole site.
+
 ## 2026-10-14 · Tables catch up with Filament
 
 - **Filters in a pop-up or a dropdown**: `filters(..., layout="modal")` or `layout="dropdown"`, next to the side panel and the toolbar.
