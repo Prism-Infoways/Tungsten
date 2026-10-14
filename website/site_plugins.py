@@ -726,6 +726,70 @@ PLUGINS = [
              "Its widgets are hidden from the dashboard, and the dashboard's maker sees a note to remove them."),
         ],
     },
+    {
+        "slug": "filament-migrate",
+        "name": "Filament migration",
+        "title": "Migrate from Laravel Filament to Tungsten",
+        "kind": "tool",
+        "package": "tungsten-filament",
+        "dir": "filament-migrate",
+        "docs": "filament-migration",
+        "category": "Migration",
+        "icon": '<path d="M4 7h13l-3-3M20 17H7l3 3"/>',
+        "tagline": "Move a Laravel Filament admin to Tungsten with one command, on the same database and logins.",
+        "summary": "tungsten-filament reads your Laravel Filament project and writes a Tungsten admin for FastAPI: "
+                   "models, resources, forms, tables, filters, actions and relation managers. The new admin runs on "
+                   "the same database, people sign in with the same passwords, and nothing in your Laravel app changes.",
+        "features": [
+            ("Check before you convert", "tungsten-filament scan counts your models and resources and lists every "
+                                         "part that needs a human. It writes nothing."),
+            ("Models from your migrations", "Tables, types, defaults, foreign keys, relations and PHP enums, or read "
+                                            "straight from the live database."),
+            ("Resources, forms and tables", "Fields, layouts, columns, filters, actions, infolists and relation "
+                                            "managers, for Filament 3 and Filament 4."),
+            ("Same database, same logins", "Reads your Laravel .env, checks Laravel bcrypt passwords and saves new "
+                                           "ones as bcrypt. Both apps can run side by side."),
+            ("Closures become Python", "Short closures, Laravel validation rules and enum labels and colors turn "
+                                       "into Python lambdas and Tungsten rules."),
+            ("A clear report", "Everything it cannot convert is marked TODO(filament) in the code and listed in "
+                               "MIGRATION_REPORT.md with the PHP file and line."),
+        ],
+        "setup": ("pip install tungsten-filament\n\n"
+                  "# check first: writes nothing\n"
+                  "tungsten-filament scan path/to/laravel-app\n\n"
+                  "# write the Tungsten admin into tungsten_admin/\n"
+                  "tungsten-filament convert path/to/laravel-app\n\n"
+                  "pip install uvicorn pymysql\n"
+                  "uvicorn tungsten_admin.app:app --reload"),
+        "setup_file": "Terminal",
+        "setup_lang": "bash",
+        "install_title": "How to move from Filament to Tungsten",
+        "steps": [
+            "Run <code>tungsten-filament scan path/to/laravel-app</code> to see what converts and what needs you.",
+            "Run <code>tungsten-filament convert path/to/laravel-app</code>. It writes a <code>tungsten_admin/</code> "
+            "folder and a <code>MIGRATION_REPORT.md</code>.",
+            "Start it with uvicorn, open <code>/admin</code> and sign in with your Filament email and password.",
+        ],
+        "needs": [],
+        "faqs": [
+            ("Can I move my Filament admin panel to Python?",
+             "Yes. tungsten-filament converts a Laravel Filament panel into a Tungsten admin for FastAPI. Models, "
+             "resources, forms, tables, filters, actions, infolists and relation managers are converted for you."),
+            ("Does it change my Laravel app or database?",
+             "No. It only reads your PHP files. The new admin uses the same database, and Tungsten only adds its own "
+             "small tables whose names start with tungsten_. Your Laravel tables are not created or migrated."),
+            ("Do users keep their passwords?",
+             "Yes. Laravel saves passwords as bcrypt, and the generated admin checks them as they are and saves new "
+             "passwords as bcrypt too, so the Laravel app keeps working with them."),
+            ("Does it work with Filament 4?",
+             "Yes. It reads Filament 3 and Filament 4 projects, including Filament 4's separate Schemas and Tables classes."),
+            ("Do I need PHP installed?",
+             "No. The tool reads your PHP code as text. It needs Python 3.10 or newer."),
+            ("What does it not convert?",
+             "Long closures, custom actions, custom pages and widgets, policies, page hooks, morph relations and "
+             "model events. Each one is marked TODO(filament) in the code and listed in MIGRATION_REPORT.md."),
+        ],
+    },
 ]
 
 PLUGIN_FAQS = [
@@ -765,6 +829,7 @@ RELATED = {
     "calendar": ["hr", "leads", "tickets", "finance", "blog"],
     "impersonate": ["security-audit", "environment-indicator", "backups"],
     "dashboards": ["saved-views", "quick-create", "pwa", "calendar", "finance", "hr"],
+    "filament-migrate": ["tags", "media-library", "calendar", "backups", "impersonate", "dashboards"],
 }
 
 # Published posts on the Prism Infoways blog. Add a plugin here once its post is live (drafts stay out).
