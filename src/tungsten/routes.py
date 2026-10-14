@@ -66,6 +66,12 @@ def build_app(panel: "Panel") -> FastAPI:
     )
     # compress pages, CSS and JS (a list page shrinks from ~130 KB to ~15 KB)
     app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)  # level 9 is ~2x slower for ~1% smaller pages
+    if panel.security_headers is not False or panel.content_security_policy is not False:
+        from .security import SecurityHeadersMiddleware
+
+        app.add_middleware(SecurityHeadersMiddleware, headers=panel.security_headers,
+                           content_security_policy=panel.content_security_policy,
+                           hsts=panel.security_headers is not False)
     app.mount("/assets", CachedStaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
 
     @app.get("/theme.css", include_in_schema=False)
@@ -91,6 +97,8 @@ class Routes:
     # ------------------------------------------------------------------ plumbing
     async def run(self, request: Request, handler: Callable, *, public: bool = False, read_form: bool = False,
                   **kwargs: Any) -> Response:
+        # polling (marked by tungsten.js) doesn't count as activity for ``Auth(idle_timeout=...)``
+        request.state.tw_background = request.headers.get("X-TW-Background") == "1"
         formdata = None
         if read_form and request.method == "POST":
             formdata = await request.form(max_files=50, max_fields=10000)
@@ -154,6 +162,9 @@ class Routes:
         panel = self.panel
         request = ctx.request
         if ctx.user is None:
+            if ctx.session.pop("tw_idle_out", None):
+                Notification("You were signed out").body(
+                    "You were away for a while, so we signed you out to keep your account safe.").warning().send(ctx)
             return ctx.go(panel.url("login", next=request.url.path if request.method == "GET" else None))
         path = request.url.path.rstrip("/")
         if panel.auth.email_verification and path != panel.url("email-verification", "prompt"):
@@ -338,6 +349,30 @@ class Routes:
         @p("/two-factor")
         async def two_factor_post(request: Request):
             return await r.run(request, r.two_factor_setup, read_form=True)
+
+        @g("/email-change/{token}")
+        async def email_change_confirm(request: Request, token: str):
+            return await r.run(request, r.email_change_confirm, public=True, token=token)
+
+        @g("/email-change/{token}/block")
+        async def email_change_block(request: Request, token: str):
+            return await r.run(request, r.email_change_block, public=True, token=token)
+
+        @p("/email-change/cancel")
+        async def email_change_cancel(request: Request):
+            return await r.run(request, r.email_change_cancel, read_form=True)
+
+        @g("/api-tokens")
+        async def api_tokens(request: Request):
+            return await r.run(request, r.api_tokens)
+
+        @p("/api-tokens")
+        async def api_tokens_post(request: Request):
+            return await r.run(request, r.api_tokens, read_form=True)
+
+        @g("/_tw/ping")
+        async def ping(request: Request):
+            return await r.run(request, lambda ctx, fd: Response(status_code=204))
 
         @g("/email-verification/prompt")
         async def verification_prompt(request: Request):
@@ -583,7 +618,7 @@ class Routes:
         return RedirectResponse(self.panel.url("login"), status_code=303)
 
     def two_factor_challenge(self, ctx: Context, fd: Any) -> Response:
-        from .auth.two_factor import TwoFactor
+        from .auth import two_factor as tfa
         from .forms import TextInput
 
         panel = self.panel
@@ -595,11 +630,33 @@ class Routes:
         if user is None:
             ctx.session.pop("tw_2fa_pending", None)
             return RedirectResponse(panel.url("login"), status_code=303)
+        tf = tfa.TwoFactor(ctx, user)
+        app_on, email_on = tf.app_enabled, tf.email_enabled
+        # someone with both turned on may use either; email codes only for users who turned them on
+        email_allowed = email_on
+        if email_on and not app_on and fd is None and not tfa.email_code_sent(ctx, user):
+            tfa.send_email_code(ctx, user)
+        using_email = email_allowed and (tfa.email_code_sent(ctx, user) or (email_on and not app_on))
+        if using_email:
+            helper = __("We emailed a 6-digit code to :email.",
+                        email=tfa.mask_email(getattr(user, panel.auth.email_field, "")))
+            if app_on:
+                helper += " " + __("You can also use your authenticator app or a recovery code.")
+        else:
+            helper = "Open your authenticator app, or enter one of your recovery codes."
         form = self._auth_form(ctx, [
             TextInput("code").label("Authentication code").required().autofocus().autocomplete("one-time-code")
-            .placeholder("123 456").helper_text("Open your authenticator app, or enter one of your recovery codes."),
+            .placeholder("123 456").helper_text(helper),
         ])
         error = None
+        if fd is not None and fd.get("_do") == "email" and email_allowed:
+            if tfa.send_email_code(ctx, user):
+                Notification("Code sent").body(__("Check your inbox at :email.", email=tfa.mask_email(
+                    getattr(user, panel.auth.email_field, "")))).success().send(ctx)
+            else:
+                Notification("Please wait a moment").body("You can ask for a new code once a minute.").warning() \
+                    .send(ctx)
+            return ctx.go(panel.url("two-factor", "challenge"))
         if fd is not None:
             form.load(fd)
             try:
@@ -607,8 +664,11 @@ class Routes:
                 key = f"2fa|{pending['id']}"
                 if panel.auth.throttled(key):
                     raise PermissionError("Too many attempts. Please try again in a minute.")
-                if TwoFactor(ctx, user).verify(data["code"]):
+                ok = (app_on and tf.verify(data["code"])) or \
+                    (email_allowed and tfa.check_email_code(ctx, user, data["code"]))
+                if ok:
                     ctx.session.pop("tw_2fa_pending", None)
+                    tfa.forget_email_code(ctx)
                     panel.auth.login(ctx, user)
                     panel.log_auth_event(ctx, "login", user, two_factor=True)
                     return RedirectResponse(pending.get("next") or panel.url(), status_code=303)
@@ -621,9 +681,11 @@ class Routes:
                 error = str(exc)
         else:
             form.fill()
-        return ctx.render("tungsten/auth/two-factor-challenge.html", form=form, error=error)
+        return ctx.render("tungsten/auth/two-factor-challenge.html", form=form, error=error, using_email=using_email,
+                          can_email=email_allowed, app_on=app_on)
 
     def two_factor_setup(self, ctx: Context, fd: Any) -> Response:
+        from .auth import two_factor as tfa
         from .auth.two_factor import TwoFactor, otpauth_uri
 
         panel = self.panel
@@ -631,32 +693,63 @@ class Routes:
             raise NotFound()
         tf = TwoFactor(ctx, ctx.user)
         auth = panel.auth
-        step, codes, error = ("enabled" if tf.enabled else "off"), None, None
+        step, codes, error = ("enabled" if tf.app_enabled else "off"), None, None
+        email_step = "enabled" if tf.email_enabled else ("confirm" if tfa.email_code_sent(ctx, ctx.user, "setup")
+                                                         else "off")
         if fd is not None:
             do = fd.get("_do")
-            if do == "enable" and not tf.enabled:
+            if do == "enable" and not tf.app_enabled and auth.two_factor_app:
                 tf.start()
                 step = "confirm"
-            elif do == "confirm" and not tf.enabled:
+            elif do == "confirm" and not tf.app_enabled and auth.two_factor_app:
                 codes = tf.confirm(fd.get("code") or "")
                 if codes is None:
                     step, error = "confirm", "That code is not valid. Check your phone's clock and try again."
                 else:
                     step = "codes"
+                    panel.log_auth_event(ctx, "two_factor_enabled", ctx.user, method="app")
                     Notification("Two-factor authentication is on").success().send(ctx)
-            elif do in ("disable", "codes") and tf.enabled:
+            elif do in ("disable", "codes") and tf.app_enabled:
                 if not auth.verify(fd.get("password") or "", getattr(ctx.user, auth.password_field, None)):
                     error = "Your password is incorrect."
                 elif do == "disable":
-                    if auth.two_factor_required:
+                    if auth.two_factor_required and not tf.email_enabled:
                         error = "Two-factor authentication is required for this panel."
                     else:
                         tf.disable()
+                        panel.log_auth_event(ctx, "two_factor_disabled", ctx.user, method="app")
                         step = "off"
                         Notification("Two-factor authentication is off").warning().send(ctx)
                 else:
                     codes = tf.regenerate_codes()
                     step = "codes"
+            elif do == "email_enable" and auth.two_factor_email and not tf.email_enabled:
+                if not tfa.send_email_code(ctx, ctx.user, "setup"):
+                    error = "You can ask for a new code once a minute."
+                email_step = "confirm"
+            elif do == "email_confirm" and auth.two_factor_email and not tf.email_enabled:
+                key = f"2fa-setup|{tf.user_id}"
+                if auth.throttled(key):
+                    error = "Too many attempts. Please try again in a minute."
+                    email_step = "confirm"
+                elif tfa.check_email_code(ctx, ctx.user, fd.get("code") or "", "setup"):
+                    tf.enable_email()
+                    panel.log_auth_event(ctx, "two_factor_enabled", ctx.user, method="email")
+                    email_step = "enabled"
+                    Notification("Email codes are on").success().send(ctx)
+                else:
+                    auth._attempts[key].append(time.monotonic())
+                    email_step, error = "confirm", "That code is not valid."
+            elif do == "email_disable" and tf.email_enabled:
+                if not auth.verify(fd.get("password") or "", getattr(ctx.user, auth.password_field, None)):
+                    error = "Your password is incorrect."
+                elif auth.two_factor_required and not tf.app_enabled:
+                    error = "Two-factor authentication is required for this panel."
+                else:
+                    tf.disable_email()
+                    panel.log_auth_event(ctx, "two_factor_disabled", ctx.user, method="email")
+                    email_step = "off"
+                    Notification("Email codes are off").warning().send(ctx)
         secret = tf.credential.secret if step == "confirm" and tf.credential else None
         account = str(getattr(ctx.user, auth.email_field, ""))
         return ctx.render(
@@ -664,8 +757,13 @@ class Routes:
             title=__("Two-factor authentication"),
             step=step, codes=codes, error=error, secret=secret,
             uri=otpauth_uri(secret, account, panel.brand_name) if secret else None,
-            remaining=len(tf.credential.recovery_codes or []) if tf.enabled and tf.credential else 0,
+            remaining=len(tf.credential.recovery_codes or []) if tf.app_enabled and tf.credential else 0,
             required=auth.two_factor_required,
+            app_method=auth.two_factor_app or tf.app_enabled,
+            email_method=auth.two_factor_email,
+            email_step=email_step,
+            masked_email=tfa.mask_email(account),
+            other_on={"app": tf.email_enabled, "email": tf.app_enabled},
         )
 
     def sign_up(self, ctx: Context, fd: Any) -> Response:
@@ -753,6 +851,94 @@ class Routes:
             return RedirectResponse(panel.url(), status_code=303)
         return RedirectResponse(panel.url("login"), status_code=303)
 
+    def email_change_confirm(self, ctx: Context, fd: Any, token: str) -> Response:
+        from .auth import email_change
+
+        panel = self.panel
+        if not panel.auth.enabled or not panel.auth.email_change_verification:
+            raise NotFound()
+        row = email_change.find(ctx, token)
+        error = "This link is invalid or has expired." if row is None else None
+        if row is not None:
+            user, error = email_change.confirm(ctx, row)
+        if not error:
+            panel.log_auth_event(ctx, "email_changed", user, old=row.old_email, new=row.new_email)
+        if error:
+            Notification("Email not changed").body(error).danger().persistent().send(ctx)
+        else:
+            Notification("Email address changed").body(
+                __("Your account now uses :email.", email=getattr(user, panel.auth.email_field))).success().send(ctx)
+        ctx.flash()
+        if ctx.user is not None:
+            return RedirectResponse(panel.url("profile"), status_code=303)
+        return RedirectResponse(panel.url("login"), status_code=303)
+
+    def email_change_block(self, ctx: Context, fd: Any, token: str) -> Response:
+        from .auth import email_change
+
+        panel = self.panel
+        if not panel.auth.enabled or not panel.auth.email_change_verification:
+            raise NotFound()
+        row = email_change.find(ctx, token, block=True)
+        if row is not None:
+            panel.log_auth_event(ctx, "email_change_blocked", panel.auth.find_by_id(ctx.db, row.user_id),
+                                 new=row.new_email)
+            email_change.cancel(ctx, row)
+            Notification("Email change stopped").body(
+                "Your email address stays the same. If you didn't ask for this, change your password now.") \
+                .warning().persistent().send(ctx)
+        else:
+            Notification("Nothing to stop").body("This change was already confirmed, stopped or has expired.") \
+                .send(ctx)
+        ctx.flash()
+        return RedirectResponse(panel.url("profile") if ctx.user is not None else panel.url("login"),
+                                status_code=303)
+
+    def email_change_cancel(self, ctx: Context, fd: Any) -> Response:
+        from .auth import email_change
+
+        row = email_change.pending(ctx, ctx.user) if self.panel.auth.email_change_verification else None
+        if row is not None:
+            email_change.cancel(ctx, row)
+            Notification("Email change cancelled").send(ctx)
+        return ctx.go(self.panel.url("profile"))
+
+    def api_tokens(self, ctx: Context, fd: Any) -> Response:
+        import datetime as dt
+
+        from .auth import tokens
+
+        panel = self.panel
+        auth = panel.auth
+        if not auth.enabled or not auth.api_tokens:
+            raise NotFound()
+        options = tokens.ability_options(panel)
+        plain, error = None, None
+        if fd is not None:
+            do = fd.get("_do")
+            if do == "create":
+                name = (fd.get("name") or "").strip()
+                chosen = [a for a in fd.getlist("abilities") if a in options] if options else ["*"]
+                days = fd.get("expires") or ""
+                if not name:
+                    error = "Give the token a name."
+                elif options and not chosen:
+                    error = "Pick at least one thing this token may do."
+                else:
+                    expires = None
+                    if days.isdigit() and int(days) > 0:
+                        expires = dt.datetime.now() + dt.timedelta(days=min(int(days), 3650))
+                    row, plain = tokens.create(ctx.db, panel, ctx.user, name, chosen, expires)
+                    panel.log_auth_event(ctx, "api_token_created", ctx.user, token=row.name, abilities=chosen)
+                    Notification("Token created").body("Copy it now. It won't be shown again.").success().send(ctx)
+            elif do == "revoke":
+                if tokens.revoke(ctx.db, panel, ctx.user, fd.get("id")):
+                    panel.log_auth_event(ctx, "api_token_deleted", ctx.user, token_id=fd.get("id"))
+                    Notification("Token deleted").body("Apps using it can no longer sign in.").warning().send(ctx)
+        return ctx.render("tungsten/auth/api-tokens.html", title=__("API tokens"),
+                          tokens=tokens.for_user(ctx.db, panel, ctx.user), options=options, plain=plain,
+                          error=error, default_days=auth.api_token_days, now=dt.datetime.now())
+
     def forgot_password(self, ctx: Context, fd: Any) -> Response:
         from .forms import TextInput
 
@@ -827,7 +1013,14 @@ class Routes:
                 from .auth.two_factor import TwoFactor
 
                 two_factor = TwoFactor(ctx, ctx.user).enabled
-            return ctx.render("tungsten/pages/profile.html", form=form, title=__("My profile"), two_factor=two_factor)
+            pending_email = None
+            if self.panel.auth.email_change_verification:
+                from .auth import email_change
+
+                row = email_change.pending(ctx, ctx.user)
+                pending_email = row.new_email if row is not None else None
+            return ctx.render("tungsten/pages/profile.html", form=form, title=__("My profile"), two_factor=two_factor,
+                              pending_email=pending_email, api_tokens=self.panel.auth.api_tokens)
         form.load(fd)
         try:
             data = form.validate()

@@ -529,6 +529,33 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
     if (e.detail.boosted) dirty = false;
   });
 
+  // ------------------------------------------------------------------ idle sign-out (Auth(idle_timeout=...))
+  // Polling isn't activity: mark requests no user event started, so the server doesn't count them.
+  document.addEventListener("htmx:configRequest", function (e) {
+    if (!e.detail.triggeringEvent) e.detail.headers["X-TW-Background"] = "1";
+  });
+  (function () {
+    var last = Date.now(), pinged = Date.now();
+    function idleMinutes() { return parseFloat(document.body && document.body.getAttribute("data-tw-idle")) || 0; }
+    function active() {
+      last = Date.now();
+      // typing in a long form makes no requests, so tell the server the user is still here
+      var url = document.body && document.body.getAttribute("data-tw-ping");
+      if (url && idleMinutes() && last - pinged > 60000) {
+        pinged = last;
+        fetch(url, { credentials: "same-origin", headers: { "X-Requested-With": "fetch" } }).catch(function () {});
+      }
+    }
+    ["mousedown", "keydown", "scroll", "touchstart", "mousemove"].forEach(function (name) {
+      window.addEventListener(name, active, { passive: true, capture: true });
+    });
+    setInterval(function () {
+      var minutes = idleMinutes();
+      // the server has signed the user out by now; reloading shows the sign-in page instead of stale data
+      if (minutes && Date.now() - last > minutes * 60000 + 5000) { last = Date.now(); window.location.reload(); }
+    }, 15000);
+  })();
+
   // Trix: block file attachments (uploads go through FileUpload fields)
   document.addEventListener("trix-file-accept", function (e) { e.preventDefault(); });
 })();

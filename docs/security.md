@@ -80,7 +80,10 @@ Built-in forms ask for at least 8 characters for new passwords (sign-up, reset, 
 - **Password reset doesn't reveal users.** The "Forgot password?" page says the same thing whether the email exists or not.
 - **Reset links** are random, stored only as a hash, work once, and expire after 60 minutes (`reset_token_minutes`).
 - **Safe redirects.** After login, the `next` address must be inside the panel, so the login page can't be used to send people to other sites.
-- **Two-factor login** with authenticator apps and one-time recovery codes. You can require it for everyone. See [Two-factor login](authentication#two-factor-login).
+- **Two-factor login** with authenticator apps and one-time recovery codes, or codes sent by email. You can require it for everyone. See [Two-factor login](authentication#two-factor-login).
+- **Verified email changes.** A new email only takes effect after its owner opens a link, and the old address can stop the change. See [Changing your email](authentication#changing-your-email).
+- **Idle timeout.** `Auth(idle_timeout=30)` signs people out after 30 minutes without activity. See [Idle timeout](authentication#idle-timeout).
+- **API tokens** are stored only as a hash, can expire, and can be limited to certain abilities. See [API tokens](authentication#api-tokens).
 
 > [!NOTE]
 > The login attempt counter lives in memory, in each server process. It is not shared between workers or servers, and it is reset when the app restarts. With 4 workers, an attacker can get about 4 times as many tries. For public panels, add rate limiting at your proxy as well.
@@ -145,6 +148,45 @@ CSV and Excel exports protect against **formula injection**: a cell value that s
 
 With [multi-tenancy](multi-tenancy), resource lists, record pages, global search, exports, relationship select options, `.unique()` checks and imports are limited to the current team. A user who belongs to no team sees no team records at all. Read the notes on that page about things that are **not** scoped automatically, such as your own widget queries.
 
+## Security headers
+
+Every panel response carries security headers, on by default:
+
+| Header | Value |
+| --- | --- |
+| `Strict-Transport-Security` (HSTS) | `max-age=31536000; includeSubDomains`, only over HTTPS |
+| `X-Frame-Options` | `SAMEORIGIN` (no one can put the panel in a frame on their site) |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | camera, microphone, location, payment and USB off |
+| `Content-Security-Policy` | see below |
+
+HSTS is sent when the request came over HTTPS, or through a proxy that says so with `X-Forwarded-Proto: https`, so local `http://` work is not affected.
+
+The default Content Security Policy works with everything the panel ships: scripts, styles and data only from your own site, Google Fonts for the font, images from any `https:` address (avatars, logos), no plugins (`object-src 'none'`), and no framing by other sites. Alpine.js and htmx need `'unsafe-inline'` and `'unsafe-eval'` for scripts.
+
+Change them on the panel:
+
+```python
+Panel(
+    ...,
+    # add sources to the default policy (a None value removes a directive)
+    content_security_policy={"script-src": ["https://cdn.example.com"], "connect-src": ["https://api.example.com"]},
+    # add, replace or remove (None) other headers
+    security_headers={"X-Frame-Options": "DENY"},
+)
+```
+
+`content_security_policy` can also be a full policy string, or `False` for none. `security_headers=False` turns off the other headers and HSTS. A header a route sets itself (like the `sandbox` policy on uploaded files) is kept.
+
+The panel's headers cover the panel only. To cover your whole site, add the same middleware to your app:
+
+```python
+from tungsten import SecurityHeadersMiddleware
+
+app.add_middleware(SecurityHeadersMiddleware)  # same options: headers=, content_security_policy=, hsts=
+```
+
 ## Production checklist
 
 Go through this list before you put a panel on the internet:
@@ -169,7 +211,7 @@ Go through this list before you put a panel on the internet:
     Behind a proxy, run uvicorn with `--proxy-headers` (and `--forwarded-allow-ips`) so the right scheme and host are used.
 5. **Limit who can sign in** with `can_access` and `active_field`.
 6. **Turn on permissions** (`panel.rbac()`, policies or a gate), and give each person only the roles they need.
-7. **Consider two-factor login** for admins (`two_factor=True`, or `two_factor_required=True`).
+7. **Consider two-factor login** for admins (`two_factor=True`, or `two_factor_required=True`), and an idle timeout (`idle_timeout=30`).
 8. **Run `panel.create_tables()`** once, so password resets, roles and two-factor work.
 9. **Set upload limits** (`max_size`, `accepted_file_types`) on every `FileUpload`.
 10. **Keep the storage folder out of your web root**, and back it up with your database.

@@ -37,7 +37,8 @@
 <body class="h-full bg-gray-50 font-sans text-gray-950 dark:bg-gray-950 dark:text-white"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
       {% if panel.spa %}hx-boost="true"{% endif %}
-      data-tw-unsaved-alerts="{{ 'true' if panel.unsaved_changes_alerts else 'false' }}">
+      data-tw-unsaved-alerts="{{ 'true' if panel.unsaved_changes_alerts else 'false' }}"
+      {% if user and panel.auth.idle_timeout %}data-tw-idle="{{ panel.auth.idle_timeout }}" data-tw-ping="{{ panel.url('_tw', 'ping') }}"{% endif %}>
   <div hidden x-data x-init="$store.toasts.init({{ tojson_attr(flash) }})"></div>
   {{ panel.hooks('body.start', ctx) }}
   {% block body %}{% endblock %}

@@ -7,12 +7,14 @@
 <div class="grid max-w-3xl gap-6">
   {% if error %}<div class="rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 ring-1 ring-danger-600/20 dark:bg-danger-500/10 dark:text-danger-300">{{ __(error) }}</div>{% endif %}
 
+  {% if app_method %}
   {% call ui.card() %}
   <div class="flex items-start gap-4">
     <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl {{ colors.pick(colors.SOFT_ICON, 'success' if step in ('enabled', 'codes') else 'warning') }}">{{ icon('shield-check' if step in ('enabled', 'codes') else 'shield-alert', 'h-6 w-6') }}</span>
     <div class="flex-1">
       <h2 class="text-base font-semibold text-gray-950 dark:text-white">
-        {% if step in ('enabled', 'codes') %}{{ __('Two-factor authentication is on') }}{% else %}{{ __('Two-factor authentication is off') }}{% endif %}
+        {% if email_method %}{% if step in ('enabled', 'codes') %}{{ __('Authenticator app is on') }}{% else %}{{ __('Authenticator app is off') }}{% endif %}
+        {% elif step in ('enabled', 'codes') %}{{ __('Two-factor authentication is on') }}{% else %}{{ __('Two-factor authentication is off') }}{% endif %}
       </h2>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
         {% if step in ('enabled', 'codes') %}{{ __("You'll be asked for a code from your authenticator app when you sign in.") }}{% if remaining %} You have {{ remaining }} recovery codes left.{% endif %}
@@ -61,9 +63,49 @@
     <label class="grid gap-1.5"><span class="tw-label">{{ __('Current password') }}</span>
       <input type="password" name="password" required autocomplete="current-password" class="tw-input w-64"></label>
     <button name="_do" value="codes" class="{{ ui.button_classes('gray') }}">{{ icon('refresh-cw', 'h-4 w-4') }}<span>{{ __('New recovery codes') }}</span></button>
-    {% if not required %}<button name="_do" value="disable" class="{{ ui.button_classes('danger', outlined=true) }}">{{ __('Turn off') }}</button>{% endif %}
+    {% if not required or other_on.app %}<button name="_do" value="disable" class="{{ ui.button_classes('danger', outlined=true) }}">{{ __('Turn off') }}</button>{% endif %}
   </form>
   {% endif %}
   {% endcall %}
+  {% endif %}
+
+  {% if email_method %}
+  {% call ui.card() %}
+  <div class="flex items-start gap-4">
+    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl {{ colors.pick(colors.SOFT_ICON, 'success' if email_step == 'enabled' else 'gray') }}">{{ icon('mail-check' if email_step == 'enabled' else 'mail', 'h-6 w-6') }}</span>
+    <div class="flex-1">
+      <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+        {% if email_step == 'enabled' %}{{ __('Email codes are on') }}{% else %}{{ __('Codes by email') }}{% endif %}
+      </h2>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        {% if email_step == 'enabled' %}{{ __("When you sign in, we'll email a one-time code to :email.", email=masked_email) }}
+        {% else %}{{ __('No app needed: get a one-time code at :email each time you sign in.', email=masked_email) }}{% endif %}
+      </p>
+    </div>
+  </div>
+
+  {% if email_step == 'off' %}
+  <form method="post" class="mt-6">
+    <input type="hidden" name="_token" value="{{ csrf_token }}"><input type="hidden" name="_do" value="email_enable">
+    <button class="{{ ui.button_classes('gray') }}">{{ icon('mail', 'h-4 w-4') }}<span>{{ __('Turn on email codes') }}</span></button>
+  </form>
+  {% elif email_step == 'confirm' %}
+  <form method="post" class="mt-6 flex flex-wrap items-end gap-3">
+    <input type="hidden" name="_token" value="{{ csrf_token }}"><input type="hidden" name="_do" value="email_confirm">
+    <label class="grid gap-1.5"><span class="tw-label">{{ __('Code from the email') }}</span>
+      <input name="code" inputmode="numeric" autocomplete="one-time-code" autofocus class="tw-input w-40 font-mono tracking-widest" placeholder="123456"></label>
+    <button class="{{ ui.button_classes('primary') }}">{{ __('Confirm') }}</button>
+    <button name="_do" value="email_enable" class="{{ ui.button_classes('gray') }}">{{ __('Send again') }}</button>
+  </form>
+  {% elif not required or other_on.email %}
+  <form method="post" class="mt-6 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-6 dark:border-white/10">
+    <input type="hidden" name="_token" value="{{ csrf_token }}">
+    <label class="grid gap-1.5"><span class="tw-label">{{ __('Current password') }}</span>
+      <input type="password" name="password" required autocomplete="current-password" class="tw-input w-64"></label>
+    <button name="_do" value="email_disable" class="{{ ui.button_classes('danger', outlined=true) }}">{{ __('Turn off') }}</button>
+  </form>
+  {% endif %}
+  {% endcall %}
+  {% endif %}
 </div>
 {% endblock %}
