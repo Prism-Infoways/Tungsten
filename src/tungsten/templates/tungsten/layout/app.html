@@ -4,7 +4,7 @@
 <div class="min-h-full" x-data="{ sidebar: false }"{% if panel.global_search_enabled %} @keydown.window.prevent.ctrl.k="$dispatch('tw-open-search')" @keydown.window.prevent.meta.k="$dispatch('tw-open-search')"{% endif %}>
   {# ------------------------------------------------------------ sidebar #}
   <div x-show="sidebar" x-cloak class="fixed inset-0 z-40 bg-gray-950/50 lg:hidden" @click="sidebar = false"></div>
-  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full max-lg:rtl:translate-x-full flex-col overflow-hidden bg-sidebar-950 text-sidebar-300 transition-transform duration-200 lg:translate-x-0"
+  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full max-lg:rtl:translate-x-full flex-col overflow-hidden bg-sidebar-950 text-sidebar-300 transition-transform duration-200 {{ 'lg:hidden' if panel.top_navigation else 'lg:translate-x-0' }}"
          :class="sidebar && '!translate-x-0'">
     {# warm glow at the bottom of the sidebar #}
     <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(ellipse_at_bottom_left,rgb(var(--tw-c-primary-600)/0.28),transparent_65%)]" aria-hidden="true"></div>
@@ -13,24 +13,8 @@
       {% if not panel.brand_logo %}<span class="tw-sb-label me-auto rounded-md bg-white/5 px-1.5 py-0.5 text-[11px] font-medium text-sidebar-400 ring-1 ring-inset ring-white/10">v{{ version }}</span>{% endif %}
       <button type="button" class="tw-icon-btn text-sidebar-400 hover:text-white lg:hidden" @click="sidebar = false" aria-label="{{ __('Close menu') }}">{{ icon('x', 'h-5 w-5') }}</button>
     </div>
-    {% if tenants %}
-    <div class="relative px-3 pb-2">
-      {% call(part) ui.dropdown(align='start', width='w-full', classes='w-full') %}
-        {% if part == 'trigger' %}
-        <button type="button" class="flex w-full items-center gap-3 rounded-lg bg-white/5 px-3 py-2 text-start text-sm text-white ring-1 ring-white/10 hover:bg-white/10">
-          <span class="flex h-7 w-7 items-center justify-center rounded-md bg-primary-500 text-xs font-bold">{{ tenant_label[:1] | upper }}</span>
-          <span class="flex-1 truncate font-medium">{{ tenant_label }}</span>{{ icon('chevrons-up-down', 'h-4 w-4 text-sidebar-400') }}
-        </button>
-        {% else %}
-          {% for t in tenants %}
-          <form method="post" action="{{ panel.url('_tw', 'tenant') }}">
-            <input type="hidden" name="_token" value="{{ csrf_token }}"><input type="hidden" name="tenant" value="{{ panel.tenancy.key_of(t) }}">
-            <button class="{{ ui.button_classes('gray', 'dropdown') }}">{{ panel.tenancy.label(t) }}{% if t == tenant %}<span class="ms-auto text-primary-600">{{ icon('check', 'h-4 w-4') }}</span>{% endif %}</button>
-          </form>
-          {% endfor %}
-        {% endif %}
-      {% endcall %}
-    </div>
+    {% if tenants or tenant_menu %}
+    <div class="relative px-3 pb-2">{% include "tungsten/components/tenant-menu.html" %}</div>
     {% endif %}
     {% if panel.global_search_enabled %}
     <div class="tw-sb-label relative px-3 pb-3">
@@ -100,10 +84,14 @@
   </aside>
 
   {# ------------------------------------------------------------ main #}
-  <div class="tw-sb-main lg:ps-64">
+  <div class="{{ '' if panel.top_navigation else 'tw-sb-main lg:ps-64' }}">
     <header class="sticky top-0 z-30 flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white/90 px-4 backdrop-blur sm:px-6 lg:px-8 dark:border-white/10 dark:bg-gray-900/90">
       <button type="button" class="tw-icon-btn text-gray-500 lg:hidden" @click="sidebar = true" aria-label="{{ __('Open menu') }}">{{ icon('menu', 'h-5 w-5') }}</button>
-      {% if panel.sidebar_collapsible %}
+      {% if panel.top_navigation %}
+      <a href="{{ panel.url() }}" class="hidden shrink-0 items-center gap-2.5 lg:flex">{% with brand_on_light = true %}{% include "tungsten/components/brand.html" %}{% endwith %}</a>
+      {% if tenants or tenant_menu %}<div class="hidden w-48 shrink-0 lg:block">{% with on_light = true %}{% include "tungsten/components/tenant-menu.html" %}{% endwith %}</div>{% endif %}
+      {% include "tungsten/components/top-navigation.html" %}
+      {% elif panel.sidebar_collapsible %}
       <button type="button" class="tw-icon-btn hidden text-gray-500 lg:inline-flex" onclick="twToggleSidebar()" aria-label="{{ __('Collapse sidebar') }}" title="{{ __('Collapse sidebar') }}">{{ icon('panel-left', 'h-5 w-5') }}</button>
       {% endif %}
       {{ panel.hooks('topbar.start', ctx) }}
@@ -170,7 +158,38 @@
     <main class="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div class="mx-auto max-w-screen-2xl">
         {{ panel.hooks('content.start', ctx) }}
+        {% set sub_navigation = panel.sub_navigation(ctx, resource=resource if resource is defined else none,
+                                                      record=record if record is defined else none,
+                                                      page=page if page is defined else none) %}
+        {% if sub_navigation %}
+        {% set sub_position = sub_navigation.position %}
+        <div class="{{ 'flex flex-col gap-6' if sub_position == 'top' else 'flex flex-col gap-6 lg:flex-row lg:items-start' }}" data-tw-sub-navigation="{{ sub_position }}">
+          {% if sub_position == 'top' %}
+          <nav class="-mb-2 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-white/10" aria-label="{{ sub_navigation.heading }}">
+            {% for item in sub_navigation['items'] %}
+            <a href="{{ item.url }}" class="-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition {{ 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400' if item.active else 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}" {% if item.active %}aria-current="page"{% endif %}>
+              {{ icon(item.current_icon, 'h-4 w-4') }}{{ __(item.label) }}{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
+            </a>
+            {% endfor %}
+          </nav>
+          {% else %}
+          <nav class="tw-card shrink-0 p-2 lg:sticky lg:top-24 lg:w-60 {{ 'lg:order-last' if sub_position == 'end' }}" aria-label="{{ sub_navigation.heading }}">
+            <p class="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{{ sub_navigation.heading }}</p>
+            {% if sub_navigation.description %}<p class="px-3 pb-2 text-xs text-gray-500 dark:text-gray-400">{{ __(sub_navigation.description) }}</p>{% endif %}
+            <ul class="space-y-0.5">
+              {% for item in sub_navigation['items'] %}
+              <li><a href="{{ item.url }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition {{ 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400' if item.active else 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white' }}" {% if item.active %}aria-current="page"{% endif %}>
+                {{ icon(item.current_icon, 'h-4 w-4 shrink-0') }}<span class="flex-1 truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
+              </a></li>
+              {% endfor %}
+            </ul>
+          </nav>
+          {% endif %}
+          <div class="min-w-0 flex-1">{{ self.content() }}</div>
+        </div>
+        {% else %}
         {% block content %}{% endblock %}
+        {% endif %}
         {{ panel.hooks('content.end', ctx) }}
       </div>
     </main>

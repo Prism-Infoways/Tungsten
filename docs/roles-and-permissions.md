@@ -130,11 +130,26 @@ class UserResource(Resource):
         ])
 ```
 
+### Roles per tenant
+
+With [multi-tenancy](multi-tenancy), a user can have different roles in each team. `RolesField().per_tenant()` shows and saves the roles the user has **inside the current tenant**:
+
+```python
+RolesField("team_roles").label("Roles in this team").per_tenant()
+```
+
+- Roles given without `per_tenant()` apply in every tenant.
+- Roles given with it apply only while that tenant is open. A user is "Admin" in one team and "Viewer" in another.
+- A user's permissions are those of their panel-wide roles plus their roles in the current tenant.
+
 ### In code
 
 ```python
 panel.auth.assign_role(db, user, "Editor")
+panel.auth.assign_role(db, user, "Admin", tenant=team)     # only inside this team
 ```
+
+Per-tenant roles are stored in the `tungsten_tenant_role_user` table. Run `panel.create_tables(engine)` once after upgrading to add it.
 
 The role must already exist, otherwise you get a `ValueError`. To create roles in a seed script, use the `Role` model:
 

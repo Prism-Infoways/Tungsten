@@ -81,6 +81,14 @@ class Resource:
     navigation_sort: ClassVar[int] = 0
     navigation_parent: ClassVar[str | None] = None
     show_in_navigation: ClassVar[bool] = True
+    #: a :class:`~tungsten.navigation.Cluster`: the resource then sits in that cluster's sub-menu
+    cluster: ClassVar[Any] = None
+    #: sub-menu on a record's pages: page names (``"view"``, ``"edit"``), relation manager slugs and/or
+    #: ``NavigationItem``s. Empty: tabs for the record and its relations on separate pages, if any.
+    record_sub_navigation: ClassVar[tuple] = ()
+    #: where that sub-menu goes: ``"start"``, ``"end"`` or ``"top"`` (tabs). None: ``"start"`` when
+    #: ``record_sub_navigation`` is set, else ``"top"``
+    sub_navigation_position: ClassVar[str | None] = None
 
     # records
     record_title_attribute: ClassVar[str | None] = None
@@ -239,6 +247,47 @@ class Resource:
         if page == "view":
             return ctx.url(slug, key, **query)
         return ctx.url(slug, page, **query)
+
+    @classmethod
+    def get_record_sub_navigation(cls, ctx: "Context", record: Any) -> list:
+        """The sub-menu on ``record``'s pages. Override to add links that depend on the record::
+
+            @classmethod
+            def get_record_sub_navigation(cls, ctx, record):
+                return super().get_record_sub_navigation(ctx, record) + [
+                    NavigationItem("Invoices", InvoiceResource.get_url(ctx, customer=record.id), icon="receipt"),
+                ]
+        """
+        from ..hosts import RelationHost
+        from ..navigation import NavigationItem
+        from ..support.evaluate import call
+
+        entries = list(cls.record_sub_navigation)
+        if not entries:
+            separate = [m.get_slug() for m in cls.get_relations() if m.separate_page]
+            if not separate:
+                return []
+            entries = ["view" if cls.has_page("view") else "edit", *separate]
+        names = {"view": ("View", "eye"), "edit": ("Edit", "pencil")}
+        ability = {"view": "view", "edit": "update"}
+        managers = {m.get_slug(): m for m in cls.get_relations()}
+        out = []
+        for entry in entries:
+            if isinstance(entry, NavigationItem):
+                out.append(entry)
+            elif entry in names:
+                if cls.has_page(entry) and cls.can(ctx, ability[entry], record):
+                    label, icon = names[entry]
+                    out.append(NavigationItem(__(label), cls.get_url(ctx, entry, record), icon=icon))
+            else:
+                manager = entry if isinstance(entry, type) else managers.get(entry)
+                if manager is None or not RelationHost(cls, record, manager).can(ctx, "view_any"):
+                    continue
+                url = manager.get_url(ctx, cls, record) if manager.separate_page else cls.get_url(
+                    ctx, "view" if cls.has_page("view") else "edit", record)
+                out.append(NavigationItem(manager.get_title(), url, icon=manager.icon,
+                                          badge=call(manager.badge, ctx=ctx, owner=record)))
+        return out
 
     @classmethod
     def host(cls):

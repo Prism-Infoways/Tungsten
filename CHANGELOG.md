@@ -2,6 +2,17 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-14 · Navigation and teams like Filament
+
+- **Tenant in the URL**: `Tenancy(..., url=True, slug_attribute="slug")` gives links like `/admin/acme/products`, so two tabs can show two teams.
+- **Team sign-up and settings pages**: users register new teams and edit the current one. Users without a team go to sign-up first.
+- **Billing hooks**: plug in Stripe or any provider with `BillingProvider`, and lock unpaid teams with `require_subscription=True`.
+- **Roles per team**: `RolesField().per_tenant()` makes a user Admin in one team and Viewer in another.
+- **Clusters**: group resources and pages behind one menu item with their own sub-menu.
+- **Record sub-menu**: `record_sub_navigation = ("view", "edit")` adds tabs or a side menu on a record's pages.
+- **Menu along the top**: `Panel(top_navigation=True)`.
+- Run `panel.create_tables(engine)` once after upgrading; it adds the table for per-team roles.
+
 ## 2026-10-14 · Forms: everything Filament has
 
 _Not on PyPI yet: this comes with the next `tungsten-admin` release._

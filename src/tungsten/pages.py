@@ -50,6 +50,8 @@ class Page:
     navigation_sort: ClassVar[int] = 0
     navigation_parent: ClassVar[str | None] = None
     show_in_navigation: ClassVar[bool] = True
+    #: a :class:`~tungsten.navigation.Cluster`: the page then sits in that cluster's sub-menu
+    cluster: ClassVar[Any] = None
     template: ClassVar[str] = "tungsten/pages/page.html"
     #: template rendered inside the page body (receives ``ctx`` and ``page``)
     content_template: ClassVar[str | None] = None

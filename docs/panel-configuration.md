@@ -72,6 +72,7 @@ All of these are explained with examples in [Theming](theming).
 | `spa` | `False` | Move between pages without full page reloads. |
 | `unsaved_changes_alerts` | `True` | Warn before leaving a form with unsaved changes. |
 | `sidebar_collapsible` | `True` | Desktop users can shrink the sidebar to icons. |
+| `top_navigation` | `False` | Show the menu in a bar along the top instead of the sidebar. See [Navigation](navigation#menu-along-the-top). |
 | `global_search` | `True` | Shows the search box in the top bar, the sidebar search button and the Ctrl+K shortcut. See [Navigation](navigation#global-search). |
 | `navigation_groups` | `None` | The order of sidebar groups, as names or `NavigationGroup` objects. See [Navigation](navigation#groups). |
 | `database_notifications` | `True` | Shows the notification bell. See [Notifications](notifications). |

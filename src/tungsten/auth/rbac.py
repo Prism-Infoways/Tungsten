@@ -46,14 +46,30 @@ class PermissionsField(CheckboxList):
 
 
 class RolesField(Select):
-    """Assign roles to a user (works on any user model). Use in your UserResource form."""
+    """Assign roles to a user (works on any user model). Use in your UserResource form.
+
+    ``RolesField("roles").per_tenant()`` sets the roles the user has inside the current
+    tenant only; roles set without it apply in every tenant.
+    """
 
     def __init__(self, name: str = "roles") -> None:
         super().__init__(name)
         self.multiple()
         self._options = self._role_options
         self._dehydrated = False
+        self._per_tenant = False
         self.label("Roles")
+
+    def per_tenant(self, condition: bool = True) -> "RolesField":
+        self._per_tenant = condition
+        return self
+
+    def _tenant(self, form) -> Any:
+        if not self._per_tenant or form.ctx is None:
+            return None
+        if form.ctx.tenant is None:
+            raise PermissionError("No tenant is selected, so roles can't be set for one.")
+        return form.ctx.tenant
 
     @staticmethod
     def _role_options(ctx: Any = None) -> list:
@@ -64,12 +80,20 @@ class RolesField(Select):
         return [(r.id, r.name) for r in ctx.db.scalars(select(Role).order_by(Role.name)).all()]
 
     def hydrate(self, form, record):  # type: ignore[override]
-        from ..models import RoleAssignment
+        from ..models import RoleAssignment, TenantRoleAssignment
 
         if form.ctx is None or record is None:
             return []
-        uid = form.ctx.panel.auth.user_id(record)
-        rows = form.ctx.db.scalars(select(RoleAssignment.role_id).where(RoleAssignment.user_id == uid)).all()
+        auth = form.ctx.panel.auth
+        uid = auth.user_id(record)
+        if self._per_tenant:
+            if form.ctx.tenant is None:
+                return []
+            rows = form.ctx.db.scalars(select(TenantRoleAssignment.role_id).where(
+                TenantRoleAssignment.user_id == uid,
+                TenantRoleAssignment.tenant_id == auth._tenant_key(form.ctx.tenant))).all()
+        else:
+            rows = form.ctx.db.scalars(select(RoleAssignment.role_id).where(RoleAssignment.user_id == uid)).all()
         return [str(r) for r in rows]
 
     def fill_record(self, form, record, data):  # type: ignore[override]
@@ -79,7 +103,7 @@ class RolesField(Select):
         if form.ctx is None or not self.is_field_visible(form, "") or self.is_disabled(form, ""):
             return
         keys = [k for k in (self.cast(self.get_state(form, "")) or []) if str(k).isdigit()]
-        form.ctx.panel.auth.sync_roles(form.ctx.db, record, keys)
+        form.ctx.panel.auth.sync_roles(form.ctx.db, record, keys, tenant=self._tenant(form))
         form.ctx.db.flush()
 
 

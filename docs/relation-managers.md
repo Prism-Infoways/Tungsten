@@ -240,7 +240,7 @@ The records can be viewed, edited and deleted, but not created, attached or asso
 
 ## Related records on their own page
 
-Set `separate_page = True` to move a relation manager off the record's page. Its table gets a page of its own, like `/admin/teams/1/projects`, and the record's pages show links between the record and each of these pages.
+Set `separate_page = True` to move a relation manager off the record's page. Its table gets a page of its own, like `/admin/teams/1/projects`, and the record's pages show links between the record and each of these pages. These links are the record's [sub-menu](navigation#sub-menu-on-a-records-pages), so you can move them to the side or add your own.
 
 ```python
 class ProjectsRelationManager(RelationManager):

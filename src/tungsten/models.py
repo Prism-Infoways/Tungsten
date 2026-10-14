@@ -49,6 +49,20 @@ class RoleAssignment(TungstenBase):
     role: Mapped[Role] = relationship(back_populates="assignments")
 
 
+class TenantRoleAssignment(TungstenBase):
+    """A role a user has inside one tenant only (``RolesField(...).per_tenant()``)."""
+
+    __tablename__ = "tungsten_tenant_role_user"
+    __table_args__ = (UniqueConstraint("role_id", "user_id", "tenant_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    role_id: Mapped[int] = mapped_column(ForeignKey("tungsten_roles.id", ondelete="CASCADE"))
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+
+    role: Mapped[Role] = relationship()
+
+
 class DatabaseNotification(TungstenBase):
     __tablename__ = "tungsten_notifications"
 

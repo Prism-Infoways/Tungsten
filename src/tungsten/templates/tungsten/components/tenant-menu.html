@@ -1,0 +1,33 @@
+{# The tenant switcher with the current tenant's settings and billing links. on_light: on the white top bar. #}
+{% import "tungsten/components/ui.html" as ui %}
+<div data-tw-tenant-menu>
+{% call(part) ui.dropdown(align='start', width='w-full', classes='w-full') %}
+  {% if part == 'trigger' %}
+  <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start text-sm ring-1 {{ 'bg-white text-gray-950 ring-gray-200 hover:bg-gray-50 dark:bg-white/5 dark:text-white dark:ring-white/10' if on_light is defined and on_light else 'bg-white/5 text-white ring-white/10 hover:bg-white/10' }}">
+    {% set tenant_avatar = panel.tenancy.avatar(tenant) %}
+    {% if tenant_avatar %}<img src="{{ tenant_avatar }}" alt="" class="h-7 w-7 rounded-md object-cover">{% else %}
+    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary-500 text-xs font-bold text-white">{{ (tenant_label or '+')[:1] | upper }}</span>{% endif %}
+    <span class="flex-1 truncate font-medium">{{ tenant_label or __('Choose :label', label=panel.tenancy.get_label().lower()) }}</span>{{ icon('chevrons-up-down', 'h-4 w-4 text-gray-400') }}
+  </button>
+  {% else %}
+    {% for item in tenant_menu %}
+    <a href="{{ item.url }}" class="{{ ui.button_classes('gray', 'dropdown') }}">{{ icon(item.icon, 'h-4 w-4') }}{{ item.label }}</a>
+    {% endfor %}
+    {% if tenant_menu and tenants %}<div class="my-1 border-t border-gray-100 dark:border-white/10"></div>{% endif %}
+    {% for t in tenants %}
+    {% if panel.tenancy.in_url %}
+    <a href="{{ panel.tenancy.url(ctx, t) }}" class="{{ ui.button_classes('gray', 'dropdown') }}">{{ panel.tenancy.label(t) }}{% if t == tenant %}<span class="ms-auto text-primary-600">{{ icon('check', 'h-4 w-4') }}</span>{% endif %}</a>
+    {% else %}
+    <form method="post" action="{{ panel.url('_tw', 'tenant') }}">
+      <input type="hidden" name="_token" value="{{ csrf_token }}"><input type="hidden" name="tenant" value="{{ panel.tenancy.key_of(t) }}">
+      <button class="{{ ui.button_classes('gray', 'dropdown') }}">{{ panel.tenancy.label(t) }}{% if t == tenant %}<span class="ms-auto text-primary-600">{{ icon('check', 'h-4 w-4') }}</span>{% endif %}</button>
+    </form>
+    {% endif %}
+    {% endfor %}
+    {% if tenant_register_url %}
+    <div class="my-1 border-t border-gray-100 dark:border-white/10"></div>
+    <a href="{{ tenant_register_url }}" class="{{ ui.button_classes('gray', 'dropdown') }}">{{ icon('plus', 'h-4 w-4') }}{{ __('Register :label', label=panel.tenancy.get_label().lower()) }}</a>
+    {% endif %}
+  {% endif %}
+{% endcall %}
+</div>

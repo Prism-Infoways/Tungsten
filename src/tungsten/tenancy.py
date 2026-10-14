@@ -9,10 +9,16 @@ from the user menu. A user without any tenant sees no tenant-owned records.
 
 A resource can name another column or relationship with ``tenant_ownership``,
 or opt out (a model shared by all tenants) with ``tenant_scoped = False``.
+
+With ``url=True`` the tenant sits in every link (``/admin/{tenant}/products``),
+so two browser tabs can show two tenants. ``registration`` and ``profile`` add
+"new team" and "team settings" pages, and ``billing`` plugs in a subscription
+check (see :class:`BillingProvider`).
 """
 
 from __future__ import annotations
 
+import contextvars
 from typing import TYPE_CHECKING, Any, Callable
 
 from sqlalchemy import false
@@ -23,9 +29,65 @@ from .support.evaluate import call
 if TYPE_CHECKING:  # pragma: no cover
     from .context import Context
 
+#: slug of the tenant in the current request's URL; ``Panel.url`` puts it in every link
+_url_slug: contextvars.ContextVar[str | None] = contextvars.ContextVar("tungsten_tenant_slug", default=None)
+
+
+def current_url_slug() -> str | None:
+    return _url_slug.get()
+
+
+def set_url_slug(slug: str | None) -> Any:
+    return _url_slug.set(slug)
+
+
+def reset_url_slug(token: Any) -> None:
+    _url_slug.reset(token)
+
+
+class BillingProvider:
+    """Hooks for tenant subscriptions (Stripe, Paddle, Razorpay...). Subclass it::
+
+        class StripeBilling(BillingProvider):
+            def is_subscribed(self, ctx, tenant):
+                return tenant.subscription_status == "active"
+
+            def billing_url(self, ctx, tenant):
+                return stripe.billing_portal.Session.create(customer=tenant.stripe_id,
+                                                            return_url=ctx.panel.absolute_url(ctx, ctx.url())).url
+
+        Tenancy(Team, ..., billing=StripeBilling(), require_subscription=True)
+
+    The tenant menu gets a "Billing" link (``/{tenant}/tenant/billing``) that sends the user to
+    :meth:`billing_url`. With ``require_subscription=True`` every panel page sends users of an
+    unsubscribed tenant there first.
+    """
+
+    label: str = "Billing"
+    icon: str = "credit-card"
+
+    def is_subscribed(self, ctx: "Context", tenant: Any) -> bool:
+        return True
+
+    def billing_url(self, ctx: "Context", tenant: Any) -> str | None:
+        """Where the Billing link goes (an external portal). ``None`` shows :meth:`content` instead."""
+        return None
+
+    def content(self, ctx: "Context", tenant: Any) -> Any:
+        """HTML for a billing page inside the panel, used when :meth:`billing_url` returns ``None``."""
+        return None
+
+    def can_manage(self, ctx: "Context", tenant: Any) -> bool:
+        """Who may open the billing page (everyone in the tenant by default)."""
+        return True
+
 
 class NoTenancy:
     enabled = False
+    in_url = False
+    registration = None
+    profile = None
+    billing = None
 
     def resolve(self, ctx: "Context") -> Any:
         return None
@@ -54,23 +116,139 @@ class Tenancy(NoTenancy):
         tenants: Callable,
         label_attribute: str = "name",
         session_key: str = "tw_tenant",
+        url: bool = False,
+        slug_attribute: str | None = None,
+        registration: Any = None,
+        on_register: Callable | None = None,
+        profile: Any = None,
+        can_edit_profile: Callable | None = None,
+        billing: BillingProvider | None = None,
+        require_subscription: bool = False,
+        avatar_attribute: str | None = None,
+        label: str | None = None,
     ) -> None:
         self.model = model
         self.ownership = ownership
         self._tenants = tenants
         self.label_attribute = label_attribute
         self.session_key = session_key
+        #: put the tenant in the URL: ``/admin/{tenant}/products``
+        self.in_url = url
+        #: attribute used in the URL (default: the primary key)
+        self.slug_attribute = slug_attribute
+        #: fields (a list, or ``fn(form) -> form``) of the "Register new team" page; None hides it
+        self.registration = registration
+        #: ``fn(tenant, user, db, ctx)`` after a tenant is registered: link the user to it here
+        self.on_register = on_register
+        #: fields (a list, or ``fn(form) -> form``) of the tenant's settings page; None hides it
+        self.profile = profile
+        self.can_edit_profile = can_edit_profile
+        self.billing = billing
+        self.require_subscription = require_subscription
+        self.avatar_attribute = avatar_attribute
+        #: what a tenant is called in the menu ("Team", "Company"); defaults to the model's name
+        self.tenant_label = label
+
+    def get_label(self) -> str:
+        from .i18n import translate as __
+        from .support.component import headline
+
+        return __(self.tenant_label or headline(self.model.__name__))
+
+    def register(self, ctx: "Context", data: dict, form: Any) -> Any:
+        """Create a tenant from the registration form, link the user to it and make it current."""
+        tenant = self.model()
+        form.fill_record(tenant, data)
+        ctx.db.add(tenant)
+        ctx.db.flush()
+        form.record = tenant
+        form.save_relationships(tenant, data)
+        if self.on_register is not None:
+            call(self.on_register, tenant=tenant, user=ctx.user, db=ctx.db, ctx=ctx)
+        ctx.db.commit()
+        self.forget(ctx)
+        ctx.session[self.session_key] = self.key_of(tenant)
+        ctx.tenant = tenant
+        return tenant
+
+    def update_profile(self, ctx: "Context", data: dict, form: Any) -> Any:
+        form.fill_record(ctx.tenant, data)
+        ctx.db.flush()
+        form.save_relationships(ctx.tenant, data)
+        ctx.db.commit()
+        return ctx.tenant
 
     def key_of(self, tenant: Any) -> str:
         pk = sa_inspect(type(tenant)).primary_key[0]
         return str(getattr(tenant, pk.key))
 
+    def slug_of(self, tenant: Any) -> str:
+        """The tenant's part of the URL."""
+        if self.slug_attribute:
+            return str(getattr(tenant, self.slug_attribute))
+        return self.key_of(tenant)
+
+    def find(self, ctx: "Context", slug: str) -> Any:
+        """The user's tenant with this URL slug, or None (other tenants are never found)."""
+        for t in self.tenants(ctx):
+            if self.slug_of(t) == str(slug):
+                return t
+        return None
+
+    def url(self, ctx: "Context", tenant: Any, *parts: Any, **query: Any) -> str:
+        """A link to ``parts`` inside ``tenant`` (the panel home when no parts)."""
+        token = set_url_slug(self.slug_of(tenant) if self.in_url else None)
+        try:
+            return ctx.panel.url(*parts, **query)
+        finally:
+            reset_url_slug(token)
+
+    def avatar(self, tenant: Any) -> str | None:
+        return getattr(tenant, self.avatar_attribute, None) if self.avatar_attribute and tenant is not None else None
+
+    def can_profile(self, ctx: "Context") -> bool:
+        if self.profile is None or ctx.tenant is None:
+            return False
+        if self.can_edit_profile is None:
+            return True
+        return bool(call(self.can_edit_profile, user=ctx.user, tenant=ctx.tenant, ctx=ctx, db=ctx.db))
+
+    def can_billing(self, ctx: "Context") -> bool:
+        return self.billing is not None and ctx.tenant is not None and bool(self.billing.can_manage(ctx, ctx.tenant))
+
+    def build_form(self, ctx: "Context", which: str, record: Any = None) -> Any:
+        """The registration or profile form, bound for live refresh."""
+        from .forms import Form
+
+        spec = self.registration if which == "register" else self.profile
+        form = Form().model(self.model)
+        form = spec(form) if callable(spec) else form.schema(list(spec or []))
+        form.bind(ctx, operation="create" if which == "register" else "edit", record=record,
+                  source={"kind": "host", "host": f"tenant-{which}", "op": "edit", "record": ""})
+        return form
+
     def tenants(self, ctx: "Context") -> list:
         if ctx.user is None:
             return []
-        return list(call(self._tenants, user=ctx.user, db=ctx.db, ctx=ctx) or [])
+        cached = getattr(ctx, "_tw_tenants", None)  # asked for by the resolver, the switcher and the URL check
+        if cached is not None and cached[0] is ctx.user:
+            return list(cached[1])
+        options = list(call(self._tenants, user=ctx.user, db=ctx.db, ctx=ctx) or [])
+        ctx._tw_tenants = (ctx.user, options)
+        return list(options)
+
+    def forget(self, ctx: "Context") -> None:
+        """Drop the cached tenant list (after a new tenant is registered)."""
+        ctx.__dict__.pop("_tw_tenants", None)
 
     def resolve(self, ctx: "Context") -> Any:
+        """The current tenant: the one in the URL (``url=True``), else the last one picked."""
+        slug = ctx.request.scope.get("tw_tenant") if self.in_url else None
+        if slug is not None:
+            tenant = self.find(ctx, slug)
+            if tenant is not None and "session" in ctx.request.scope:
+                ctx.session[self.session_key] = self.key_of(tenant)
+            return tenant
         options = self.tenants(ctx)
         if not options:
             return None
@@ -81,12 +259,13 @@ class Tenancy(NoTenancy):
         ctx.session[self.session_key] = self.key_of(options[0])
         return options[0]
 
-    def switch(self, ctx: "Context", key: str) -> bool:
+    def switch(self, ctx: "Context", key: str) -> Any:
+        """Make the user's tenant with this key the current one; returns it (None when not theirs)."""
         for t in self.tenants(ctx):
             if self.key_of(t) == str(key):
                 ctx.session[self.session_key] = self.key_of(t)
-                return True
-        return False
+                return t
+        return None
 
     def label(self, tenant: Any) -> str:
         return str(getattr(tenant, self.label_attribute, tenant)) if tenant is not None else ""
@@ -155,3 +334,33 @@ class Tenancy(NoTenancy):
             return
         if getattr(record, attribute, None) is None:
             setattr(record, attribute, self._tenant_key(ctx.tenant))
+
+
+class TenantHost:
+    """Lets the tenant registration and settings forms use live refresh (``/_tw/form``)."""
+
+    model = None
+    soft_delete_column = None
+
+    def __init__(self, tenancy: Tenancy, which: str) -> None:
+        self.tenancy = tenancy
+        self.which = which
+        self.key = f"tenant-{which}"
+        self.model = tenancy.model
+
+    def can(self, ctx: "Context", ability: str, record: Any = None) -> bool:
+        if self.which == "register":
+            return ctx.user is not None and self.tenancy.registration is not None
+        return self.tenancy.can_profile(ctx)
+
+    def find_record(self, ctx: "Context", key: Any, with_trashed: bool = True) -> Any:
+        return ctx.tenant if self.which == "profile" else None
+
+    def record_key(self, record: Any) -> str:
+        return self.tenancy.key_of(record)
+
+    def form(self, ctx: "Context", operation: str = "edit", record: Any = None) -> Any:
+        return self.tenancy.build_form(ctx, self.which, ctx.tenant if self.which == "profile" else None)
+
+    def tenant_resource(self) -> Any:
+        return None

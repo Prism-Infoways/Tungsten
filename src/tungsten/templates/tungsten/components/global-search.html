@@ -1,4 +1,4 @@
-<div class="relative w-full max-w-md" x-data="{ open: false }" @tw-open-search.window="$refs.q.focus(); open = true"
+<div class="{{ 'relative min-w-[9rem] max-w-xs flex-1' if panel.top_navigation else 'relative w-full max-w-md' }}" x-data="{ open: false }" @tw-open-search.window="$refs.q.focus(); open = true"
      @click.outside="open = false" @keydown.escape="open = false; $refs.q.blur()">
   <label class="relative block">
     <span class="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-gray-400">{{ icon('search', 'h-4 w-4') }}</span>

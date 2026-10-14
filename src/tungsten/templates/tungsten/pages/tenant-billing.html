@@ -1,0 +1,12 @@
+{% extends "tungsten/layout/app.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block content %}
+{% set breadcrumbs = [(title, None)] %}
+{% include "tungsten/components/page-header.html" %}
+{% if content %}{{ content }}{% else %}
+<div class="tw-card flex items-center gap-4 p-5" data-tw-billing>
+  <span class="flex h-11 w-11 items-center justify-center rounded-xl {{ colors.pick(colors.SOFT_ICON, 'success' if subscribed else 'warning') }}">{{ icon('credit-card', 'h-5 w-5') }}</span>
+  <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('Your subscription is active.') if subscribed else __('There is no active subscription. Please contact us to subscribe.') }}</p>
+</div>
+{% endif %}
+{% endblock %}
