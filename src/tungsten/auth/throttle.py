@@ -5,7 +5,8 @@ from __future__ import annotations
 import threading
 import time
 from collections import deque
-from typing import Protocol
+from collections.abc import Callable, Iterator
+from typing import Any, Protocol
 
 
 class ThrottleStore(Protocol):
@@ -68,5 +69,20 @@ class MemoryThrottle:
         with self._lock:
             self._hits.pop(key, None)
 
+    def clear_where(self, predicate: Callable[[str], bool]) -> None:
+        """Forget every key ``predicate(key)`` is true for (e.g. all addresses of one email)."""
+        with self._lock:
+            for key in [k for k in self._hits if predicate(k)]:
+                del self._hits[key]
+
     def __len__(self) -> int:
         return len(self._hits)
+
+    # dict-like reading and ``pop``, for code written against the old ``Auth._attempts`` dict
+    def __iter__(self) -> Iterator[str]:
+        with self._lock:
+            return iter(list(self._hits))
+
+    def pop(self, key: str, default: Any = None) -> Any:
+        with self._lock:
+            return self._hits.pop(key, default)

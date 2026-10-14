@@ -178,3 +178,11 @@ class Job(TungstenBase):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
     started_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    #: tries so far, and how many are allowed (see ``JobRunner.register(max_attempts=...)``)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    max_attempts: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    #: a retry waits until then (backoff)
+    available_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    #: the process running it, and when it last said it is still working
+    locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    heartbeat_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)

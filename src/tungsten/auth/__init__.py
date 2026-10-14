@@ -214,6 +214,18 @@ class Auth:
     def failed_attempt(self, key: str) -> None:
         self.throttle.fail(key)
 
+    def reset_attempts(self, email: str) -> None:
+        """Forget the failed sign-ins of ``email`` from every address (after an admin unlocks it)."""
+        clear_where = getattr(self.throttle, "clear_where", None)
+        if clear_where is not None:
+            suffix = "|" + email.lower()
+            clear_where(lambda key: str(key).lower().endswith(suffix))
+
+    @property
+    def _attempts(self) -> Any:
+        """The in-memory counts, for code written against the old dict (prefer :meth:`reset_attempts`)."""
+        return self.throttle
+
     def attempt(self, ctx: "Context", email: str, password: str) -> Any:
         key = f"{ctx.request.client.host if ctx.request.client else ''}|{email.lower()}"
         if self.throttled(key):
