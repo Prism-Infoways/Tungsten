@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse
 
 from tungsten import Plugin
 
+from .extras import McpPrompt, McpResource, PromptArgument, check_unique
 from .models import McpBase, McpOAuthClient, McpOAuthCode, McpToken, hash_token, new_token
 from .oauth import AuthorizePage, OAuth
 from .resources import McpTokenResource
@@ -56,6 +57,8 @@ class McpPlugin(Plugin):
       the screen. Needs a panel with login. ``allow_registration=False`` stops new apps.
     - ``token_minutes``: how long an OAuth access token works before the app refreshes it.
     - ``tools``: a :class:`Tools` subclass, to add tools of your own beside the record ones.
+    - ``documents``: :class:`McpResource` items the AI can read (MCP "resources", e.g. a format guide).
+    - ``prompts``: :class:`McpPrompt` items, ready-made workflows the AI app offers.
     """
 
     id = "mcp"
@@ -66,7 +69,8 @@ class McpPlugin(Plugin):
                  exclude: Iterable[Any] = (), hidden_fields: Iterable[str] = (), max_limit: int = 100,
                  name: str | None = None, instructions: str | None = None, public_url: str | None = None,
                  oauth: bool = True, allow_registration: bool = True, token_minutes: int = 60,
-                 tools: type[Tools] = Tools) -> None:
+                 tools: type[Tools] = Tools, documents: Iterable[McpResource] = (),
+                 prompts: Iterable[McpPrompt] = ()) -> None:
         self.path = "/" + path.strip("/")
         self.read_only = read_only
         self.only = {_slug(r) for r in resources} if resources is not None else None
@@ -79,6 +83,10 @@ class McpPlugin(Plugin):
         self.oauth_wanted = oauth
         self.allow_registration = allow_registration
         self.token_seconds = token_minutes * 60
+        self.documents = list(documents)
+        self.prompts = list(prompts)
+        check_unique(self.documents, "uri", "resources")
+        check_unique(self.prompts, "name", "prompts")
         self.panel: Any = None
         self.server = McpServer(self, tools)
         self.oauth = OAuth(self)
@@ -181,10 +189,13 @@ __all__ = [
     "McpOAuthClient",
     "McpOAuthCode",
     "McpPlugin",
+    "McpPrompt",
+    "McpResource",
     "McpServer",
     "McpToken",
     "McpTokenResource",
     "OAuth",
+    "PromptArgument",
     "ToolError",
     "Tools",
     "__version__",

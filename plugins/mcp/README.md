@@ -106,6 +106,12 @@ panel.plugin(McpPlugin(tools=ShopTools))
 A tool named in `WRITE` needs a token with **Allow changes**. Raise `ToolError("...")` for a problem
 the AI can fix; the message goes back as the tool's answer.
 
+## Resources and prompts
+
+Hand the AI documents to read (`documents=[McpResource(uri, name, content)]`) and ready-made workflows
+(`prompts=[McpPrompt(name, text, arguments=[...])]`). Content can be text, bytes, a `Path` or a function
+that gets `ctx`, `db`, `user` and `tenant`. See the [MCP docs](https://tungsten.prisminfoways.com/docs/mcp).
+
 ## A panel under a sub-path
 
 Apps also look for the metadata at the site root (`/.well-known/oauth-protected-resource/...`). When the web
