@@ -2,6 +2,12 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-14 · tungsten-admin 0.1.9 on PyPI
+
+- **`tungsten-admin` 0.1.9** is on PyPI: `pip install -U tungsten-admin`. It has all the Filament-style work below: navigation and teams, forms, actions and exports, login and security, theme, infolists and relation managers.
+- **After upgrading, run `panel.create_tables(engine)` once.** It adds the new tables for login and security and for per-team roles. Your data is not touched.
+- **New: `tungsten-filament`** moves a Laravel Filament admin to Tungsten (models, resources, forms, tables, filters, actions and relation managers) on the same database and logins.
+
 ## 2026-10-14 · Navigation and teams like Filament
 
 _Not on PyPI yet: this comes with the next `tungsten-admin` release._

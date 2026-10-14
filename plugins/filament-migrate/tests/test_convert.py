@@ -108,7 +108,7 @@ def test_relation_manager_and_simple_resource(shop3):
 def test_report_lists_what_needs_a_human(shop3):
     report = shop3.file("MIGRATION_REPORT.md")
     for text in [
-        "createOptionForm() is not available",
+        "createOptionForm() uses a value that was not converted",
         "Filament ViewField has no Tungsten match",
         "custom action 'publish' not converted",
         "filter 'cheap' left out",
