@@ -2,6 +2,10 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-14 · Move from Filament to Tungsten
+
+- **New tool: Filament migration** (`tungsten-filament`). Point it at a Laravel Filament project and it writes a Tungsten admin: models from your migrations, relations, PHP enums, resources, forms, tables, filters, actions, infolists and relation managers, for Filament 3 and 4. The new admin runs on the same database and people sign in with the same passwords. What it cannot convert is marked in the code and listed in a report. Not on PyPI yet.
+
 ## 2026-10-13 · Ten new plugins on PyPI
 
 - **tungsten-admin 0.1.8** is on PyPI: `pip install -U tungsten-admin`. It adds the hooks that Impersonate, Media library and Saved views need.
