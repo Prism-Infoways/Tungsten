@@ -19,10 +19,12 @@ from .laravel import (
     LaravelProject,
     ModelDef,
     RelationDef,
+    ScopeDef,
     TableDef,
     database_url,
     read_project,
     snake,
+    studly,
     table_for,
 )
 from .php import ClassConst, Const, Node, PhpClass, Str, chain, is_literal, literal
@@ -205,6 +207,11 @@ class ModelWriter:
             for rel in model.relations:
                 self._relation(name, model, rel, by_table)
         self._pair()
+        self.project.converted_relations = {n: {r.src.name for r in rels if r.src} for n, rels in self.rels.items()}
+        for name, model in self.models.items():
+            for scope in model.scopes:
+                where = str(scope.file.relative_to(self.project.root)) if scope.file else "app/Models"
+                self.todos.append(Todo(where, scope.line, scope.src, scope_reason(name, scope, self.project)))
         # FKs to tables we do not generate would break the mapper: drop them
         known = set(by_table) | set(self.pivots)
         for t in list(by_table) + list(self.pivots):
@@ -213,6 +220,12 @@ class ModelWriter:
                 if col.fk and col.fk[0] not in known:
                     col.fk = None
 
+    def _rel_todo(self, model: ModelDef, rel: RelationDef, reason: str) -> None:
+        if rel.file is None:
+            self._todo(model, rel.line, rel.src, reason)
+        else:  # the relation is defined in a trait: point at the trait's file
+            self.todos.append(Todo(str(rel.file.relative_to(self.project.root)), rel.line, rel.src, reason))
+
     def _relation(self, name: str, model: ModelDef, rel: RelationDef, by_table: dict[str, str]) -> None:
         kind = rel.kind.lower()
         target = rel.related
@@ -220,19 +233,19 @@ class ModelWriter:
             reason = (f"relation {name}.{rel.name}: {rel.kind} is not converted yet" if kind not in
                       ("belongsto", "hasmany", "hasone", "belongstomany")
                       else f"relation {name}.{rel.name}: related model {target or '?'} was not converted")
-            self._todo(model, rel.line, rel.src, reason)
+            self._rel_todo(model, rel, reason)
             return
         tm = self.models[target]
         own_table, target_table = self.tables[model.table], self.tables[tm.table]
         attr = _attr(rel.name)
         if attr in own_table.columns:
-            self._todo(model, rel.line, rel.src, f"relation {name}.{rel.name} has the same name as a column, skipped")
+            self._rel_todo(model, rel, f"relation {name}.{rel.name} has the same name as a column, skipped")
             return
         if kind == "belongsto":
             fk = rel.foreign_key or f"{snake(rel.name)}_id"
             col = own_table.columns.get(fk)
             if col is None:
-                self._todo(model, rel.line, rel.src, f"relation {name}.{rel.name}: column {fk} not found")
+                self._rel_todo(model, rel, f"relation {name}.{rel.name}: column {fk} not found")
                 return
             col.fk = (tm.table, rel.other_key or tm.primary_key)
             self.rels[name].append(_Rel(attr, target, "belongsto", name, fk, uselist=False, src=rel))
@@ -240,7 +253,7 @@ class ModelWriter:
             fk = rel.foreign_key or f"{snake(name)}_id"
             col = target_table.columns.get(fk)
             if col is None:
-                self._todo(model, rel.line, rel.src, f"relation {name}.{rel.name}: column {tm.table}.{fk} not found")
+                self._rel_todo(model, rel, f"relation {name}.{rel.name}: column {tm.table}.{fk} not found")
                 return
             col.fk = (model.table, rel.other_key or model.primary_key)
             self.rels[name].append(_Rel(attr, target, kind, target, fk, uselist=kind == "hasmany", src=rel))
@@ -266,7 +279,7 @@ class ModelWriter:
             required = [c.name for c in table.columns.values() if not c.nullable and c.default is NO_DEFAULT
                         and not c.primary and not c.autoincrement and c.name not in (fpk, rpk)]
             if required:
-                self._todo(model, rel.line, rel.src, f"pivot `{pivot}` has required columns {', '.join(required)}: "
+                self._rel_todo(model, rel, f"pivot `{pivot}` has required columns {', '.join(required)}: "
                                                      f"adding links from the panel will fail until they get defaults")
             self.rels[name].append(_Rel(attr, target, "belongstomany", secondary=pivot, src=rel))
 
@@ -586,9 +599,28 @@ def _only_soft_delete_scope(cls: PhpClass) -> bool:
     return bool(rets) and all("SoftDeletingScope" in r.src and "where" not in r.src.lower() for r in rets)
 
 
+def tenancy_hint(model: str, scope: ScopeDef, project: LaravelProject) -> str | None:
+    """``Tenancy(Company, ownership="company_id", tenants=...)`` when the scope is the usual tenant filter."""
+    if not scope.column:
+        return None
+    attr = scope.column.removesuffix("_id")
+    tenant = studly(attr) if studly(attr) in project.models else "<TenantModel>"
+    return f"Tenancy({tenant}, ownership={scope.column!r}, tenants=lambda user: [user.{attr}])"
+
+
+def scope_reason(model: str, scope: ScopeDef, project: LaravelProject) -> str:
+    hint = tenancy_hint(model, scope, project)
+    reason = (f"SECURITY: global scope {scope.name} on {model} is not converted, so the rows it hid are shown "
+              f"(if it keeps tenants apart, every user now sees every tenant's rows). Use Tenancy(...) on the panel "
+              f"or the resource's `query()`")
+    return reason + (f", for example `{hint}`" if hint else "")
+
+
 # ------------------------------------------------------------------ app.py
 def app_source(project: LaravelProject, panel: PanelInfo | None, user: str | None, out_dir: Path,
-               resources: list[str], driver_hint: str | None, fil: FilamentProject) -> str:
+               resources: list[str], driver_hint: str | None, fil: FilamentProject,
+               models: dict[str, ModelDef] | None = None) -> str:
+    models = project.models if models is None else models
     try:
         rel = os.path.relpath(project.root.resolve(), out_dir.resolve())
     except ValueError:
@@ -647,6 +679,14 @@ def app_source(project: LaravelProject, panel: PanelInfo | None, user: str | Non
               'DATABASE_URL = os.environ.get("DATABASE_URL") or laravel_database_url(LARAVEL_PATH)',
               "",
               "engine = create_engine(DATABASE_URL, pool_pre_ping=True)"]
+    scoped = [(name, sc) for name, m in sorted(project.models.items()) if name in models for sc in m.scopes]
+    if scoped:
+        lines += ["", "# TODO(filament): SECURITY: these Laravel global scopes are not converted, so their rows are",
+                  "# no longer filtered and every user sees every row. Add Tenancy(...) to the Panel below",
+                  "# (docs/multi-tenancy.md) or a `query()` on each resource:"]
+        for name, sc in scoped:
+            hint = tenancy_hint(name, sc, project)
+            lines.append(f"#   {name}: {sc.name}" + (f" -> tenancy={hint}" if hint else ""))
     if auth_line:
         lines += ["", "# Laravel's bcrypt passwords work as they are; new ones are saved the Laravel way too.",
                   "# TODO(filament): Filament's canAccessPanel() rule is not copied: add can_access=lambda user: ...",
@@ -688,10 +728,20 @@ def report(result: Result, out_dir: Path, driver_hint: str | None, url_shown: st
         "People sign in with the email and password they use in Filament today.",
         "",
     ]
-    if todos:
+    security = [t for t in todos if t.reason.startswith("SECURITY:")]
+    if security:
+        lines += ["## Security: check these first", "",
+                  ("Laravel global scopes (often how tenants are kept apart) are not converted. Until you add "
+                   "`Tenancy(...)` or a resource `query()`, these models show **every** row to every user "
+                   "(also marked `# TODO(filament)` in `app.py`):"), ""]
+        lines += [f"- {t.file}" + (f" line {t.line}" if t.line else "") + f": {t.reason.removeprefix('SECURITY: ')}"
+                  for t in security]
+        lines.append("")
+    rest = [t for t in todos if not t.reason.startswith("SECURITY:")]
+    if rest:
         lines += ["## Needs your attention", ""]
         by_file: dict[str, list[Todo]] = {}
-        for t in todos:
+        for t in rest:
             by_file.setdefault(t.file, []).append(t)
         for file, items in sorted(by_file.items()):
             lines += [f"### {file}", ""]
@@ -727,6 +777,7 @@ def report(result: Result, out_dir: Path, driver_hint: str | None, url_shown: st
         "- It does not run PHP. Closures are copied only when they are short and simple; the rest are marked TODO.",
         "- Livewire components, custom Blade views, custom pages, widgets and policies need to be rebuilt.",
         "- Morph relations (morphTo, morphMany...) and has-many-through relations are not mapped yet.",
+        "- Laravel global scopes (`addGlobalScope`, `#[ScopedBy]`) are not converted: they are listed above.",
         "- Laravel model events, observers, accessors and mutators do not run when the panel saves a record.",
         "",
     ]
@@ -778,7 +829,7 @@ def build(laravel_root: str | Path, out_dir: str | Path = "tungsten_admin", data
     url, hint = database_url(project.env, root, mask_password=True)
     if database_url_override:
         url = re.sub(r"(://[^:/@]+:)[^@]+@", r"\1***@", database_url_override)
-    files["app.py"] = app_source(project, panel, user, out, [n for _, n in names], hint, fil)
+    files["app.py"] = app_source(project, panel, user, out, [n for _, n in names], hint, fil, models.models)
     result = Result(files=files, todos=todos, project=project, filament=fil, summary={
         "models": len(models.models), "resources": len(names), "relation_managers": rm_count,
     })
