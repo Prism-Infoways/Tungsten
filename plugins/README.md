@@ -25,6 +25,7 @@ Official plugins for Tungsten. Each folder is its own pip package with its own v
 | [impersonate](impersonate) | `tungsten-impersonate` | "Log in as" any user to see what they see, with a Back bar, a time limit, safety rules and a log |
 | [media-library](media-library) | `tungsten-media-library` | Every image and file in one place: upload once, alt text, "Choose from library" on every file field, where a file is used |
 | [dashboards](dashboards) | `tungsten-dashboards` | Users build their own dashboards by drag and drop, with widgets from every plugin; private or shared |
+| [filament-migrate](filament-migrate) | `tungsten-filament` | Move a Laravel Filament admin to Tungsten with one command: models, resources, forms, tables and relation managers, on the same database and logins |
 
 ## Working on a plugin
 
