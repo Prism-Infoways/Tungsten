@@ -249,3 +249,64 @@ panel = Panel(
 # panel.rbac()                # roles & permissions
 panel.create_tables(engine)   # Tungsten's own tables (roles, notifications)
 '''
+
+
+# ---------------------------------------------------------------------- custom theme (make:theme)
+THEME_PACKAGE_JSON = '''{
+  "private": true,
+  "scripts": {
+    "build": "tungsten theme:build --dir .",
+    "dev": "tungsten theme:build --dir . --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.9",
+    "@tailwindcss/typography": "^0.5.15",
+    "tailwindcss": "^3.4.17"
+  }
+}
+'''
+
+THEME_TAILWIND_CONFIG = '''// Your Tungsten theme's Tailwind config. Build it with `tungsten theme:build`,
+// which tells Tailwind where Tungsten (and any tungsten_* plugins) are installed.
+const tungsten = process.env.TUNGSTEN_THEME_DIR;
+if (!tungsten) {
+  throw new Error("Build this theme with `tungsten theme:build` (or `npm run build`).");
+}
+
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  // Tungsten's colors (primary, gray, danger, ...), dark mode and font
+  presets: [require(`${tungsten}/preset.js`)],
+  content: [
+    // Tungsten's own templates and installed plugins: keeps every built-in class
+    ...JSON.parse(process.env.TUNGSTEN_THEME_CONTENT || "[]"),
+    // your resources, pages and templates (paths are relative to this folder)
+    "../**/*.{py,html,js}",
+    "!../**/node_modules/**",
+  ],
+  theme: {
+    extend: {
+      // e.g. borderRadius: { "4xl": "2rem" },
+    },
+  },
+  plugins: [require("@tailwindcss/forms"), require("@tailwindcss/typography")],
+};
+'''
+
+THEME_CSS = '''/*
+ * Your Tungsten theme.
+ *
+ * Tungsten's own styles are loaded before this file, so you can use any Tailwind class in
+ * your templates and Python code, @apply Tungsten's classes, and override its components.
+ */
+
+@layer components {
+  /* Example: square cards
+  .tw-card { @apply rounded-none; }
+  */
+}
+'''
+
+THEME_GITIGNORE = '''node_modules/
+.tungsten-input.css
+'''
