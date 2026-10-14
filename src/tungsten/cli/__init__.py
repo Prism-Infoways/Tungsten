@@ -6,6 +6,8 @@
     tungsten make:widget SalesChart --type chart
     tungsten make:plugin Blog
     tungsten make:user --panel app.admin:panel
+    tungsten make:theme
+    tungsten theme:build
     tungsten lang:extract hi --path app
     tungsten init
 
@@ -18,8 +20,12 @@ import argparse
 import getpass
 import importlib
 import inspect
+import json
 import os
+import pkgutil
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
@@ -267,6 +273,88 @@ def make_plugin(name: str, directory: Path = Path("admin/plugins"), force: bool 
     print(f"\nUse it:  panel.plugin({cls}())")
 
 
+def make_theme(directory: Path = Path("admin/theme"), force: bool = False) -> None:
+    """Create a custom theme, so any Tailwind class works in your templates and code.
+
+    Tungsten ships a ready-built stylesheet with only the classes it uses itself. A theme is
+    your own Tailwind build on top of it. It needs Node.js (npm).
+    """
+    files = {
+        "package.json": stubs.THEME_PACKAGE_JSON,
+        "tailwind.config.js": stubs.THEME_TAILWIND_CONFIG,
+        "theme.css": stubs.THEME_CSS,
+        ".gitignore": stubs.THEME_GITIGNORE,
+    }
+    taken = [directory / name for name in files if (directory / name).exists()]
+    if taken and not force:
+        for path in taken:
+            secho(f"  {path} already exists (use --force to overwrite)", fg="yellow")
+        raise SystemExit(1)
+    directory.mkdir(parents=True, exist_ok=True)
+    for name, content in files.items():
+        (directory / name).write_text(content, encoding="utf-8")
+        secho(f"  created {directory / name}", fg="green")
+    css = directory / "dist" / "theme.css"
+    print(f"\nBuild it:  tungsten theme:build --dir {directory}"
+          f"\nUse it:    Panel(..., theme_stylesheet=\"{css.as_posix()}\")\n")
+
+
+def theme_content() -> list[str]:
+    """Tailwind content globs for Tungsten and every installed ``tungsten_*`` plugin package."""
+    import tungsten
+
+    roots = [Path(tungsten.__file__).parent]
+    for module in sorted(pkgutil.iter_modules(), key=lambda m: m.name):
+        if module.name.startswith("tungsten_") and module.ispkg:
+            path = getattr(module.module_finder, "path", None)
+            if path:
+                roots.append(Path(path) / module.name)
+    seen: list[str] = []
+    for root in roots:
+        glob = f"{root.resolve().as_posix()}/**/*.{{html,py,js}}"
+        if glob not in seen:
+            seen.append(glob)
+    return seen
+
+
+def theme_build(directory: Path = Path("admin/theme"), watch: bool = False) -> None:
+    """Build your custom theme into <dir>/dist/theme.css.
+
+    Installs the theme's npm packages on the first run. Run it again after adding classes,
+    or keep it running with --watch while you work.
+    """
+    import tungsten
+
+    if not (directory / "tailwind.config.js").is_file() or not (directory / "theme.css").is_file():
+        secho(f"No theme in {directory}. Create one with:  tungsten make:theme --dir {directory}", fg="red")
+        raise SystemExit(1)
+    npm, npx = shutil.which("npm"), shutil.which("npx")
+    if not npm or not npx:
+        secho("Building a theme needs Node.js. Install it from https://nodejs.org and try again.", fg="red")
+        raise SystemExit(1)
+    if not (directory / "node_modules" / "tailwindcss").is_dir():
+        secho("  installing the theme's npm packages...", fg="yellow")
+        subprocess.run([npm, "install", "--no-audit", "--no-fund"], cwd=directory, check=True)
+    tungsten_theme = Path(tungsten.__file__).parent / "theme"
+    # Tungsten's base styles first, then yours; Tailwind's CLI follows the @imports
+    (directory / ".tungsten-input.css").write_text(
+        f'@import "{(tungsten_theme / "tungsten.css").resolve().as_posix()}";\n@import "./theme.css";\n',
+        encoding="utf-8",
+    )
+    env = {**os.environ, "TUNGSTEN_THEME_DIR": tungsten_theme.resolve().as_posix(),
+           "TUNGSTEN_THEME_CONTENT": json.dumps(theme_content())}
+    command = [npx, "tailwindcss", "-c", "tailwind.config.js", "-i", ".tungsten-input.css",
+               "-o", "dist/theme.css", "--watch" if watch else "--minify"]
+    try:
+        subprocess.run(command, cwd=directory, env=env, check=True)
+    except subprocess.CalledProcessError as exc:
+        secho("Theme build failed (see the error above).", fg="red")
+        raise SystemExit(exc.returncode or 1) from None
+    except KeyboardInterrupt:  # --watch stops with Ctrl+C
+        return
+    secho(f"  built {directory / 'dist' / 'theme.css'}", fg="green")
+
+
 def _attribute_value(model: Any, key: str, value: str) -> Any:
     """Turn ``--set key=value`` text into the column's type (bool, number, date, ``null``)."""
     import datetime as dt
@@ -496,6 +584,14 @@ def build_parser() -> argparse.ArgumentParser:
                         "Values follow the column type (true/false, numbers, dates, now, null)")
     p.add_argument("--verified", dest="verified", action=_Toggle, off=["--unverified"], default=True,
                    help="With email verification on, mark the email as verified (default) or make the user verify it")
+
+    p = commands["make:theme"] = _command(sub, "make:theme", make_theme)
+    _dir_option(p, "admin/theme", "Folder for the theme")
+    _force_option(p)
+
+    p = commands["theme:build"] = _command(sub, "theme:build", theme_build)
+    _dir_option(p, "admin/theme", "The theme's folder")
+    p.add_argument("--watch", "-w", action="store_true", help="Rebuild whenever a file changes")
 
     p = commands["init"] = _command(sub, "init", init)
     _dir_option(p, "admin")

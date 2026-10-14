@@ -104,6 +104,7 @@ class Panel:
         locale: str = "en",
         locales: Iterable[str] | None = None,
         lang_dirs: Iterable[str | Path] = (),
+        theme_stylesheet: str | Path | None = None,
     ) -> None:
         self.id = id
         self.path = "/" + path.strip("/") if path.strip("/") else ""
@@ -169,6 +170,8 @@ class Panel:
         if locale not in self.locales:
             self.locales.insert(0, locale)
         self.translator = Translator(locale, lang_dirs)
+        #: a custom theme's built CSS (``tungsten make:theme``): a file path, or a URL; replaces tungsten.css
+        self.theme_stylesheet = theme_stylesheet
         self.renderer = Renderer(template_dirs)
         self.renderer.env.globals["panel"] = self
 
@@ -402,6 +405,37 @@ class Panel:
 
     def asset(self, name: str) -> str:
         return self.url("assets", name) + f"?v={asset_version(name)}"
+
+    def theme_file(self) -> Path | None:
+        """The custom theme's CSS file, when ``theme_stylesheet`` is a file path (not a URL)."""
+        value = self.theme_stylesheet
+        if value is None:
+            return None
+        if isinstance(value, str) and (value.startswith(("http://", "https://", "//"))
+                                       or (value.startswith("/") and not Path(value).is_file())):
+            return None
+        return Path(value)
+
+    def stylesheet(self) -> str:
+        """URL of the panel's CSS: the custom theme when set, else Tungsten's built-in tungsten.css."""
+        if self.theme_stylesheet is None:
+            return self.asset("tungsten.css")
+        file = self.theme_file()
+        if file is None:
+            return str(self.theme_stylesheet)
+        try:
+            stat = file.stat()
+        except OSError:
+            if not getattr(self, "_theme_missing_logged", False):
+                self._theme_missing_logged = True
+                logging.getLogger("tungsten").warning(
+                    "Theme stylesheet %s not found; using the built-in CSS. Run `tungsten theme:build`.", file)
+            return self.asset("tungsten.css")
+        key = (stat.st_mtime_ns, stat.st_size)
+        cached = getattr(self, "_theme_version", None)
+        if cached is None or cached[0] != key:  # rebuilt themes get a new ?v=, so browsers fetch them again
+            cached = self._theme_version = (key, hashlib.sha1(file.read_bytes()).hexdigest()[:10])
+        return self.url("theme.css") + f"?v={cached[1]}"
 
     def vendor_assets(self) -> dict[str, str]:
         """Big libraries that ``tungsten.js`` loads only when a page needs them."""

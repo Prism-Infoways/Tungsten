@@ -53,6 +53,11 @@ for (const name of Object.keys(colors)) {
 py += "}\n";
 fs.writeFileSync(path.join(pkg, "support", "palettes.py"), py);
 
+// Custom themes (`tungsten make:theme`) build on the same preset and base CSS, so ship them
+fs.mkdirSync(path.join(pkg, "theme"), { recursive: true });
+fs.copyFileSync(path.join(import.meta.dirname, "preset.js"), path.join(pkg, "theme", "preset.js"));
+fs.copyFileSync(path.join(import.meta.dirname, "input.css"), path.join(pkg, "theme", "tungsten.css"));
+
 execSync(
   `npx tailwindcss -c tailwind.config.js -i input.css -o ${path.join(out, "tungsten.css")} --minify`,
   { stdio: "inherit", cwd: import.meta.dirname },

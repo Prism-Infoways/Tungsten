@@ -1,6 +1,6 @@
 ---
 title: Theming
-description: Change brand colors, font, logo, favicon and dark mode, and turn on SPA mode and other layout options.
+description: Change brand colors, font, logo, favicon and dark mode, build your own Tailwind theme, and turn on SPA mode and other layout options.
 ---
 
 Tungsten looks good out of the box, and you can make it match your brand with a few `Panel(...)` options. No CSS build step is needed.
@@ -207,6 +207,77 @@ EditAction().keyboard_shortcut("mod+e")
 ```
 
 See [Actions](actions).
+
+## Custom theme
+
+Tungsten ships a ready-built stylesheet. It only has the Tailwind classes Tungsten uses itself, so a class like `bg-lime-300` or `rotate-[17deg]` in your own templates, `Markup(...)` or render hooks does nothing. A custom theme fixes that: it is your own Tailwind build on top of Tungsten's, so **every Tailwind class works**, and you can change Tungsten's own styles too.
+
+You need [Node.js](https://nodejs.org) (for npm) on the machine that builds the theme. The server that runs your app does not need it.
+
+### 1. Create the theme
+
+```bash
+tungsten make:theme
+```
+
+This makes an `admin/theme/` folder (pick another with `--dir`):
+
+| File | What it is |
+| --- | --- |
+| `theme.css` | Your CSS. Tungsten's styles load first, so you can `@apply` any class and override Tungsten's components. |
+| `tailwind.config.js` | Your Tailwind config. It uses Tungsten's colors, dark mode and font, and scans your code for classes. |
+| `package.json` | The npm packages (Tailwind) and `npm run build` / `npm run dev` shortcuts. |
+| `.gitignore` | Keeps `node_modules/` out of git. |
+
+### 2. Build it
+
+```bash
+tungsten theme:build            # writes admin/theme/dist/theme.css
+tungsten theme:build --watch    # rebuilds whenever you change a file
+```
+
+The first build installs the npm packages. Run the build again whenever you add new classes, or keep `--watch` running while you work. Commit `dist/theme.css` so your server can use it without Node.js.
+
+### 3. Use it
+
+```python
+from pathlib import Path
+
+panel = Panel(..., theme_stylesheet=Path(__file__).parent / "theme/dist/theme.css")
+```
+
+The panel now loads your theme instead of the built-in stylesheet. It is served at `/admin/theme.css` with a version number that changes on every build, so browsers always get the newest one. You can also pass a URL (for example a CDN) instead of a file. If the file is missing, the panel falls back to the built-in stylesheet and logs a warning.
+
+### What to put in a theme
+
+Add CSS to `theme.css`:
+
+```css
+@layer components {
+  /* square cards everywhere */
+  .tw-card { @apply rounded-none; }
+
+  /* your own class */
+  .promo-banner { @apply rounded-xl bg-primary-600 px-4 py-3 text-white; }
+}
+```
+
+Extend Tailwind in `tailwind.config.js`:
+
+```js
+theme: {
+  extend: {
+    borderRadius: { "4xl": "2rem" },
+  },
+},
+```
+
+By default the theme scans every `.py`, `.html` and `.js` file in the folder above it (`admin/`) for classes. If your templates live somewhere else, add their folder to `content` in `tailwind.config.js`. Tungsten and any installed `tungsten_*` plugin packages are always scanned, so their classes keep working.
+
+`Panel(colors=...)` and `Panel(font=...)` still work with a theme.
+
+> [!NOTE]
+> Rebuild your theme after you upgrade Tungsten, so it picks up the new version's styles.
 
 ## Overriding templates
 

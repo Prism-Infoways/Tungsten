@@ -15,6 +15,8 @@ tungsten make:relation-manager Customer orders
 tungsten make:page Settings --form
 tungsten make:widget Sales --type chart                  # stats, chart, table or progress
 tungsten make:plugin Blog
+tungsten make:theme                                      # your own Tailwind theme
+tungsten theme:build                                     # build it (--watch to rebuild on changes)
 tungsten make:user --panel app.admin:panel --role "Super Admin"
 tungsten lang:extract hi --path app                      # collect text to translate into lang/hi.json
 tungsten version
@@ -227,6 +229,35 @@ This writes `admin/plugins/blog_plugin.py` with a `BlogPlugin` class (plugin id 
 | `NAME` | (required) | The plugin name, e.g. `Blog`. |
 | `--dir`, `-d` | `admin/plugins` | The folder to write to. |
 | `--force`, `-f` | off | Overwrite an existing file. |
+
+## make:theme
+
+Creates a [custom theme](theming#custom-theme), so any Tailwind class works in your templates and code.
+
+```bash
+tungsten make:theme
+```
+
+This writes `theme.css`, `tailwind.config.js`, `package.json` and `.gitignore` into `admin/theme/`. Build it with `tungsten theme:build`, then pass `theme_stylesheet="admin/theme/dist/theme.css"` to your `Panel`.
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `--dir`, `-d` | `admin/theme` | The folder to write to. |
+| `--force`, `-f` | off | Overwrite existing files. |
+
+## theme:build
+
+Builds your custom theme into `<dir>/dist/theme.css`. It needs [Node.js](https://nodejs.org). The first run installs the theme's npm packages.
+
+```bash
+tungsten theme:build
+tungsten theme:build --watch
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `--dir`, `-d` | `admin/theme` | The theme's folder. |
+| `--watch`, `-w` | off | Keep running and rebuild whenever a file changes. Stop it with Ctrl+C. |
 
 ## make:user
 

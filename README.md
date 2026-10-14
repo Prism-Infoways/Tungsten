@@ -575,6 +575,8 @@ tungsten make:relation-manager Customer orders
 tungsten make:page Settings --form
 tungsten make:widget Sales --type chart                  # stats, chart, table, progress
 tungsten make:plugin Blog
+tungsten make:theme                                      # your own Tailwind theme
+tungsten theme:build                                     # build it (--watch to rebuild on changes)
 tungsten make:user --panel app.admin:panel --role "Super Admin"
 tungsten lang:extract hi --path app                      # collect text to translate into lang/hi.json
 ```
@@ -597,6 +599,7 @@ TUNGSTEN_TEST_ASYNC=1 pytest  # the same tests on an async engine (aiosqlite)
 
 # rebuild CSS/JS assets after changing templates or classes
 cd frontend && npm install && npm run build
+# (this also copies frontend/preset.js and input.css into src/tungsten/theme/ for custom themes)
 ```
 
 The built assets (Tailwind CSS, HTMX, Alpine.js, Chart.js, Trix, Tom Select, SortableJS, a QR code generator and Lucide icons) ship inside the package. Nothing loads from a CDN, except the optional Google font (`Panel(font=None)` turns it off). Pages load only HTMX, Alpine and `tungsten.js` up front; the bigger libraries load on the pages that use them, and everything is sent gzip-compressed with long-lived browser caching.

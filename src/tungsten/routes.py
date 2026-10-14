@@ -67,6 +67,15 @@ def build_app(panel: "Panel") -> FastAPI:
     # compress pages, CSS and JS (a list page shrinks from ~130 KB to ~15 KB)
     app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)  # level 9 is ~2x slower for ~1% smaller pages
     app.mount("/assets", CachedStaticFiles(directory=STATIC_DIR / "tungsten"), name="assets")
+
+    @app.get("/theme.css", include_in_schema=False)
+    def theme_css() -> Response:  # the custom theme from `tungsten make:theme`, when it is a file
+        file = panel.theme_file()
+        if file is None or not file.is_file():
+            return Response("Not found", status_code=404)
+        return FileResponse(file, media_type="text/css",
+                            headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
     for plugin in panel._plugins:
         if plugin.static:
             app.mount(f"/plugins/{plugin.id}", StaticFiles(directory=str(plugin.static)), name=f"plugin-{plugin.id}")

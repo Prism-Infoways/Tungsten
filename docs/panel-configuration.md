@@ -61,6 +61,7 @@ All options are keyword-only and have defaults, so you only pass what you want t
 | `login_hero` | built-in text | A dict with `heading` and `text` for the left side of the login page. |
 | `sidebar_footer` | brand card | HTML (for example `Markup(...)`) that replaces the card at the bottom of the sidebar. |
 | `template_dirs` | `()` | Folders with your own templates, to override Tungsten's. |
+| `theme_stylesheet` | `None` | Your custom theme's built CSS (a file path or URL), made with `tungsten make:theme`. Replaces the built-in stylesheet. |
 
 All of these are explained with examples in [Theming](theming).
 
