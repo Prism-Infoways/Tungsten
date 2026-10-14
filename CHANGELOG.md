@@ -2,9 +2,9 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
-## 2026-10-14 · Coming next: background workers, scope every query, MCP resources
+## 2026-10-14 · tungsten-admin 0.1.10: background workers, scope every query, MCP resources
 
-_Not on PyPI yet. These ship in the next `tungsten-admin` (0.1.10) and `tungsten-mcp` releases; the docs already show them._
+- **`tungsten-admin` 0.1.10** is on PyPI: `pip install -U tungsten-admin`. **After upgrading, run `panel.create_tables(engine)` once**: it adds the new job columns (retries, heartbeats) to the existing jobs table.
 
 - **Jobs in their own worker process**: `Panel(jobs="worker")` plus `tungsten jobs:work --workers 4`. Jobs get retries with backoff (`max_attempts=3, backoff=[10, 60]`), heartbeats, and jobs from a stopped server are picked up again. See [Actions](/docs/actions).
 - **Scope every query to the tenant**: `Tenancy(..., scope_session=True)` filters every ORM query on the panel's sessions, like a Laravel global scope, with `panel.tenancy.unscoped()` to step outside it. See [Multi-tenancy](/docs/multi-tenancy).
