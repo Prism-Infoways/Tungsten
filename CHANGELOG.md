@@ -4,6 +4,8 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 
 ## 2026-10-14 · Forms: everything Filament has
 
+_Not on PyPI yet: this comes with the next `tungsten-admin` release._
+
 - **Actions inside forms**: buttons next to a field's hint, before or after an input, in an `Actions` row or in a callout. They can fill fields, or open their own modal form, which also works in a form that is already in a modal.
 - **Select**: a + button to create a new option in a modal (saved and selected), and a pencil to edit the selected one.
 - **New fields**: `ModalTableSelect` (pick records from a searchable, paged table), `Slider` (one or two handles) and `ViewField` for your own templates. The docs now show how to write a custom field.
@@ -14,6 +16,8 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 
 ## 2026-10-14 · Safer sign-in
 
+_Not on PyPI yet: this comes with the next `tungsten-admin` release._
+
 - **Two-factor codes by email.** `Auth(two_factor_email=True)`: users can get their sign-in code by email instead of (or as well as) an authenticator app.
 - **Verified email change.** A new email on the profile page only takes effect after its owner opens the link sent to it. The old address gets a notice with a link to stop the change.
 - **Idle timeout.** `Auth(idle_timeout=30)` signs people out after 30 minutes without activity. Background polling doesn't count.
@@ -21,6 +25,8 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 - **Security headers** on every panel page: HSTS (over HTTPS), X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy and a Content Security Policy. Change them with `Panel(security_headers=..., content_security_policy=...)`, or add `SecurityHeadersMiddleware` to your whole site.
 
 ## 2026-10-14 · Tables catch up with Filament
+
+_Not on PyPI yet: this comes with the next `tungsten-admin` release._
 
 - **Filters in a pop-up or a dropdown**: `filters(..., layout="modal")` or `layout="dropdown"`, next to the side panel and the toolbar.
 - **Apply button for filters**: `deferred_filters()` runs the filters only when the user presses Apply. On by default in the modal and dropdown layouts.
@@ -33,10 +39,42 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 
 ## 2026-10-14 · Notifications and activity log
 
+_Not on PyPI yet: this comes with the next `tungsten-admin` release._
+
 - **Email notifications**: `Notification(...).send_to_mail(users, ctx)` emails a notification through the panel's mailer, with an HTML version and full links.
 - **Live notifications**: open tabs keep a WebSocket, so `broadcast(users, ctx)` pops a toast at once and `send_to_database` updates the bell count at once. Works with several workers through a custom broadcaster (Redis example in the docs).
 - **Activity log** now also records deletes, restores, force deletes, every action run, exports, sign-ins, sign-outs, failed sign-ins and password resets. Create and edit popups are logged too. New docs page: Activity log.
 - Fixed: the unread count on the notification bell never showed.
+
+## 2026-10-14 · Actions and exports
+
+_Not on PyPI yet: this comes with the next `tungsten-admin` release._
+
+- **Modals in modals**: an action's modal can open another action's modal, and modal footers can hold extra buttons. Headers and footers can stay in view while the content scrolls.
+- **Chained actions**: `.then(...)` runs a second action after the first, or picks the next one from the result.
+- **A wizard in a modal**: an action's form can be a step-by-step wizard.
+- **Before and after hooks** on every action, and **rate limits** so an action can't run too often.
+- **File downloads**: ready-made actions that send a file or stream a big one.
+- **Big bulk actions**: run the selected records in chunks, or in the background after the response.
+- **Background exports**: a big export runs in the background and sends a "Your export is ready" notification with a Download button.
+- **Export history**: every export is listed with its table, format, rows and status, with a download link.
+
+## 2026-10-14 · Infolists and relation managers
+
+_Not on PyPI yet: this comes with the next `tungsten-admin` release._
+
+- **New entries**: `CodeEntry` (coloured JSON, Python, SQL and more) and `ViewEntry` (your own template).
+- **Entry actions**: buttons on any entry, as a hint, before or after the value.
+- **Extra fields when attaching**: `AttachAction` can fill extra columns on the link table, such as a member's role in a team.
+- **Associate and dissociate** for one-to-many relationships.
+- **Polymorphic relationships** (`morph_many`, `morph_to_many`) and **has many through** (a team's tasks through its projects).
+- **Related records on their own page**, and **nested resources** with their own create, edit and view pages.
+
+## 2026-10-14 · Your own theme
+
+_Not on PyPI yet: this comes with the next `tungsten-admin` release._
+
+- **Custom themes**: `tungsten make:theme` and `tungsten theme:build` make your own Tailwind build on top of Tungsten's, so every Tailwind class works in your templates and code, and you can change Tungsten's own styles. Your server does not need Node.js.
 
 ## 2026-10-14 · Move from Filament to Tungsten
 
