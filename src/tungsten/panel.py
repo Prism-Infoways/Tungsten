@@ -104,6 +104,7 @@ class Panel:
         notifications_polling: str | None = "30s",
         notifications_live: bool = True,
         broadcaster: Any = None,
+        jobs: str = "thread",
         navigation_groups: list[str | NavigationGroup] | None = None,
         dashboard: type[Page] | None = Dashboard,
         template_dirs: Iterable[str | Path] = (),
@@ -166,6 +167,11 @@ class Panel:
 
             broadcaster = Broadcaster()
         self.broadcaster = broadcaster
+        if jobs not in ("thread", "worker"):
+            raise ValueError('jobs must be "thread" (run in the web process) or "worker" (tungsten jobs:work)')
+        #: "thread": background jobs run in the web process; "worker": they only queue, and
+        #: ``tungsten jobs:work`` runs them in their own process
+        self.jobs_mode = jobs
         self.dashboard = dashboard
         #: the dark panel beside the login form. ``highlight`` is the part of the heading shown in the brand color;
         #: ``features`` is a list of ``{"icon": ..., "label": ...}`` tiles (an empty list hides them).
@@ -763,15 +769,21 @@ class Panel:
 
             asyncio.run(self.acreate_tables(engine))
             return
+        with engine.begin() as conn:
+            self._create_tables(conn)
+
+    def _create_tables(self, conn: Any) -> None:
+        from .support.schema import add_missing_columns
+
         for metadata in self._all_metadata():
-            metadata.create_all(engine)
+            metadata.create_all(conn)
+            add_missing_columns(conn, metadata)  # columns added to Tungsten's tables by an upgrade
 
     async def acreate_tables(self, engine: Any = None) -> None:
         """Async version of :meth:`create_tables` for an async engine."""
         engine = self._engine(engine)
         async with engine.begin() as conn:
-            for metadata in self._all_metadata():
-                await conn.run_sync(metadata.create_all)
+            await conn.run_sync(self._create_tables)
 
     def _all_metadata(self) -> list[Any]:
         from .models import TungstenBase
@@ -810,7 +822,7 @@ class Panel:
         if runner is None:
             from .jobs import JobRunner
 
-            runner = self.__dict__["_jobs"] = JobRunner(self)
+            runner = self.__dict__["_jobs"] = JobRunner(self, mode=self.jobs_mode)
         return runner
 
     @staticmethod

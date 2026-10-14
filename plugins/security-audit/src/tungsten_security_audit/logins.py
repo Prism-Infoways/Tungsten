@@ -127,10 +127,14 @@ class LoginGuard:
 
     def unlock(self, db: Any, email: str, user_id: str | None = None) -> None:
         # also forget the panel's own per-minute count for this email
-        attempts = getattr(getattr(self.plugin.panel, "auth", None), "_attempts", None)
-        if isinstance(attempts, dict):
-            for key in [k for k in attempts if str(k).endswith("|" + email)]:
-                attempts.pop(key, None)
+        auth = getattr(self.plugin.panel, "auth", None)
+        if hasattr(auth, "reset_attempts"):
+            auth.reset_attempts(email)
+        else:  # tungsten-admin before 0.1.10
+            attempts = getattr(auth, "_attempts", None)
+            if isinstance(attempts, dict):
+                for key in [k for k in attempts if str(k).endswith("|" + email)]:
+                    attempts.pop(key, None)
         db.add(LoginAttempt(email=email, ip=None, user_agent=None, success=False, reason="unlocked", user_id=user_id))
         db.commit()
 

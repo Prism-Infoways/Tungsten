@@ -475,6 +475,45 @@ def lang_extract(
     secho(f"  {file}: {added} new, {empty} still to translate", fg="green")
 
 
+def jobs_work(panel: str, workers: Optional[int] = None, once: bool = False, sleep: float = 1.0) -> None:
+    """Run background jobs in this process, for Panel(jobs="worker").
+
+    Claims queued jobs from the tungsten_jobs table and runs them. Start one or more of these next to the web
+    server; each job runs in only one of them. Jobs a stopped worker left behind are queued again (or marked
+    failed when they have no tries left)."""
+    import signal
+    import threading
+
+    p = load(panel)
+    runner = p.jobs
+    if workers:
+        runner.workers = workers
+    stop = threading.Event()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(sig, lambda *_: stop.set())
+        except ValueError:  # not the main thread
+            pass
+    secho(f"Running jobs as {runner.worker_id} ({runner.workers} at a time). Ctrl+C to stop.", fg="green")
+    started = runner.work(once=once, sleep=sleep, stop=stop)
+    if not once:
+        secho("Stopping: waiting for running jobs to finish...")
+    runner.wait(None)
+    secho(f"Started {started} job(s).")
+
+
+def jobs_retry(panel: str, job_id: int) -> None:
+    """Queue a failed background job again."""
+    p = load(panel)
+    if p.jobs.retry(job_id):
+        secho(f"Job {job_id} is queued again.", fg="green")
+        if p.jobs.mode == "thread":
+            p.jobs.wait(None)
+    else:
+        secho(f"Job {job_id} is not a failed job.", fg="red")
+        raise SystemExit(1)
+
+
 def version() -> None:
     """Show the Tungsten version."""
     from ..panel import VERSION
@@ -604,6 +643,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", "-o", type=Path, default=Path("lang"), metavar="PATH",
                    help=_default("Folder for <locale>.json", "lang"))
     p.add_argument("--builtin", action="store_true", help="Also list Tungsten's own text, to override it")
+
+    p = commands["jobs:work"] = _command(sub, "jobs:work", jobs_work)
+    p.add_argument("--panel", "-p", required=True, metavar="TEXT",
+                   help="Import path of your panel, e.g. app.admin:panel")
+    p.add_argument("--workers", "-w", type=int, metavar="N", help="Jobs at the same time (default: panel.jobs.workers)")
+    p.add_argument("--once", action="store_true", help="Stop when no job is waiting")
+    p.add_argument("--sleep", type=float, default=1.0, metavar="SECONDS",
+                   help=_default("Wait between looks for new jobs", 1.0))
+
+    p = commands["jobs:retry"] = _command(sub, "jobs:retry", jobs_retry)
+    p.add_argument("job_id", type=int, metavar="ID", help="The job's id")
+    p.add_argument("--panel", "-p", required=True, metavar="TEXT",
+                   help="Import path of your panel, e.g. app.admin:panel")
 
     commands["version"] = _command(sub, "version", version)
 

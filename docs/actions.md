@@ -422,7 +422,37 @@ panel.jobs.register("rebuild-index", rebuild_index)
 panel.jobs.dispatch(ctx, "rebuild-index", name="Rebuild search index")   # inside an action
 ```
 
-A job gets its own database session (`job.db`), the user who started it (`job.user`), their tenant and a ready `job.ctx`. Set `panel.jobs.workers` to run more at once (default 2). Jobs stop if the server stops; with one server process, call `panel.jobs.fail_unfinished()` at startup to mark those as failed.
+A job gets its own database session (`job.db`), the user who started it (`job.user`), their tenant and a ready `job.ctx`. Set `panel.jobs.workers` to run more at once (default 2).
+
+### Retries
+
+Give a job more tries, with a wait (backoff) before each retry:
+
+```python
+panel.jobs.register("import-sheet", import_sheet, max_attempts=3, backoff=[10, 60])  # or 30, or lambda attempt: ...
+```
+
+A failed job whose tries are used up stays failed and the user gets a notification. Queue it again with `panel.jobs.retry(job_id)` or `tungsten jobs:retry ID --panel app.admin:panel`.
+
+### A separate worker process
+
+By default jobs run in the web process. For long or heavy jobs (parsing a big spreadsheet, writing hundreds of files), run them in their own process instead:
+
+```python
+panel = Panel(..., jobs="worker")   # dispatch() only queues the job
+```
+
+```bash
+tungsten jobs:work --panel app.admin:panel --workers 4
+```
+
+Start as many workers as you like, on one server or several: each job is claimed by exactly one of them (a conditional update on the `tungsten_jobs` row, so MySQL, PostgreSQL and SQLite all work). Ctrl+C or SIGTERM lets running jobs finish first. The worker needs a sync database URL.
+
+### When a server stops
+
+A running job writes a heartbeat every 30 seconds. A job without a heartbeat for 2 minutes belongs to a process that stopped (a deploy, a crash): `panel.jobs.recover()` queues it again when it has tries left, otherwise marks it failed. Jobs other live processes are running are left alone, so it is safe to call at startup in every process; the worker calls it by itself. In `thread` mode it also starts jobs that were still waiting. (`fail_unfinished()` is the older name and does the same.)
+
+Run `panel.create_tables(engine)` once after upgrading: it adds the new columns to `tungsten_jobs`.
 
 ## Action groups
 

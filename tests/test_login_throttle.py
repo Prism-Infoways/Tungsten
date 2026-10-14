@@ -60,3 +60,13 @@ def test_store_is_pluggable():
     a.failed_attempt("k")
     b.failed_attempt("k")
     assert a.throttled("k") and b.throttled("k")
+
+
+def test_reset_attempts_for_one_email():
+    auth = Auth(object(), max_login_attempts=1)
+    auth.failed_attempt("1.1.1.1|ann@x.com")
+    auth.failed_attempt("2.2.2.2|ann@x.com")
+    auth.failed_attempt("1.1.1.1|bob@x.com")
+    auth.reset_attempts("Ann@x.com")
+    assert not auth.throttled("1.1.1.1|ann@x.com") and not auth.throttled("2.2.2.2|ann@x.com")
+    assert auth.throttled("1.1.1.1|bob@x.com")
