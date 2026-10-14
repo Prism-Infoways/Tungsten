@@ -4,6 +4,8 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 
 ## 2026-10-14 · Navigation and teams like Filament
 
+_Not on PyPI yet: this comes with the next `tungsten-admin` release._
+
 - **Tenant in the URL**: `Tenancy(..., url=True, slug_attribute="slug")` gives links like `/admin/acme/products`, so two tabs can show two teams.
 - **Team sign-up and settings pages**: users register new teams and edit the current one. Users without a team go to sign-up first.
 - **Billing hooks**: plug in Stripe or any provider with `BillingProvider`, and lock unpaid teams with `require_subscription=True`.
