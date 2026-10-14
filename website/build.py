@@ -41,7 +41,7 @@ DESCRIPTION = ("Tungsten is a free, open source admin panel builder for FastAPI 
                "logins and roles.")
 
 NAV = [
-    ("Getting started", ["introduction", "installation", "quick-start", "demo-app"]),
+    ("Getting started", ["introduction", "installation", "quick-start", "demo-app", "filament-migration"]),
     ("Panel", ["panel-configuration", "navigation", "theming"]),
     ("Resources", ["resources", "relation-managers", "infolists", "custom-pages"]),
     ("Forms", ["forms", "form-fields", "form-layouts"]),
@@ -64,6 +64,10 @@ HOME_FAQS = [
     ("Is Tungsten like Filament or Django admin?",
      "Yes. Tungsten brings the Filament way of building panels to Python. Like Django admin it builds screens from "
      "your models, but it works with FastAPI and SQLAlchemy and gives you far more control over forms, tables and dashboards."),
+    ("Can I move my Filament admin panel to Tungsten?",
+     "Yes. The free tungsten-filament tool reads a Laravel Filament project and writes a Tungsten admin for FastAPI, "
+     "with models, resources, forms, tables, filters and actions. It runs on the same database and people sign in "
+     "with the same passwords."),
     ("How do I install Tungsten?",
      "Run pip install tungsten-admin, describe a resource for one of your SQLAlchemy models, mount the panel on your "
      "FastAPI app with panel.mount(app), and create a user with tungsten make:user. It needs Python 3.10 or newer."),
@@ -169,8 +173,11 @@ def build(base_url: str = "") -> None:
         shutil.copy(video, OUT / "static" / "img" / "promo.mp4")
 
     env = Environment(loader=FileSystemLoader(SITE / "templates"), autoescape=True)
-    plugins = [dict(p, version=package_version(ROOT / "plugins" / p["package"].removeprefix("tungsten-")),
-                    blog=BLOG_POSTS.get(p["slug"])) for p in PLUGINS]
+    plugins = []
+    for p in PLUGINS:
+        folder = p.get("dir") or p["package"].removeprefix("tungsten-")  # folder under plugins/
+        plugins.append(dict(p, dir=folder, kind=p.get("kind", "plugin"), blog=BLOG_POSTS.get(p["slug"]),
+                            version=package_version(ROOT / "plugins" / folder)))
     by_slug = {p["slug"]: p for p in plugins}
     for p in plugins:
         unknown = [s for s in RELATED.get(p["slug"], []) if s not in by_slug]
@@ -281,10 +288,10 @@ def build(base_url: str = "") -> None:
         schema = graph(
             {"@type": "SoftwareApplication", "name": f"{p['package']}", "alternateName": p["name"],
              "description": p["summary"], "url": url, "applicationCategory": "DeveloperApplication",
-             "applicationSubCategory": "Tungsten plugin", "operatingSystem": "Linux, macOS, Windows",
+             "applicationSubCategory": f"Tungsten {p['kind']}", "operatingSystem": "Linux, macOS, Windows",
              "programmingLanguage": "Python", "softwareVersion": p["version"],
              "downloadUrl": f"https://pypi.org/project/{p['package']}/",
-             "codeRepository": f"{REPO}/tree/HEAD/plugins/{p['package'].removeprefix('tungsten-')}",
+             "codeRepository": f"{REPO}/tree/HEAD/plugins/{p['dir']}",
              "license": "https://opensource.org/licenses/MIT", "isAccessibleForFree": True,
              "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
              "featureList": [f"{t}: {d}" for t, d in p["features"]],
@@ -292,7 +299,7 @@ def build(base_url: str = "") -> None:
              "isPartOf": {"@id": f"{SITE_URL}/#software"}, "author": {"@id": f"{SITE_URL}/#org"},
              **({"subjectOf": {"@type": "BlogPosting", "headline": p["blog"][0], "url": p["blog"][1],
                                "publisher": {"@id": f"{SITE_URL}/#org"}}} if p["blog"] else {})},
-            {"@type": "WebPage", "url": url, "name": f"{p['name']} plugin for Tungsten", "relatedLink": links,
+            {"@type": "WebPage", "url": url, "name": p.get("title") or f"{p['name']} plugin for Tungsten", "relatedLink": links,
              "speakable": {"@type": "SpeakableSpecification", "cssSelector": [".speakable"]}},
             crumbs_schema([("Home", f"{SITE_URL}/"), ("Plugins", index_url), (p["name"], url)]),
             faq_schema(p["faqs"]), ORG)
