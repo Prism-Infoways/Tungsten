@@ -194,6 +194,19 @@ def test_api(client, panel):
         assert ticket.priority == "urgent" and ticket.source == "api" and ticket.description == "Where is order 12?"
 
 
+def test_api_category_by_name(client, panel):
+    with panel.db() as db:
+        db.add(TicketCategory(name="Billing"))
+        db.commit()
+    headers = {"X-Tickets-Token": "secret-token"}
+    known = client.client.post("/admin/api/tickets", json={"subject": "Refund", "category": "Billing"}, headers=headers)
+    unknown = client.client.post("/admin/api/tickets", json={"subject": "Other", "category": "Nope"}, headers=headers)
+    assert known.status_code == 201 and unknown.status_code == 201
+    with panel.db() as db:
+        assert db.get(Ticket, known.json()["id"]).category.name == "Billing"
+        assert db.get(Ticket, unknown.json()["id"]).category_id is None
+
+
 def test_hooks(panel):
     plugin = panel.get_plugin("tickets")
     seen = []

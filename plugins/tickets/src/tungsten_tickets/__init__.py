@@ -20,6 +20,7 @@ from typing import Any
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
 from tungsten import Plugin
@@ -204,7 +205,9 @@ class TicketsPlugin(Plugin):
             def save(db: Any) -> dict:
                 category_id = None
                 if payload.get("category"):
-                    category = db.query(TicketCategory).filter(TicketCategory.name == str(payload["category"])).first()
+                    category = db.scalars(
+                        select(TicketCategory).where(TicketCategory.name == str(payload["category"])).limit(1)
+                    ).first()
                     category_id = category.id if category is not None else None
                 ticket = create_ticket(
                     db, subject=subject, description=payload.get("description") or payload.get("message"),

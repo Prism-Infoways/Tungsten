@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
-from sqlalchemy import Integer, String, Text, create_engine
+from sqlalchemy import Integer, String, Text, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from tungsten_kanban import Board, KanbanPlugin
 
@@ -55,7 +55,7 @@ engine = create_engine("sqlite:///kanban-demo.db")
 Base.metadata.create_all(engine)
 factory = sessionmaker(engine, expire_on_commit=False)
 with factory() as db:
-    if not db.query(User).first():
+    if db.scalar(select(User).limit(1)) is None:
         db.add(User(name="Admin", email="admin@example.com", password=hash_password("password")))
         for i, (title, status) in enumerate([("Write the brief", "done"), ("Design the page", "doing"),
                                              ("Build the form", "todo"), ("Check on mobile", "review")]):
