@@ -242,6 +242,46 @@ class Column(Component):
                                      v=self.view_data(table, record))
 
 
+class ColumnGroup(Component):
+    """A shared heading over several columns::
+
+        ColumnGroup("Pricing", [TextColumn("price").money("INR"), TextColumn("cost").money("INR")])
+    """
+
+    def __init__(self, label: Any, columns: list[Column] | None = None) -> None:
+        super().__init__()
+        self._label = label
+        self.columns: list[Column] = list(columns or [])
+        self._alignment = "center"
+        self._wrap = False
+
+    def label(self, label: Any) -> "ColumnGroup":
+        self._label = label
+        return self
+
+    def schema(self, columns: list[Column]) -> "ColumnGroup":
+        self.columns = list(columns)
+        return self
+
+    def alignment(self, value: str) -> "ColumnGroup":
+        """``"start"``, ``"center"`` (default) or ``"end"``."""
+        self._alignment = value
+        return self
+
+    def align_start(self) -> "ColumnGroup":
+        return self.alignment("start")
+
+    def align_end(self) -> "ColumnGroup":
+        return self.alignment("end")
+
+    def wrap_header(self, condition: bool = True) -> "ColumnGroup":
+        self._wrap = condition
+        return self
+
+    def get_label(self) -> str:
+        return __(str(evaluate(self._label)))
+
+
 def default_format(value: Any) -> Any:
     if isinstance(value, enum.Enum):
         label = getattr(value, "label", None)

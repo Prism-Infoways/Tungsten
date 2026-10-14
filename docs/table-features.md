@@ -82,12 +82,13 @@ Rows are sorted by the group attribute first, then by the user's sort. Users can
 `summarize()` adds a footer row with totals. The numbers are computed over **all** rows that match the current search, filters and tab, not only the current page.
 
 ```python
-from tungsten.tables import Average, Count, Max, Min, Sum
+from tungsten.tables import Average, Count, Max, Min, Range, Sum
 
 TextColumn("total").money("INR", 0).summarize(Sum().money("INR", 0))
 TextColumn("stock").summarize(Sum(), Average().numeric(1))
 TextColumn("price").money("INR").summarize(Min("Cheapest").money("INR"), Max("Dearest").money("INR"))
 TextColumn("email").summarize(Count())
+TextColumn("price").money("INR", 0).summarize(Range().money("INR", 0))   # ₹120 – ₹4,500
 ```
 
 | Summarizer | Shows |
@@ -96,6 +97,7 @@ TextColumn("email").summarize(Count())
 | `Average()` | The average. |
 | `Count()` | How many rows have a value. |
 | `Min()`, `Max()` | The smallest or largest value. |
+| `Range()` | The smallest and largest value, like `120 – 4,500`. Works on dates too. Change the dash with `separator(" to ")`. |
 
 Each summarizer takes an optional label as its first argument, and has:
 
@@ -114,6 +116,51 @@ TextColumn("products_count").state(lambda record: len(record.products)).summariz
 
 > [!NOTE]
 > Summaries are skipped for dotted names (`customer.name`) unless the column has `state()`.
+
+## Column groups
+
+`ColumnGroup` puts a shared heading over a few columns. Put it in the column list where the columns go:
+
+```python
+from tungsten.tables import ColumnGroup
+
+table.columns([
+    TextColumn("name"),
+    ColumnGroup("Pricing", [
+        TextColumn("price").money("INR"),
+        TextColumn("compare_price").money("INR"),
+    ]),
+    ColumnGroup("Stock", [TextColumn("stock"), TextColumn("reserved")]).align_start(),
+])
+```
+
+| Method | What it does |
+| --- | --- |
+| `alignment(value)`, `align_start()`, `align_end()` | Where the heading sits. Centred by default. |
+| `wrap_header()` | Let a long heading wrap onto two lines. |
+
+The columns inside keep all their own options (sorting, search, toggling, totals).
+
+## Cards and phone layouts
+
+### Cards on phones
+
+`stacked_on_mobile()` keeps the normal table on bigger screens, but on phones each row becomes a card: one line per column, with the column name on the left and the value on the right. No sideways scrolling.
+
+```python
+table.stacked_on_mobile()
+```
+
+### A grid of cards
+
+`content_grid()` shows the records as cards in a grid on every screen size, like a catalogue. The first column is the card title, the others are listed under it with their labels. Selection, row actions and totals still work.
+
+```python
+table.content_grid({"md": 2, "xl": 3})   # 1 card per row on phones, 2 from md, 3 from xl
+table.content_grid(4)                     # always 4 per row
+```
+
+Screen sizes are `sm`, `md`, `lg`, `xl` and `2xl`, with 1 to 6 cards per row.
 
 ## Show and hide columns
 

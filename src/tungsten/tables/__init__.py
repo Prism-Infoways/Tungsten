@@ -8,6 +8,7 @@ from .columns import (
     BadgeColumn,
     ColorColumn,
     Column,
+    ColumnGroup,
     IconColumn,
     ImageColumn,
     TextColumn,
@@ -25,14 +26,14 @@ from .query_builder import (
     SelectConstraint,
     TextConstraint,
 )
-from .summarizers import Average, Count, Max, Min, Sum, Summarizer
+from .summarizers import Average, Count, Max, Min, Range, Sum, Summarizer
 from .table import Group, ListTab, Table
 
 __all__ = [
     "BooleanConstraint", "Constraint", "DateConstraint", "NumberConstraint", "QueryBuilder",
     "RelationshipConstraint", "SelectConstraint", "TextConstraint",
     "CheckboxColumn", "EditableColumn", "SelectColumn", "TextInputColumn",
-    "Average", "BadgeColumn", "ColorColumn", "Column", "Count", "DateFilter", "Filter", "Group", "IconColumn",
-    "ImageColumn", "ListTab", "Max", "Min", "SelectFilter", "Sum", "Summarizer", "Table", "TernaryFilter", "TextColumn",
+    "Average", "BadgeColumn", "ColorColumn", "Column", "ColumnGroup", "Count", "DateFilter", "Filter", "Group", "IconColumn",
+    "ImageColumn", "ListTab", "Max", "Min", "Range", "SelectFilter", "Sum", "Summarizer", "Table", "TernaryFilter", "TextColumn",
     "ToggleColumn", "TrashedFilter", "ViewColumn",
 ]
