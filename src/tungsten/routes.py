@@ -450,6 +450,10 @@ class Routes:
         async def form_options(request: Request):
             return await r.run(request, r.form_options, read_form=True)
 
+        @p("/_tw/form/attachment")
+        async def form_attachment(request: Request):
+            return await r.run(request, r.form_attachment, read_form=True)
+
         @g("/_tw/download")
         async def download(request: Request):
             return await r.run(request, r.download)
@@ -1860,11 +1864,12 @@ class Routes:
             path = key[: -len(".__upload")]
             if not getattr(upload, "filename", None):
                 continue
-            found = form.find(path)
+            owner = form.form_for(path)
+            found = owner.find(path)
             if found is None or not hasattr(found[0], "accept_upload"):
                 continue
             field = found[0]
-            if field.is_disabled(form, found[2]):
+            if field.is_disabled(owner, found[2]):
                 continue
             error = field.check_upload(upload.filename, upload.content_type or "", upload.size or 0)
             if error is None:
@@ -1873,14 +1878,16 @@ class Routes:
                     if self.panel.upload_listeners:
                         stored = self.panel.uploaded(ctx, stored, upload.filename, upload.content_type or "",
                                                      upload.size or 0, field)
-                    field.accept_upload(form, path, stored)
+                    field.accept_upload(owner, path, stored)
                 except ValueError as exc:
                     error = str(exc)
             if error:
-                form.add_error(path, error)
+                owner.add_error(path, error)
         ui_action = fd.get("_tw_ui_action")
         if ui_action:
             form.handle_ui_action(ui_action)
+            if ui_action.startswith("faction."):
+                ctx.db.commit()  # a form action may have saved something (e.g. a new Select option)
         else:
             changed = ctx.request.headers.get("HX-Trigger-Name")
             if changed:
@@ -1890,11 +1897,40 @@ class Routes:
     def form_options(self, ctx: Context, fd: Any) -> Response:
         form = self._resolve_form(ctx, fd)
         form.load(fd)
-        found = form.find(fd.get("_tw_field") or "")
+        owner = form.form_for(fd.get("_tw_field") or "")
+        found = owner.find(fd.get("_tw_field") or "")
         if found is None or not hasattr(found[0], "search_options"):
             raise NotFound()
-        options = found[0].search_options(form, fd.get("q") or "")
+        options = found[0].search_options(owner, fd.get("q") or "")
         return JSONResponse([{"value": str(k), "text": label} for k, label in options])
+
+    def form_attachment(self, ctx: Context, fd: Any) -> Response:
+        """A file dropped into a RichEditor: store it and return its URL."""
+        form = self._resolve_form(ctx, fd)
+        form.load(fd)
+        path = fd.get("_tw_field") or ""
+        owner = form.form_for(path)
+        found = owner.find(path)
+        field = found[0] if found else None
+        if field is None or not hasattr(field, "check_attachment") or field.is_disabled(owner, found[2]) \
+                or not field.attachments_enabled(owner, found[2]):
+            raise NotFound()
+        upload = fd.get("file")
+        if not getattr(upload, "filename", None):
+            return JSONResponse({"error": __("Choose a file.")}, status_code=422)
+        error = field.check_attachment(upload.filename, upload.content_type or "", upload.size or 0)
+        if error is None:
+            try:
+                stored = blocking(self.panel.storage.save, upload.file, upload.filename, field._attachments_directory)
+                if self.panel.upload_listeners:
+                    stored = self.panel.uploaded(ctx, stored, upload.filename, upload.content_type or "",
+                                                 upload.size or 0, field)
+            except ValueError as exc:
+                error = str(exc)
+        if error:
+            return JSONResponse({"error": error}, status_code=422)
+        url = self.panel.storage.url(stored)
+        return JSONResponse({"url": url, "href": url, "path": stored})
 
     # ------------------------------------------------------------------ global search
     def search(self, ctx: Context, fd: Any) -> Response:

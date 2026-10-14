@@ -7,9 +7,54 @@
 <div class="overflow-hidden rounded-lg bg-white shadow-sm ring-1 focus-within:ring-2 focus-within:ring-primary-500 dark:bg-white/5 {{ 'ring-danger-600' if v.errors else 'ring-gray-950/10 dark:ring-white/20' }}"
      {% if v.maxlength %}x-data="{ length: {{ v.length }} }" @trix-change="length = $event.target.editor.getDocument().toString().replace(/\n/g, '').length"{% endif %}>
   <input type="hidden" id="{{ v.id }}" name="{{ v.path }}" value="{{ v.safe_html|forceescape }}" {{ v.live }}>
-  <trix-toolbar id="{{ v.id }}-toolbar" class="border-b border-gray-200 px-2 pt-2 dark:border-white/10"></trix-toolbar>
+  <input type="hidden" name="_tw_ui.{{ v.path }}.cursor" value="{{ v.cursor }}" data-tw-rich-cursor>
+  <input type="hidden" name="_tw_ui.{{ v.path }}.edit" value="" data-tw-rich-edit>
+  <trix-toolbar id="{{ v.id }}-toolbar" class="border-b border-gray-200 px-2 pt-2 dark:border-white/10">
+    {% if v.toolbar %}
+    <div class="trix-button-row">
+      {% for group, buttons in v.toolbar %}
+      {% if group == 'blocks' %}
+      <span class="trix-button-group" data-tw-block-menu x-data="{ open: false }" @click.outside="open = false" style="position: relative">
+        <button type="button" class="trix-button tw-trix-text-button" title="{{ __('Insert block') }}" @click="open = !open" tabindex="-1">{{ icon('square-plus', 'h-4 w-4') }}</button>
+        <button type="button" class="trix-button tw-trix-text-button" title="{{ __('Edit block') }}" data-tw-block-edit tabindex="-1">{{ icon('pencil', 'h-4 w-4') }}</button>
+        <div x-show="open" x-cloak @click="open = false"
+             class="absolute start-0 top-full z-20 mt-1 w-56 rounded-lg bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+          {% for b in v.blocks %}<div data-tw-block="{{ b.name }}">{{ b.button }}</div>{% endfor %}
+        </div>
+      </span>
+      {% else %}
+      <span class="trix-button-group trix-button-group--{{ group }}-tools">
+        {% for b in buttons %}
+        <button type="button" class="trix-button {{ 'trix-button--icon trix-button--icon-' ~ b.icon if b.icon else 'tw-trix-text-button' }}"
+                {% if b.kind == 'attribute' %}data-trix-attribute="{{ b.value }}"{% else %}data-trix-action="{{ b.value }}"{% endif %}
+                {% if b.value == 'href' %}data-trix-action="link"{% endif %}
+                {% if b.key %}data-trix-key="{{ b.key }}"{% endif %} title="{{ b.label }}" tabindex="-1">{{ b.text or b.label }}</button>
+        {% endfor %}
+      </span>
+      {% endif %}
+      {% if not loop.last and loop.nextitem and loop.nextitem[0] == 'history' %}<span class="trix-button-group-spacer"></span>{% endif %}
+      {% endfor %}
+    </div>
+    {% if v.has_link %}
+    <div class="trix-dialogs" data-trix-dialogs>
+      <div class="trix-dialog trix-dialog--link" data-trix-dialog="href" data-trix-dialog-attribute="href">
+        <div class="trix-dialog__link-fields">
+          <input type="url" name="href" form="tw-no-form" class="trix-input trix-input--dialog" placeholder="{{ __('Enter a URL…') }}" aria-label="URL" data-trix-validate-href required data-trix-input>
+          <div class="trix-button-group">
+            <input type="button" class="trix-button trix-button--dialog" value="{{ __('Link') }}" data-trix-method="setAttribute">
+            <input type="button" class="trix-button trix-button--dialog" value="{{ __('Unlink') }}" data-trix-method="removeAttribute">
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+  </trix-toolbar>
   <trix-editor input="{{ v.id }}" toolbar="{{ v.id }}-toolbar" class="tw-trix tw-prose"
                {% if v.placeholder %}placeholder="{{ v.placeholder }}"{% endif %}
+               {% if v.attach_url %}data-tw-attach-url="{{ v.attach_url }}" data-tw-field="{{ v.path }}" data-tw-attach-types="{{ v.attach_types }}"{% if v.attach_max %} data-tw-attach-max="{{ v.attach_max }}"{% endif %}{% endif %}
+               {% if v.mentions %}data-tw-mentions="{{ v.mentions }}" data-tw-field="{{ v.path }}"{% if v.search_url %} data-tw-search-url="{{ v.search_url }}"{% endif %}{% endif %}
+               {% if v.insert %}data-tw-insert="{{ v.insert }}"{% endif %}
                {% if field._live %}data-tw-live="{{ v.id }}"{% if v.live_delay %} data-tw-live-delay="{{ v.live_delay }}"{% endif %}{% if v.live_on_blur %} data-tw-live-blur{% endif %}{% endif %}></trix-editor>
   {% if v.maxlength %}
   <p class="border-t border-gray-200 px-3 py-1 text-xs dark:border-white/10" data-tw-length

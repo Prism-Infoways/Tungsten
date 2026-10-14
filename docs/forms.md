@@ -304,6 +304,39 @@ def mutate_form_data_before_create(cls, data, user):
 
 See [Resources](resources) for the full list.
 
+## Actions in forms
+
+Buttons can sit inside a form: next to a field's hint, before or after an input, in a row of their own, or in a [callout](form-layouts#text-html-and-callout). They are normal [actions](actions). Their closures also get the form's `get`, `set` and `state`, so they can fill fields:
+
+```python
+from tungsten.actions import Action
+from tungsten.forms import Actions
+
+TextInput("slug")
+    .suffix_action(Action("generate").icon("refresh-cw").tooltip("Make from the title")
+                   .action(lambda get, set: set("slug", slugify(get("title")))))
+    .hint_action(Action("preview").label("Preview").url(lambda get: f"/blog/{get('slug')}", open_in_new_tab=True))
+
+Actions([
+    Action("copy_billing").label("Same as billing address")
+        .action(lambda get, set: set("shipping_address", get("billing_address"))),
+    Action("lookup").label("Find by PIN code").icon("search")
+        .form([TextInput("pin").length(6).required()])
+        .action(lambda data, set: set("city", city_for(data["pin"]))),
+]).alignment("end")
+```
+
+| Where | How |
+| --- | --- |
+| Next to the hint | `field.hint_action(action)` / `hint_actions([...])` (shown as small links). `hint_color()` colors the hint. |
+| Before / after the input | `field.prefix_action(action)` / `suffix_action(action)` (and the plural forms), shown as icon buttons. |
+| A row of buttons | `Actions([...])`, with `alignment("start"/"center"/"end"/"between")` and `full_width()`. |
+| In a callout | `Callout(...).actions([...])`. |
+
+An action without a form runs at once. One with `form()`, `requires_confirmation()` or `modal_content()` opens a modal inside the form; `fill_form()` fills it, and the action gets the modal's values as `data`. The modal also works in a form that is already in a modal, such as an edit action on a table. A modal can't open another modal, so inside one only link actions are shown. Read-only forms (view pages) show only link actions. `visible()`, `hidden()`, `disabled()` and `authorize()` work as usual; an `authorize("ability")` string checks the user's permission.
+
+Anything the action saves to the database is saved at once. To only change the form, use `set()`; the user still has to save the form.
+
 ## Where else forms are used
 
 The same fields work in other places:

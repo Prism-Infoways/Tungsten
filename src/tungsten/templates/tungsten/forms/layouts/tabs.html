@@ -1,4 +1,11 @@
-<div class="{{ 'tw-card' if v.contained }}" x-data="{ tab: '{{ v.active }}' }">
+{% set ids = v.ids | tojson | forceescape %}
+<div class="{{ 'tw-card' if v.contained }}" x-data="{ tab: '{{ v.active }}', ids: {{ ids }} }"
+     {% if v.query_key or v.persist %}x-init="
+       {% if v.persist and not v.has_errors %}try { const saved = localStorage.getItem('tw-tab:' + location.pathname + ':{{ v.key }}'); if (saved !== null && ids[saved] !== undefined) tab = saved; } catch (e) {}{% endif %}
+       $watch('tab', (t) => {
+         {% if v.query_key %}const u = new URL(location.href); u.searchParams.set('{{ v.query_key }}', ids[t]); history.replaceState(history.state, '', u);{% endif %}
+         {% if v.persist %}try { localStorage.setItem('tw-tab:' + location.pathname + ':{{ v.key }}', t); } catch (e) {}{% endif %}
+       })"{% endif %}>
   <input type="hidden" name="_tw_ui.{{ v.key }}" :value="tab" value="{{ v.active }}">
   <nav class="flex gap-x-1 overflow-x-auto {{ 'border-b border-gray-200 px-3 dark:border-white/10' if v.contained else 'border-b border-gray-200 dark:border-white/10' }}" role="tablist">
     {% for t in v.tabs %}

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime as dt
 import enum
-import html
 import mimetypes
 import re
 from decimal import Decimal, InvalidOperation
@@ -16,7 +15,7 @@ from ..i18n import maybe
 from ..i18n import translate as __
 from ..support.component import Component, headline
 from ..support.evaluate import call, evaluate
-from ..support.html import attrs, sanitize
+from ..support.html import attrs
 from ..support.state import get_path, join, set_path
 from .base import SchemaComponentMixin
 
@@ -64,6 +63,10 @@ class Field(SchemaComponentMixin, Component):
         self._inline_label = False
         self._unique: dict | None = None
         self._hidden_label = False
+        self._hint_color: Any = None
+        self._hint_actions: list = []
+        self._prefix_actions: list = []
+        self._suffix_actions: list = []
 
     # ------------------------------------------------------------------ config
     def label(self, label: Any) -> "Field":
@@ -94,6 +97,41 @@ class Field(SchemaComponentMixin, Component):
         self._hint = text
         self._hint_icon = icon
         return self
+
+    def hint_color(self, color: Any) -> "Field":
+        self._hint_color = color
+        return self
+
+    def hint_action(self, action: Any) -> "Field":
+        """A button next to the hint, e.g. ``Action("copy").icon("copy").action(...)``."""
+        self._hint_actions.append(action)
+        return self
+
+    def hint_actions(self, actions: list) -> "Field":
+        self._hint_actions.extend(actions)
+        return self
+
+    def prefix_action(self, action: Any) -> "Field":
+        """A button before the input. Its closure gets ``get``/``set``/``state`` of the form."""
+        self._prefix_actions.append(action)
+        return self
+
+    def prefix_actions(self, actions: list) -> "Field":
+        self._prefix_actions.extend(actions)
+        return self
+
+    def suffix_action(self, action: Any) -> "Field":
+        """A button after the input, e.g. to generate or copy the value."""
+        self._suffix_actions.append(action)
+        return self
+
+    def suffix_actions(self, actions: list) -> "Field":
+        self._suffix_actions.extend(actions)
+        return self
+
+    def form_actions(self, form: "Form", base: str) -> list:
+        """Every action this field shows (see :mod:`tungsten.forms.actions`)."""
+        return [*self._hint_actions, *self._prefix_actions, *self._suffix_actions]
 
     def placeholder(self, text: Any) -> "Field":
         self._placeholder = text
@@ -352,9 +390,18 @@ class Field(SchemaComponentMixin, Component):
         })
 
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
+        from .actions import render_actions
+
         path = self.path(base)
         ev = self.field_ev(form, base)
         return {
+            "hint_color": evaluate(self._hint_color, **ev),
+            "hint_actions": render_actions(self._hint_actions, form, self, base, style="link", size="sm")
+            if self._hint_actions else Markup(""),
+            "prefix_actions": render_actions(self._prefix_actions, form, self, base, style="icon")
+            if self._prefix_actions else Markup(""),
+            "suffix_actions": render_actions(self._suffix_actions, form, self, base, style="icon")
+            if self._suffix_actions else Markup(""),
             "path": path,
             "id": form.path_id(path),
             "state": get_path(form.state, path),
@@ -402,6 +449,8 @@ class TextInput(Field):
         self._autocomplete: str | None = None
         self._datalist: Any = None
         self._same: str | None = None
+        self._mask: Any = None
+        self._strip: list[str] = []
 
     def type(self, value: str) -> "TextInput":
         self._type = value
@@ -496,6 +545,31 @@ class TextInput(Field):
         self._datalist = options
         return self
 
+    def mask(self, pattern: Any) -> "TextInput":
+        """Format the value while typing. ``9`` is a digit, ``a`` a letter, ``*`` either;
+        anything else is typed for the user: ``mask("99999-99999")``, ``mask("aa-99-aa-9999")``.
+        A list of patterns picks the first that fits the length. A closure works too."""
+        self._mask = pattern
+        return self
+
+    def money_mask(self, prefix: str = "", thousands: str = ",", decimal: str = ".", precision: int = 2,
+                   indian: bool = False) -> "TextInput":
+        """Group digits while typing (``1,23,456.00`` with ``indian=True``). The saved value has
+        the separators and prefix removed and is a number."""
+        self._mask = {"money": True, "prefix": prefix, "thousands": thousands, "decimal": decimal,
+                      "precision": precision, "indian": indian}
+        self._strip = [c for c in (prefix, thousands) if c]
+        if decimal != ".":
+            self._strip.append(decimal)  # swapped for "." in cast()
+        self._money_decimal = decimal
+        self._numeric = True
+        return self
+
+    def strip_characters(self, characters: Any) -> "TextInput":
+        """Remove these characters before saving, e.g. the dashes a mask adds."""
+        self._strip = [characters] if isinstance(characters, str) else list(characters)
+        return self
+
     def same(self, other_field: str) -> "TextInput":
         """Value must equal another field (e.g. password confirmation)."""
         self._same = other_field
@@ -509,6 +583,10 @@ class TextInput(Field):
     def cast(self, state: Any) -> Any:
         if self._type == "password":
             return state if state not in (None, "") else None
+        if self._strip and isinstance(state, str):
+            decimal = getattr(self, "_money_decimal", ".")
+            for ch in self._strip:
+                state = state.replace(ch, "." if ch == decimal and decimal != "." else "")
         value = super().cast(state)
         if value is None or not self._numeric:
             return value
@@ -569,6 +647,12 @@ class TextInput(Field):
             }),
             "datalist": normalize_options(evaluate(self._datalist, **ev)) if self._datalist else None,
         })
+        mask = evaluate(self._mask, **ev)
+        if mask is not None:
+            import json
+
+            v["type"] = "text" if v["type"] == "number" else v["type"]  # a masked number has separators
+            v["mask"] = json.dumps(mask)
         return v
 
 
@@ -902,12 +986,156 @@ class Select(HasOptions):
         self._options = {"1": true_label, "0": false_label}
         return self
 
+    # ---- create / edit an option in a modal
+    def create_option_form(self, schema: Any, columns: int = 1) -> "Select":
+        """A "+" button that opens a form to add a new option, which is then selected::
+
+            Select("customer_id").relationship("customer", "name")
+                .create_option_form([TextInput("name").required(), TextInput("email").email()])
+
+        With a relationship the new record is saved for you (in the current tenant);
+        otherwise give :meth:`create_option_using`.
+        """
+        self._create_option_form = (schema, columns)
+        return self
+
+    def create_option_using(self, fn: Callable) -> "Select":
+        """Save the new option yourself: ``fn(data, ...)`` returns its key."""
+        self._create_option_using = fn
+        return self
+
+    def create_option_action(self, fn: Callable) -> "Select":
+        """Change the "+" button: ``lambda action: action.label("New").modal_width("2xl")``."""
+        self._create_option_modifier = fn
+        return self
+
+    def edit_option_form(self, schema: Any, columns: int = 1) -> "Select":
+        """A pencil button that opens a form to change the selected option's record."""
+        self._edit_option_form = (schema, columns)
+        return self
+
+    def update_option_using(self, fn: Callable) -> "Select":
+        """Save the changes yourself: ``fn(record, data, ...)``."""
+        self._update_option_using = fn
+        return self
+
+    def edit_option_action(self, fn: Callable) -> "Select":
+        self._edit_option_modifier = fn
+        return self
+
+    def form_actions(self, form: "Form", base: str) -> list:
+        actions = super().form_actions(form, base)
+        return actions + self._option_actions()
+
+    def _option_actions(self) -> list:
+        cached = getattr(self, "_option_actions_cache", None)
+        if cached is not None:
+            return cached
+        from ..actions.action import Action
+
+        out = []
+        create = getattr(self, "_create_option_form", None)
+        if create is not None:
+            action = (Action("create_option").label(__("Create")).icon("plus").color("gray")
+                      .form(create[0], create[1]).modal_heading(lambda: __("Create :label", label=self.get_label().lower()))
+                      .modal_submit_label(__("Create"))
+                      .authorize(lambda form, ctx: self._can_option(form, ctx, "create"))
+                      .action(self._create_option))
+            action._modal_model_fn = self._option_model
+            modifier = getattr(self, "_create_option_modifier", None)
+            out.append(modifier(action) or action if modifier else action)
+        edit = getattr(self, "_edit_option_form", None)
+        if edit is not None:
+            action = (Action("edit_option").label(__("Edit")).icon("pencil").color("gray")
+                      .form(edit[0], edit[1]).modal_heading(lambda: __("Edit :label", label=self.get_label().lower()))
+                      .modal_submit_label(__("Save changes"))
+                      .visible(lambda state: not self._multiple and state not in (None, "", []))
+                      .authorize(lambda form, ctx, state: self._can_option(form, ctx, "update", state))
+                      .action(self._update_option))
+            action._modal_model_fn = self._option_model
+            action._prepare_modal = self._prepare_edit_modal
+            modifier = getattr(self, "_edit_option_modifier", None)
+            out.append(modifier(action) or action if modifier else action)
+        self._suffix_actions = [a for a in self._suffix_actions if a.name not in ("create_option", "edit_option")] + out
+        self._option_actions_cache = out
+        return out
+
+    def _option_model(self, form: "Form") -> Any:
+        if self._relationship and (getattr(self, "_owner_model", None) or form.get_model()) is not None:
+            return self._rel_info(form)[1]
+        return None
+
+    def _can_option(self, form: "Form", ctx: Any, ability: str, state: Any = None) -> bool:
+        target = self._option_model(form)
+        if ctx is None or target is None:
+            return True
+        resource = ctx.panel.resource_for_model(target)
+        if resource is None:
+            return True
+        record = self._selected_record(form, ctx, state) if ability == "update" else None
+        return resource.can(ctx, ability, record)
+
+    def _selected_record(self, form: "Form", ctx: Any, state: Any) -> Any:
+        if ctx is None or not self._relationship or state in (None, "", []) or isinstance(state, list):
+            return None
+        from sqlalchemy import select
+
+        _, target, pk = self._rel_info(form)
+        key = self._match_key(form, "", state)
+        query = ctx.panel.tenancy.scope(ctx, target, select(target).where(pk == key))
+        return ctx.db.scalars(query).first()
+
+    def _prepare_edit_modal(self, form: "Form", field: Any, base: str) -> None:
+        action = next(a for a in self._option_actions() if a.name == "edit_option")
+        record = self._selected_record(form, form.ctx, self.get_state(form, base))
+        action._modal_operation = "edit" if record is not None else "create"
+        action._modal_record = record
+
+    def _create_option(self, data: dict, form: "Form", set: Callable, state: Any, ctx: Any) -> Any:
+        fn = getattr(self, "_create_option_using", None)
+        if fn is not None:
+            key = call(fn, **{**form.ev(), "data": data})
+        else:
+            if not self._relationship or ctx is None:
+                raise RuntimeError(f"Select {self.name!r}: give create_option_using() or a relationship().")
+            _, target, pk = self._rel_info(form)
+            record = target()
+            for k, v in data.items():
+                setattr(record, k, v)
+            ctx.panel.tenancy.assign(ctx, target, record)
+            ctx.db.add(record)
+            ctx.db.flush()
+            key = getattr(record, pk.key)
+        if key is None:
+            return False
+        if self._multiple:
+            set(self.name, [*(state or []), str(key)])
+        else:
+            set(self.name, str(key))
+        return None
+
+    def _update_option(self, data: dict, form: "Form", ctx: Any, get: Callable) -> Any:
+        action = next(a for a in self._option_actions() if a.name == "edit_option")
+        record = getattr(action, "_modal_record", None)
+        if record is None:
+            return False
+        fn = getattr(self, "_update_option_using", None)
+        if fn is not None:
+            call(fn, **{**form.ev(), "record": record, "data": data})
+        else:
+            for k, v in data.items():
+                setattr(record, k, v)
+            if ctx is not None:
+                ctx.db.flush()
+        return None
+
     def process(self, form: "Form", base: str, data: dict, errors: dict) -> None:
         super().process(form, base, data, errors)
         if getattr(self, "_boolean", False) and data.get(self.name) is not None:
             data[self.name] = str(data[self.name]) == "1"
 
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
+        self._option_actions()  # adds the create/edit buttons to the suffix actions
         v = super().view_data(form, base)
         v["native"] = self._native
         v["searchable"] = self._searchable
@@ -1174,11 +1402,16 @@ class DatePicker(Field):
     template = "tungsten/forms/fields/date-picker.html"
     input_type = "date"
 
+    #: the timezone naive datetimes are stored in (like Laravel's ``app.timezone``)
+    storage_timezone = "UTC"
+
     def __init__(self, name: str) -> None:
         super().__init__(name)
         self._min_date: Any = None
         self._max_date: Any = None
         self._seconds = False
+        self._timezone: Any = None
+        self._show_timezone = True
 
     def min_date(self, value: Any) -> "DatePicker":
         self._min_date = value
@@ -1187,6 +1420,60 @@ class DatePicker(Field):
     def max_date(self, value: Any) -> "DatePicker":
         self._max_date = value
         return self
+
+    def timezone(self, tz: Any, show: bool = True) -> "DatePicker":
+        """Show and type times in ``tz`` (e.g. ``"Asia/Kolkata"`` or ``lambda user: user.timezone``)
+        and save them in :attr:`storage_timezone` (UTC by default)."""
+        self._timezone = tz
+        self._show_timezone = show
+        return self
+
+    def get_timezone(self, form: "Form", base: str = ""):
+        """The ``ZoneInfo`` values are shown in, or None when no timezone is set."""
+        tz = evaluate(self._timezone, **form.ev(base))
+        if not tz or self.input_type == "date":
+            return None
+        from zoneinfo import ZoneInfo
+
+        return tz if isinstance(tz, dt.tzinfo) else ZoneInfo(str(tz))
+
+    def _storage_tz(self):
+        from zoneinfo import ZoneInfo
+
+        return ZoneInfo(self.storage_timezone)
+
+    def to_display(self, value: Any, tz: Any) -> Any:
+        """A stored datetime in the display timezone (naive, ready for the input)."""
+        if tz is None or not isinstance(value, dt.datetime):
+            return value
+        aware = value if value.tzinfo else value.replace(tzinfo=self._storage_tz())
+        return aware.astimezone(tz).replace(tzinfo=None)
+
+    def to_storage(self, value: Any, tz: Any) -> Any:
+        """A typed datetime (display timezone) in the storage timezone, naive."""
+        if tz is None or not isinstance(value, dt.datetime):
+            return value
+        return value.replace(tzinfo=tz).astimezone(self._storage_tz()).replace(tzinfo=None)
+
+    def hydrate(self, form: "Form", record: Any) -> Any:
+        tz = self.get_timezone(form)
+        if tz is not None and self._format_state is None:
+            return self.to_state(self.to_display(getattr(record, self.name, None), tz))
+        return super().hydrate(form, record)
+
+    def default_state(self, form: "Form", base: str) -> Any:
+        tz = self.get_timezone(form, base)
+        if tz is not None:
+            value = evaluate(self._default, **form.ev(base))
+            if isinstance(value, dt.datetime):
+                return self.to_state(self.to_display(value, tz))
+        return super().default_state(form, base)
+
+    def process(self, form: "Form", base: str, data: dict, errors: dict) -> None:
+        super().process(form, base, data, errors)
+        tz = self.get_timezone(form, base)
+        if tz is not None and self.name in data and self._dehydrate_state is None:
+            data[self.name] = self.to_storage(data[self.name], tz)
 
     def to_state(self, value: Any) -> Any:
         if isinstance(value, dt.datetime):
@@ -1244,6 +1531,8 @@ class DatePicker(Field):
         hi = self._bound(form, base, self._max_date, upper=True)
         v.update(input_type=self.input_type, min=self.to_state(lo) if lo else None,
                  max=self.to_state(hi) if hi else None, step=1 if self._seconds else None)
+        tz = self.get_timezone(form, base)
+        v["timezone"] = str(tz) if tz is not None and self._show_timezone else None
         return v
 
 
@@ -1293,42 +1582,150 @@ class ColorPicker(Field):
         return []
 
 
-class RichEditor(Field):
-    template = "tungsten/forms/fields/rich-editor.html"
+class Slider(Field):
+    """Pick a number by dragging: ``Slider("discount").range(0, 50).step(5).suffix("%")``.
+
+    ``.dual()`` shows two handles; the value is then a ``[low, high]`` list.
+    """
+
+    template = "tungsten/forms/fields/slider.html"
+    live_typed = False
 
     def __init__(self, name: str) -> None:
         super().__init__(name)
-        self._max_length: int | None = None
+        self._min: Any = 0
+        self._max: Any = 100
+        self._step: Any = 1
+        self._dual = False
+        self._pips: Any = None
+        self._prefix: Any = None
+        self._suffix: Any = None
+        self._decimal_places: int | None = None
+        self._show_value = True
 
-    def max_length(self, n: int) -> "RichEditor":
-        """Limit the text length. Only the text counts, not the HTML tags."""
-        self._max_length = n
+    def range(self, minimum: Any, maximum: Any) -> "Slider":
+        self._min, self._max = minimum, maximum
         return self
 
-    @staticmethod
-    def text_length(value: Any) -> int:
-        """Length of the text in an HTML value (tags removed, entities decoded)."""
-        return len(html.unescape(TAG_RE.sub("", str(value or ""))))
+    def min_value(self, n: Any) -> "Slider":
+        self._min = n
+        return self
+
+    def max_value(self, n: Any) -> "Slider":
+        self._max = n
+        return self
+
+    def step(self, n: Any) -> "Slider":
+        self._step = n
+        return self
+
+    def dual(self, condition: bool = True) -> "Slider":
+        """Two handles: pick a range. The state is ``[low, high]``."""
+        self._dual = condition
+        return self
+
+    def pips(self, every: Any = None) -> "Slider":
+        """Marks under the track, every ``every`` units (default: 4 equal parts)."""
+        self._pips = every if every is not None else True
+        return self
+
+    def prefix(self, text: Any) -> "Slider":
+        self._prefix = text
+        return self
+
+    def suffix(self, text: Any) -> "Slider":
+        self._suffix = text
+        return self
+
+    def decimal_places(self, n: int) -> "Slider":
+        self._decimal_places = n
+        return self
+
+    def show_value(self, condition: bool = True) -> "Slider":
+        self._show_value = condition
+        return self
+
+    def _bounds(self, form: "Form", base: str) -> tuple[Decimal, Decimal, Decimal]:
+        ev = form.ev(base)
+        lo, hi, step = (Decimal(str(evaluate(x, **ev))) for x in (self._min, self._max, self._step))
+        return lo, hi, step
+
+    def _number(self, raw: Any) -> Any:
+        if raw is None or raw == "":
+            return None
+        try:
+            dec = Decimal(str(raw).strip())
+        except InvalidOperation:
+            raise ValueError("The :attribute must be a number.") from None
+        if not dec.is_finite():
+            raise ValueError("The :attribute must be a number.")
+        if self._decimal_places is not None:
+            dec = round(dec, self._decimal_places)
+        return int(dec) if dec == dec.to_integral() and self._decimal_places is None else dec
+
+    def blank_state(self) -> Any:
+        return [] if self._dual else ""
+
+    def default_state(self, form: "Form", base: str) -> Any:
+        value = evaluate(self._default, **form.ev(base))
+        if value is None:  # start at the low end (or the whole range) like a browser slider
+            lo, hi, _ = self._bounds(form, base)
+            value = [lo, hi] if self._dual else lo
+        return self.to_state(value)
+
+    def to_state(self, value: Any) -> Any:
+        if self._dual:
+            return [super(Slider, self).to_state(v) for v in (value or [])]
+        return super().to_state(value)
+
+    def extract(self, formdata: Any, path: str) -> Any:
+        if self._dual:
+            return [v for v in formdata.getlist(path)]
+        return super().extract(formdata, path)
 
     def cast(self, state: Any) -> Any:
-        value = super().cast(state)
-        return sanitize(value) if value else None
+        if self._dual:
+            values = [self._number(v) for v in (state or [])]
+            if not values or all(v is None for v in values):
+                return None
+            if len(values) != 2 or None in values:
+                raise ValueError("The :attribute must be a range.")
+            return sorted(values)
+        return self._number(state)
 
     def validate_value(self, form: "Form", base: str, value: Any) -> list[str]:
-        if self._max_length is not None and self.text_length(value) > self._max_length:
-            label = self.get_label(form, base).lower()
-            return [__("The :attribute may not be greater than :max characters.", attribute=label, max=self._max_length)]
+        label = self.get_label(form, base).lower()
+        lo, hi, step = self._bounds(form, base)
+        for v in value if self._dual else [value]:
+            if Decimal(str(v)) < lo:
+                return [__("The :attribute must be at least :min.", attribute=label, min=lo)]
+            if Decimal(str(v)) > hi:
+                return [__("The :attribute may not be greater than :max.", attribute=label, max=hi)]
+            if step > 0 and (Decimal(str(v)) - lo) % step != 0:
+                return [__("The :attribute is invalid.", attribute=label)]
         return []
 
     def view_data(self, form: "Form", base: str) -> dict[str, Any]:
         v = super().view_data(form, base)
-        v["safe_html"] = Markup(sanitize(v["state"] or ""))
-        v["maxlength"] = self._max_length
-        v["length"] = self.text_length(v["safe_html"])
-        # the editor sends "change" to the hidden input itself (after a pause or on blur)
-        v["live"] = self.live_attrs(form, "change")
-        v["live_delay"] = self._live_debounce
-        v["live_on_blur"] = self._live_on_blur
+        ev = form.ev(base)
+        lo, hi, step = self._bounds(form, base)
+        state = v["state"]
+        if self._dual:
+            values = list(state) if isinstance(state, list) and len(state) == 2 else [str(lo), str(hi)]
+        else:
+            values = [state if state not in (None, "") else str(lo)]
+        pips = []
+        if self._pips:
+            every = Decimal(str(self._pips)) if self._pips is not True else (hi - lo) / 4
+            if every > 0 and (hi - lo) / every <= 50:
+                n = lo
+                while n <= hi:
+                    pct = float((n - lo) / (hi - lo) * 100) if hi != lo else 0
+                    pips.append({"value": format(n.normalize(), "f"), "pct": round(pct, 3)})
+                    n += every
+        v.update(min=format(lo, "f"), max=format(hi, "f"), step=format(step, "f"), dual=self._dual, values=values,
+                 pips=pips, prefix=evaluate(self._prefix, **ev), suffix=evaluate(self._suffix, **ev),
+                 show_value=self._show_value)
         return v
 
 
@@ -1910,6 +2307,21 @@ class Block(Component):
 
     def get_label(self) -> str:
         return __(str(self._label) if self._label is not None else headline(self.name))
+
+    # ---- in a RichEditor (``RichEditor.blocks([...])``)
+    def preview(self, fn: Callable) -> "Block":
+        """What the block looks like inside the editor: ``fn(config)`` returns HTML (cleaned before use)."""
+        self._preview = fn
+        return self
+
+    def render_using(self, fn: Callable) -> "Block":
+        """The block's HTML on your site, used by ``render_rich_content``: ``fn(config)`` returns HTML."""
+        self._render = fn
+        return self
+
+    def summary(self, config: dict) -> str:
+        parts = [f"{headline(k)}: {v}" for k, v in (config or {}).items() if v not in (None, "", [], {})]
+        return " · ".join(str(p) for p in parts)[:200]
 
 
 class Builder(Repeater):

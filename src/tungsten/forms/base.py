@@ -45,6 +45,12 @@ class SchemaComponentMixin:
     """Default no-op lifecycle hooks shared by fields and layouts."""
 
     _column_span: Any = None
+    _grow: bool = True
+
+    def grow(self, condition: bool = True):
+        """Inside a ``Flex``: take the free space (default) or only what it needs."""
+        self._grow = condition
+        return self
 
     def column_span(self, span: int | str):
         self._column_span = span

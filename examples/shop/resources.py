@@ -367,6 +367,14 @@ class TagsRelationManager(RelationManager):
         )
 
 
+def _sku_from(name: str | None) -> str:
+    """``"Linen Shirt"`` -> ``"LIN-SHI-4821"``: a starting point the user can change."""
+    import random
+
+    words = [w[:3].upper() for w in (name or "item").split() if w.isalnum()][:2] or ["ITM"]
+    return "-".join(words + [str(random.randint(1000, 9999))])
+
+
 class ProductResource(Resource):
     model = Product
     icon = "package"
@@ -390,9 +398,12 @@ class ProductResource(Resource):
                 Tab("General").icon("file-text").schema([
                     TextInput("name").label("Product name").required().max_length(150).column_span("full"),
                     TextInput("short_description").max_length(255).column_span("full"),
-                    RichEditor("description").column_span("full"),
+                    RichEditor("description").enable_toolbar_buttons(["underline", "h2", "h3"])
+                    .file_attachments_directory("products/content").column_span("full"),
                     Select("category_id").label("Category").relationship("category", "name").searchable().required(),
-                    Select("brand_id").label("Brand").relationship("brand", "name"),
+                    Select("brand_id").label("Brand").relationship("brand", "name")
+                    .create_option_form([TextInput("name").required().unique(), TextInput("website").url()])
+                    .edit_option_form([TextInput("name").required().unique(), TextInput("website").url()]),
                     Select("tags").relationship("tags", "name").multiple().column_span("full"),
                 ]),
                 Tab("Media").icon("image").schema([
@@ -400,7 +411,9 @@ class ProductResource(Resource):
                     .directory("products").max_size(2048).column_span("full"),
                 ]),
                 Tab("Inventory").icon("boxes").schema([
-                    TextInput("sku").label("SKU").required().unique().max_length(40),
+                    TextInput("sku").label("SKU").required().unique().max_length(40)
+                    .suffix_action(Action("generate_sku").icon("refresh-cw").tooltip("Make a SKU from the name")
+                                   .action(lambda get, set: set("sku", _sku_from(get("name"))))),
                     TextInput("stock").integer().min_value(0).default(0).required(),
                     CheckboxList("sizes").label("Available sizes").options(["S", "M", "L", "XL"]).columns(4),
                     DatePicker("available_from"),

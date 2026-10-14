@@ -2,6 +2,16 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-14 · Forms: everything Filament has
+
+- **Actions inside forms**: buttons next to a field's hint, before or after an input, in an `Actions` row or in a callout. They can fill fields, or open their own modal form, which also works in a form that is already in a modal.
+- **Select**: a + button to create a new option in a modal (saved and selected), and a pencil to edit the selected one.
+- **New fields**: `ModalTableSelect` (pick records from a searchable, paged table), `Slider` (one or two handles) and `ViewField` for your own templates. The docs now show how to write a custom field.
+- **Text inputs**: input masks (`mask("99999-99999")`) and money masks with Indian digit grouping.
+- **Date and time pickers**: `timezone("Asia/Kolkata")` shows times in the user's zone and saves them in UTC.
+- **Layouts**: `Flex` (alias `Split`) and the content blocks `Text`, `Html` and `Callout`. Tabs can keep the open tab in the URL (`?tab=pricing`) or in the browser.
+- **Rich editor**: choose the toolbar buttons (now with underline, H2 and H3), attach files and images, `@mentions`, and custom blocks with their own form. `render_rich_content()` shows the result on your site.
+
 ## 2026-10-14 · Safer sign-in
 
 - **Two-factor codes by email.** `Auth(two_factor_email=True)`: users can get their sign-in code by email instead of (or as well as) an authenticator app.

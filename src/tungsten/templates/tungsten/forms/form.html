@@ -3,5 +3,6 @@
   <input type="hidden" name="_tw_{{ key }}" value="{{ value if value is not none else '' }}">
   {% endfor %}
   <input type="hidden" name="_tw_form_id" value="{{ form.id }}">
-  {{ form.render_schema(form.get_schema(), "") }}
+  {{ form.render_schema(form.get_schema(), form.base) }}
+  {{ form.render_modal() }}
 </div>

@@ -6,8 +6,11 @@
       {{- v.label -}}
       {% if v.required and not v.disabled %}<sup class="font-medium text-danger-600 dark:text-danger-400">*</sup>{% endif %}
     </label>
-    {% if v.hint %}
-    <span class="flex items-center gap-x-1 text-sm text-gray-500 dark:text-gray-400">{{ v.hint }}{{ icon(v.hint_icon, 'h-4 w-4') }}</span>
+    {% if v.hint or v.hint_actions %}
+    <span class="flex items-center gap-x-3 text-sm {{ colors.pick(colors.TEXT, v.hint_color) if v.hint_color else 'text-gray-500 dark:text-gray-400' }}">
+      {% if v.hint %}<span class="flex items-center gap-x-1">{{ v.hint }}{{ icon(v.hint_icon, 'h-4 w-4') }}</span>{% endif %}
+      {{ v.hint_actions }}
+    </span>
     {% endif %}
   </div>
   {% endif %}
@@ -43,4 +46,15 @@
         hx-include="closest form" hx-vals='{"_tw_ui_action": "{{ action }}"}'>
   {% if icon_name %}{{ icon(icon_name, 'h-4 w-4') }}{% endif %}{% if label and not icon_name %}{{ label }}{% endif %}
 </button>
+{% endmacro %}
+
+{# Prefix/suffix action buttons around an input. #}
+{% macro affixes(v) %}
+{% if v.prefix_actions or v.suffix_actions %}
+<div class="flex items-center gap-x-2">
+  {% if v.prefix_actions %}<div class="flex shrink-0 items-center gap-x-1">{{ v.prefix_actions }}</div>{% endif %}
+  <div class="min-w-0 flex-1">{{ caller() }}</div>
+  {% if v.suffix_actions %}<div class="flex shrink-0 items-center gap-x-1">{{ v.suffix_actions }}</div>{% endif %}
+</div>
+{% else %}{{ caller() }}{% endif %}
 {% endmacro %}

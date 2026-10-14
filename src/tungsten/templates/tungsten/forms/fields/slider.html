@@ -1,0 +1,28 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% call wrapper(field, v) %}
+<div class="grid gap-y-1" x-data="{ v: {{ v['values'] | map('string') | list | tojson | forceescape }} }">
+  <div class="flex items-center gap-x-4">
+    <div class="relative h-6 flex-1 {{ 'tw-range-dual' if v.dual }}">
+      {% for value in v['values'] %}
+      <input type="range" {% if loop.first %}id="{{ v.id }}"{% endif %} name="{{ v.path }}" value="{{ value }}"
+             min="{{ v.min }}" max="{{ v.max }}" step="{{ v.step }}" x-model="v[{{ loop.index0 }}]"
+             {% if v.dual %}aria-label="{{ v.label }} {{ __('from') if loop.first else __('to') }}"
+             @input="{{ 'if (+v[0] > +v[1]) v[0] = v[1]' if loop.first else 'if (+v[1] < +v[0]) v[1] = v[0]' }}"{% endif %}
+             class="tw-range absolute inset-0 h-6 w-full {{ 'cursor-not-allowed opacity-60' if v.disabled }}"
+             {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>
+      {% endfor %}
+    </div>
+    {% if v.show_value %}
+    <output for="{{ v.id }}" class="min-w-[3.5rem] rounded-md bg-gray-50 px-2 py-1 text-center text-sm font-medium tabular-nums text-gray-950 ring-1 ring-inset ring-gray-950/10 dark:bg-white/5 dark:text-white dark:ring-white/10">
+      {{ v.prefix or '' }}<span x-text="v[0]">{{ v['values'][0] }}</span>{% if v.dual %} – <span x-text="v[1]">{{ v['values'][1] }}</span>{% endif %}{{ v.suffix or '' }}
+    </output>
+    {% endif %}
+  </div>
+  {% if v.pips %}
+  <div class="relative me-[4.5rem] h-5 text-xs text-gray-500 dark:text-gray-400" aria-hidden="true">
+    {% for p in v.pips %}<span class="absolute -translate-x-1/2 rtl:translate-x-1/2" style="inset-inline-start: {{ p.pct }}%">{{ p.value }}</span>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{{ mirror(v) }}
+{% endcall %}
