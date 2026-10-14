@@ -103,6 +103,58 @@ Writes go through the resource's form, so the same validation (required, unique,
 > [!WARNING]
 > A token opens your data like a password does. Keep it out of shared chats and code, and use a read-only token when the AI only needs to look.
 
+## Your own tools
+
+Beside the record tools, a panel can add tools of its own: subclass `Tools`, name them in `READ` or `WRITE`, add them to `definitions()`, and pass the class as `tools=`.
+
+```python
+from tungsten_mcp import McpPlugin, Tools
+
+class ShopTools(Tools):
+    READ = Tools.READ + ("shop_hours",)
+
+    def definitions(self, ctx, can_write):
+        return super().definitions(ctx, can_write) + [
+            {"name": "shop_hours", "description": "When the shop is open.",
+             "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": True}},
+        ]
+
+    def shop_hours(self, ctx):
+        return {"open": "9 to 5"}
+
+panel.plugin(McpPlugin(tools=ShopTools))
+```
+
+A tool named in `WRITE` needs a token with **Allow changes**. Raise `ToolError("...")` for a problem the AI can fix; the message goes back as the tool's answer. Arguments that do not match the method are answered with "Wrong arguments"; any other error inside a tool is logged on the server and the AI is told the tool failed there.
+
+## Resources and prompts
+
+An MCP server can also hand the AI **resources** (documents it reads before calling tools, such as a format guide or a field dictionary) and **prompts** (ready-made workflows the AI app offers, such as "Set up a company"). Pass them as `documents=` and `prompts=`:
+
+```python
+from pathlib import Path
+from tungsten_mcp import McpPlugin, McpPrompt, McpResource, PromptArgument
+
+panel.plugin(McpPlugin(
+    tools=ShopTools,
+    documents=[
+        McpResource("docs://doc-format", "Doc format", Path("mcp/doc-format.md"),
+                    description="Read this before building a template"),
+        McpResource("docs://fields", "Field dictionary", lambda db: field_dictionary(db)),
+    ],
+    prompts=[
+        McpPrompt("set-up-company", "Set up the company {name}: create it, then its locations.",
+                  description="Walks through a new company",
+                  arguments=[PromptArgument("name", "The company's name")]),
+    ],
+))
+```
+
+- A resource's content is text, bytes, a `Path` (read on each request) or a function that can ask for `ctx`, `db`, `user` and `tenant`. Set `mime_type` for anything that is not Markdown; bytes are sent base64-encoded.
+- A prompt's text is a template where `{argument}` is replaced, or a function that gets the arguments by name and returns text or a list of `{"role": ..., "content": ...}` messages.
+- Both take `can=lambda user: ...` to hide them from users who may not see them.
+- The server only says it has resources or prompts when you register some.
+
 ## Options
 
 ```python
@@ -118,6 +170,9 @@ McpPlugin(
     oauth=True,                       # apps can connect by logging in
     allow_registration=True,          # new apps may register themselves
     token_minutes=60,                 # how long an OAuth access token works
+    tools=Tools,                      # a Tools subclass with tools of your own
+    documents=[],                     # McpResource items the AI can read
+    prompts=[],                       # McpPrompt items the AI app offers
 )
 ```
 

@@ -1,6 +1,7 @@
 """The MCP endpoint: JSON-RPC 2.0 over "Streamable HTTP" (one POST per message, JSON answers).
 
-Only what tool servers need: ``initialize``, ``ping``, ``tools/list`` and ``tools/call``.
+``initialize``, ``ping``, ``tools/list`` and ``tools/call``, plus ``resources/list``, ``resources/read``,
+``prompts/list`` and ``prompts/get`` when the plugin has documents or prompts.
 No server-sent events, so no long-lived connections on shared hosting.
 """
 
@@ -29,6 +30,7 @@ log = logging.getLogger("tungsten.mcp")
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 
 PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, INVALID_PARAMS, INTERNAL_ERROR = -32700, -32600, -32601, -32602, -32603
+RESOURCE_NOT_FOUND = -32002
 
 
 def _error(id_: Any, code: int, message: str) -> dict:
@@ -131,7 +133,7 @@ class McpServer:
             wanted = params.get("protocolVersion")
             return _result(id_, {
                 "protocolVersion": wanted if wanted in PROTOCOL_VERSIONS else PROTOCOL_VERSIONS[0],
-                "capabilities": {"tools": {"listChanged": False}},
+                "capabilities": self.capabilities(),
                 "serverInfo": {"name": "tungsten-mcp", "title": self.plugin.server_title(), "version": _version()},
                 "instructions": self.plugin.instructions_for(self.can_write(row)),
             })
@@ -141,6 +143,58 @@ class McpServer:
             return _result(id_, {"tools": self.tools.definitions(ctx, self.can_write(row))})
         if method == "tools/call":
             return self.call_tool(ctx, row, id_, params)
+        if method.startswith("resources/") and self.plugin.documents:
+            return self.resources(ctx, id_, method, params)
+        if method.startswith("prompts/") and self.plugin.prompts:
+            return self.prompts(ctx, id_, method, params)
+        return _error(id_, METHOD_NOT_FOUND, f"Method not found: {method}")
+
+    def capabilities(self) -> dict:
+        out: dict[str, Any] = {"tools": {"listChanged": False}}
+        if self.plugin.documents:
+            out["resources"] = {"listChanged": False}
+        if self.plugin.prompts:
+            out["prompts"] = {"listChanged": False}
+        return out
+
+    def resources(self, ctx: Context, id_: Any, method: str, params: dict) -> dict:
+        docs = [d for d in self.plugin.documents if d.allowed(ctx)]
+        if method == "resources/list":
+            return _result(id_, {"resources": [d.listing() for d in docs]})
+        if method == "resources/templates/list":
+            return _result(id_, {"resourceTemplates": []})
+        if method == "resources/read":
+            doc = next((d for d in docs if d.uri == params.get("uri")), None)
+            if doc is None:
+                return _error(id_, RESOURCE_NOT_FOUND, f"Resource not found: {params.get('uri')}")
+            try:
+                return _result(id_, {"contents": [doc.read(ctx)]})
+            except Exception:
+                ctx.db.rollback()
+                log.exception("MCP resource %s failed", doc.uri)
+                return _error(id_, INTERNAL_ERROR, f"{doc.uri} could not be read. The error is in the server log.")
+        return _error(id_, METHOD_NOT_FOUND, f"Method not found: {method}")
+
+    def prompts(self, ctx: Context, id_: Any, method: str, params: dict) -> dict:
+        prompts = [p for p in self.plugin.prompts if p.allowed(ctx)]
+        if method == "prompts/list":
+            return _result(id_, {"prompts": [p.listing() for p in prompts]})
+        if method == "prompts/get":
+            prompt = next((p for p in prompts if p.name == params.get("name")), None)
+            if prompt is None:
+                return _error(id_, INVALID_PARAMS, f"Unknown prompt: {params.get('name')}")
+            arguments = params.get("arguments") or {}
+            if not isinstance(arguments, dict):
+                return _error(id_, INVALID_PARAMS, "arguments must be an object")
+            missing = prompt.missing(arguments)
+            if missing:
+                return _error(id_, INVALID_PARAMS, f"Missing arguments for {prompt.name}: {', '.join(missing)}")
+            try:
+                return _result(id_, prompt.render(ctx, arguments))
+            except Exception:
+                ctx.db.rollback()
+                log.exception("MCP prompt %s failed", prompt.name)
+                return _error(id_, INTERNAL_ERROR, f"{prompt.name} failed on the server. The error is in the server log.")
         return _error(id_, METHOD_NOT_FOUND, f"Method not found: {method}")
 
     def call_tool(self, ctx: Context, row: McpToken, id_: Any, params: dict) -> dict:
