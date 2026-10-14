@@ -9,7 +9,7 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 - **Jobs in their own worker process**: `Panel(jobs="worker")` plus `tungsten jobs:work --workers 4`. Jobs get retries with backoff (`max_attempts=3, backoff=[10, 60]`), heartbeats, and jobs from a stopped server are picked up again. See [Actions](/docs/actions).
 - **Scope every query to the tenant**: `Tenancy(..., scope_session=True)` filters every ORM query on the panel's sessions, like a Laravel global scope, with `panel.tenancy.unscoped()` to step outside it. See [Multi-tenancy](/docs/multi-tenancy).
 - **Login limit for several processes**: failed sign-ins can be counted in a shared store such as Redis (`Auth(throttle=...)`), and idle counts are dropped so memory stays small. See [Authentication](/docs/authentication).
-- **MCP resources and prompts**: `tungsten-mcp` can give the AI documents to read and ready-made prompts, and the docs show how to add your own tools. See [MCP](/docs/mcp).
+- **MCP resources and prompts**: `tungsten-mcp` can give the AI documents to read and ready-made prompts, and the docs show how to add your own tools. This is in the next `tungsten-mcp` release, not on PyPI yet. See [MCP](/docs/mcp).
 - **Filament migration**: `tungsten-filament` now converts relations defined in traits, keeps MySQL text sizes, and reports global scopes so you can turn on `scope_session`. See [Filament migration](/docs/filament-migration).
 
 ## 2026-10-14 · tungsten-admin 0.1.9 on PyPI
