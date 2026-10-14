@@ -198,6 +198,37 @@ table.filters([...], layout="above")
 
 The **Filters** button shows how many panel filters are active. The panel has a **Clear filters** button.
 
+### Side panel, modal or dropdown
+
+The filters that are not in the toolbar open in a side panel by default. `layout` can also put them in a pop-up window or in a menu under the **Filters** button:
+
+```python
+table.filters([...], layout="modal")      # a pop-up window
+table.filters([...], layout="dropdown")   # a menu under the Filters button
+table.filters_layout("panel")             # back to the side panel
+```
+
+| Layout | Where the filters show |
+| --- | --- |
+| `"panel"` | A panel beside the table (above it on phones). The default. |
+| `"above"` | Every filter in the toolbar. |
+| `"modal"` | A pop-up window. |
+| `"dropdown"` | A menu that opens under the **Filters** button. |
+
+### Apply button
+
+Normally the table updates as soon as a filter changes. With `deferred_filters()`, users pick all their filters first and the table updates only when they press **Apply filters**. This saves a query per click on big tables.
+
+```python
+table.filters([...]).deferred_filters()
+```
+
+The `"modal"` and `"dropdown"` layouts use the Apply button by default. Turn it off with `deferred_filters(False)`. Closing the modal or dropdown without applying puts the filters back as they were.
+
+### Remember filters
+
+`persist_filters_in_session()` remembers each user's filters, so they are still set when the user comes back to the table later. See [Remember the table state](tables#remember-the-table-state) for search and sort.
+
 ## Active filter chips
 
 When filters are active, a row of chips under the toolbar lists them, for example "Status: Published" or "Featured: Yes". A small cross clears all filters at once.

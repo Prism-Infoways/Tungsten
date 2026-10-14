@@ -2,6 +2,17 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-14 · Tables catch up with Filament
+
+- **Filters in a pop-up or a dropdown**: `filters(..., layout="modal")` or `layout="dropdown"`, next to the side panel and the toolbar.
+- **Apply button for filters**: `deferred_filters()` runs the filters only when the user presses Apply. On by default in the modal and dropdown layouts.
+- **Remember the table**: `persist_filters_in_session()`, `persist_search_in_session()`, `persist_sort_in_session()` (or `persist_in_session()` for all three) bring the table back as the user left it.
+- **Fast pagination for huge tables**: `paginated(mode="simple")` (Previous / Next, no count) and `mode="cursor"` (stays fast on page 5,000).
+- **Cards**: `stacked_on_mobile()` turns rows into cards on phones; `content_grid({"md": 2, "xl": 3})` shows records as a grid of cards.
+- **Column groups**: `ColumnGroup("Pricing", [...])` puts one heading over several columns.
+- **Range total**: `Range()` shows the lowest and highest value in the footer.
+- Fixed: Decimal totals without a format now show thousands separators.
+
 ## 2026-10-14 · Notifications and activity log
 
 - **Email notifications**: `Notification(...).send_to_mail(users, ctx)` emails a notification through the panel's mailer, with an HTML version and full links.
