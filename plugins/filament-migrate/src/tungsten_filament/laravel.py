@@ -164,6 +164,7 @@ class ColumnDef:
     autoincrement: bool = False
     fk: tuple[str, str] | None = None  # (table, column); table may be "model:Customer" until resolved
     choices: list[str] | None = None
+    text_size: str | None = None  # "tiny", "medium" or "long": MySQL TINYTEXT / MEDIUMTEXT / LONGTEXT
 
 
 @dataclass
@@ -293,7 +294,7 @@ class Schema:
         elif kind in ("string", "char"):
             cols = [ColumnDef(name, "string", length=_arg(args, 1, "length", 255))]
         elif kind in _TEXT_TYPES:
-            cols = [ColumnDef(name, "text")]
+            cols = [ColumnDef(name, "text", text_size=kind.removesuffix("text") or None)]
         elif kind in _INT_TYPES:
             cols = [ColumnDef(name, _INT_TYPES[kind])]
             if _arg(args, 1, "autoIncrement", False):
