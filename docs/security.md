@@ -194,21 +194,7 @@ Go through this list before you put a panel on the internet:
 1. **Set a fixed `secret_key`** from an environment variable. Never commit it.
 2. **Serve over HTTPS** and set `https_only_cookies=True`.
 3. **Use a real mailer** (`Auth(mailer=...)`). The default only prints emails to the console.
-4. **Set `app_url`.** Password reset and email verification links are built from `Panel(app_url=...)`, the public address of your site:
-
-    ```python
-    panel = Panel(..., app_url="https://admin.acme.example")
-    ```
-
-    Without it, links use the host from the request, and a forged `Host` header could put another site's address in the emails. As extra protection, add FastAPI's `TrustedHostMiddleware`, so requests for other host names are refused:
-
-    ```python
-    from starlette.middleware.trustedhost import TrustedHostMiddleware
-
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["admin.acme.example"])
-    ```
-
-    Behind a proxy, run uvicorn with `--proxy-headers` (and `--forwarded-allow-ips`) so the right scheme and host are used.
+4. **Set `app_url`** and only accept your own host name. See [Links in emails](#links-in-emails) below.
 5. **Limit who can sign in** with `can_access` and `active_field`.
 6. **Turn on permissions** (`panel.rbac()`, policies or a gate), and give each person only the roles they need.
 7. **Consider two-factor login** for admins (`two_factor=True`, or `two_factor_required=True`), and an idle timeout (`idle_timeout=30`).
@@ -218,3 +204,21 @@ Go through this list before you put a panel on the internet:
 11. **Protect custom routes** you add with `panel.routes`: they skip Tungsten's login and CSRF checks.
 12. **Turn on `activity_log=True`** to keep a record of who created, changed, deleted and exported what, every action run, and every sign-in (including failed ones, with the IP address). See [Activity log](activity-log).
 13. **Rate limit at the proxy** for public panels, since the built-in login limit is per process.
+
+### Links in emails
+
+Password reset and email verification links are built from `Panel(app_url=...)`, the public address of your site:
+
+```python
+panel = Panel(..., app_url="https://admin.acme.example")
+```
+
+Without it, links use the host from the request, and a forged `Host` header could put another site's address in the emails. As extra protection, add FastAPI's `TrustedHostMiddleware`, so requests for other host names are refused:
+
+```python
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["admin.acme.example"])
+```
+
+Behind a proxy, run uvicorn with `--proxy-headers` (and `--forwarded-allow-ips`) so the right scheme and host are used.
