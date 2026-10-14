@@ -707,6 +707,7 @@ class Routes:
                     step, error = "confirm", "That code is not valid. Check your phone's clock and try again."
                 else:
                     step = "codes"
+                    panel.log_auth_event(ctx, "two_factor_enabled", ctx.user, method="app")
                     Notification("Two-factor authentication is on").success().send(ctx)
             elif do in ("disable", "codes") and tf.app_enabled:
                 if not auth.verify(fd.get("password") or "", getattr(ctx.user, auth.password_field, None)):
@@ -716,6 +717,7 @@ class Routes:
                         error = "Two-factor authentication is required for this panel."
                     else:
                         tf.disable()
+                        panel.log_auth_event(ctx, "two_factor_disabled", ctx.user, method="app")
                         step = "off"
                         Notification("Two-factor authentication is off").warning().send(ctx)
                 else:
@@ -732,6 +734,7 @@ class Routes:
                     email_step = "confirm"
                 elif tfa.check_email_code(ctx, ctx.user, fd.get("code") or "", "setup"):
                     tf.enable_email()
+                    panel.log_auth_event(ctx, "two_factor_enabled", ctx.user, method="email")
                     email_step = "enabled"
                     Notification("Email codes are on").success().send(ctx)
                 else:
@@ -744,6 +747,7 @@ class Routes:
                     error = "Two-factor authentication is required for this panel."
                 else:
                     tf.disable_email()
+                    panel.log_auth_event(ctx, "two_factor_disabled", ctx.user, method="email")
                     email_step = "off"
                     Notification("Email codes are off").warning().send(ctx)
         secret = tf.credential.secret if step == "confirm" and tf.credential else None
@@ -857,6 +861,8 @@ class Routes:
         error = "This link is invalid or has expired." if row is None else None
         if row is not None:
             user, error = email_change.confirm(ctx, row)
+        if not error:
+            panel.log_auth_event(ctx, "email_changed", user, old=row.old_email, new=row.new_email)
         if error:
             Notification("Email not changed").body(error).danger().persistent().send(ctx)
         else:
@@ -875,6 +881,8 @@ class Routes:
             raise NotFound()
         row = email_change.find(ctx, token, block=True)
         if row is not None:
+            panel.log_auth_event(ctx, "email_change_blocked", panel.auth.find_by_id(ctx.db, row.user_id),
+                                 new=row.new_email)
             email_change.cancel(ctx, row)
             Notification("Email change stopped").body(
                 "Your email address stays the same. If you didn't ask for this, change your password now.") \
@@ -920,10 +928,12 @@ class Routes:
                     expires = None
                     if days.isdigit() and int(days) > 0:
                         expires = dt.datetime.now() + dt.timedelta(days=min(int(days), 3650))
-                    _, plain = tokens.create(ctx.db, panel, ctx.user, name, chosen, expires)
+                    row, plain = tokens.create(ctx.db, panel, ctx.user, name, chosen, expires)
+                    panel.log_auth_event(ctx, "api_token_created", ctx.user, token=row.name, abilities=chosen)
                     Notification("Token created").body("Copy it now. It won't be shown again.").success().send(ctx)
             elif do == "revoke":
                 if tokens.revoke(ctx.db, panel, ctx.user, fd.get("id")):
+                    panel.log_auth_event(ctx, "api_token_deleted", ctx.user, token_id=fd.get("id"))
                     Notification("Token deleted").body("Apps using it can no longer sign in.").warning().send(ctx)
         return ctx.render("tungsten/auth/api-tokens.html", title=__("API tokens"),
                           tokens=tokens.for_user(ctx.db, panel, ctx.user), options=options, plain=plain,

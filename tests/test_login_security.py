@@ -374,3 +374,15 @@ def test_panel_without_security_headers(tmp_path):
                   content_security_policy=False)
     r = TestClient(panel.app).get("/login")
     assert "x-frame-options" not in r.headers and "content-security-policy" not in r.headers
+
+
+def test_security_events_go_to_the_activity_log(admin, panel):
+    from tungsten.models import ActivityLog
+
+    _turn_on_email_codes(admin, panel)
+    sent = len(panel.test_mails)
+    admin.post("/admin/profile", {"name": "Admin", "email": "logged@example.com"})
+    admin.get(_link(panel.test_mails[sent]))
+    with db_session(panel) as db:
+        events = {row.event for row in db.scalars(select(ActivityLog))}
+    assert {"email_change_requested", "email_changed", "two_factor_enabled"} <= events

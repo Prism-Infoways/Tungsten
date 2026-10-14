@@ -182,7 +182,10 @@ class Auth:
             now = time.time()
             seen = ctx.session.get("tw_seen", now)
             if now - seen > self.idle_timeout * 60:
+                user = self.find_by_id(ctx.db, user_id)
                 self.logout(ctx)
+                if self.panel is not None and user is not None:
+                    self.panel.log_auth_event(ctx, "logout", user, reason="idle")
                 ctx.session["tw_idle_out"] = True
                 return None
             if not getattr(ctx.request.state, "tw_background", False) and now - seen >= 30:

@@ -72,6 +72,7 @@ class ProfileHost(Host):
             ctx.db.commit()
             if email_change.can_send(ctx):
                 email_change.start(ctx, record, new_email)
+                self.panel.log_auth_event(ctx, "email_change_requested", record, new=new_email)
                 Notification("Check your new inbox").body(
                     __("We sent a link to :email. Your email changes once you open it.", email=new_email)).send(ctx)
             else:
