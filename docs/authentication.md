@@ -75,7 +75,15 @@ db.commit()
 | `on_register` | `None` | Function called for each new sign-up |
 | `two_factor` | `False` | Let users turn on two-factor login |
 | `two_factor_required` | `False` | Make every user set up two-factor login |
+| `two_factor_app` | `True` | Let users use an authenticator app for two-factor login |
+| `two_factor_email` | `False` | Let users get two-factor codes by email. See [Codes by email](#codes-by-email). |
+| `two_factor_email_minutes` | `10` | How long an emailed code works |
 | `email_verification` | `False` | Make users confirm their email. See [Email verification](email-verification). |
+| `email_change_verification` | same as `email_verification` | A new email only takes effect after its owner clicks a link. See [Changing your email](#changing-your-email). |
+| `idle_timeout` | `None` | Sign users out after this many minutes without activity. See [Idle timeout](#idle-timeout). |
+| `api_tokens` | `False` | Let users make personal API tokens. See [API tokens](#api-tokens). |
+| `api_abilities` | `None` | What a token may be allowed to do, as a list or `{name: label}` |
+| `api_token_days` | `None` | The expiry picked by default on the token form (`None` is "Never") |
 | `verified_field` | `"email_verified_at"` | Column storing when the email was confirmed |
 | `verification_minutes` | `60` | How long a verification link works |
 | `reset_token_minutes` | `60` | How long a password reset link works |
@@ -201,9 +209,76 @@ Every signed-in user gets a **My profile** page from the user menu (`<panel path
 - **Profile information**: name, email (must be unique) and, if you set `avatar_field`, a profile photo.
 - **Update password**: current password, new password (at least 8 characters) and confirmation. The current password must be correct.
 
-When two-factor login is on, the profile also shows a two-factor card with a **Set up** or **Manage** button.
+When two-factor login is on, the profile also shows a two-factor card with a **Set up** or **Manage** button. With `api_tokens=True` it also links to the **API tokens** page.
 
 Turn the page off with `Auth(User, profile=False)`.
+
+### Changing your email
+
+With `Auth(User, email_verification=True)` (or `email_change_verification=True` on its own), a new email typed on the profile page does not take effect straight away:
+
+1. The account keeps its old address, and the profile shows "Confirm your new email" with a **Cancel change** button.
+2. The new address gets a link. Opening it switches the account to the new address (and marks it verified).
+3. The old address gets a notice with a link to **stop the change**, in case someone else got into the account.
+
+Links work for `verification_minutes` (60 by default) and only once. If someone else takes the address before the link is opened, the change is refused. A user can ask for a new link once a minute. Pending changes live in the `tungsten_email_changes` table, so run `panel.create_tables()`.
+
+Set `email_change_verification=False` to go back to the older flow: the email changes at once and the user is asked to verify it after.
+
+## Idle timeout
+
+Sign people out when they leave the panel open and walk away:
+
+```python
+Auth(User, idle_timeout=30)  # minutes
+```
+
+Clicking, typing and scrolling count as activity. Background polling (the notification bell, auto-refreshing widgets and tables) does not, so an open tab can't keep a session alive forever. When the time is up, the open page reloads to the sign-in page with a "You were signed out" message, so nobody walking past sees the data. After signing in again, users land back on the page they were on.
+
+## API tokens
+
+Personal API tokens, like Laravel Sanctum. Users make them on an **API tokens** page (linked from their profile) and use them from scripts and other apps.
+
+```python
+auth = Auth(User, api_tokens=True, api_abilities={
+    "orders:read": "Read orders",
+    "orders:write": "Change orders",
+})
+```
+
+On the page a user gives the token a name, an expiry (7, 30 or 90 days, 1 year or never) and picks what it may do. The token is shown **once**; only a SHA-256 hash is stored. The list shows when each token was made, last used and expires, with a **Delete** button. Without `api_abilities`, tokens can do everything.
+
+Protect your own FastAPI routes with `panel.api_user(...)`:
+
+```python
+from fastapi import Depends
+
+@app.get("/api/orders")
+def list_orders(user=Depends(panel.api_user("orders:read"))):
+    ...  # user is the token's owner
+
+@app.get("/api/me")
+def me(user=Depends(panel.api_user())):  # any valid token
+    return {"email": user.email}
+```
+
+Clients send the token in a header:
+
+```bash
+curl -H "Authorization: Bearer tw_..." https://example.com/api/orders
+```
+
+A missing, wrong, expired or deleted token gets `401`, and so does a token of a user who is no longer active. A token without the ability gets `403`. The token itself is on `request.state.tungsten_token` (`token.can("orders:write")`). Tokens live in the `tungsten_api_tokens` table, so run `panel.create_tables()`.
+
+You can also make tokens in code, for example for a service account:
+
+```python
+from tungsten.auth import tokens
+
+with SessionLocal() as db:
+    row, plain = tokens.create(db, panel, user, "Nightly sync", ["orders:read"])
+    print(plain)  # keep it; it can't be shown again
+```
 
 ## Two-factor login
 
@@ -233,13 +308,27 @@ After a correct password, users with two-factor on see a second page asking for 
 
 Each code works only once. A recovery code is removed when used. The second step must be finished within 10 minutes, and wrong codes are rate limited like the login form.
 
+### Codes by email
+
+Let users get their code by email instead of an app:
+
+```python
+Auth(User, two_factor_email=True)
+```
+
+On the two-factor page users click **Turn on email codes**, and enter the code we email them to confirm their inbox works. From then on, signing in sends a fresh 6-digit code to their email. It works for 10 minutes (`two_factor_email_minutes`), only once, and a new one can be asked for once a minute. Users who use both an app and email codes get an **Email me a code instead** link on the sign-in step, handy when the phone is not around. Users who only use the app can't get codes by email.
+
+The code is never stored in plain text: the session only keeps a keyed hash of it. The email is sent through your `mailer` with `kind="two_factor_code"` and the code as `code=`.
+
+For email codes only (no app), use `Auth(User, two_factor_email=True, two_factor_app=False)`. Turning off email codes asks for the password.
+
 ### Requiring two-factor for everyone
 
 ```python
 Auth(User, two_factor_required=True)
 ```
 
-Users who haven't set it up are sent to the setup page after signing in, with a message. They can't open other pages until it is done, and they can't turn it off.
+Users who haven't set it up are sent to the setup page after signing in, with a message. They can't open other pages until it is done, and they can't turn off their last method. Email codes count, when `two_factor_email=True`.
 
 ## Custom password hasher
 

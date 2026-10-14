@@ -105,6 +105,8 @@ class Panel:
         login_hero: dict[str, Any] | None = None,
         sidebar_footer: Any = None,
         https_only_cookies: bool = False,
+        security_headers: Any = True,
+        content_security_policy: Any = True,
         app_url: str | None = None,
         activity_log: bool = False,
         locale: str = "en",
@@ -175,6 +177,10 @@ class Panel:
         }
         self.sidebar_footer = sidebar_footer
         self.https_only_cookies = https_only_cookies
+        #: HSTS, X-Frame-Options, nosniff... on every response; a dict adds or replaces headers, False turns off
+        self.security_headers = security_headers
+        #: True for Tungsten's default CSP, a string to replace it, a dict to add sources, False for none
+        self.content_security_policy = content_security_policy
         #: public address of the site (``https://admin.acme.example``) for links in emails
         self.app_url = app_url.rstrip("/") if app_url else None
         self.activity_log = activity_log
@@ -619,6 +625,15 @@ class Panel:
             self.boot()
             self._app = build_app(self)
         return self._app
+
+    def api_user(self, *abilities: str) -> Callable:
+        """FastAPI dependency: the user of the ``Authorization: Bearer`` API token (needs ``Auth(api_tokens=True)``).
+
+        ``Depends(panel.api_user("orders:read"))`` also checks the token was given those abilities.
+        """
+        from .auth.tokens import dependency
+
+        return dependency(self, abilities)
 
     def boot(self) -> None:
         if self._booted:

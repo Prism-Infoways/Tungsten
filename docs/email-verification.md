@@ -106,7 +106,9 @@ The limit is counted per browser session.
 
 ## Changing the email address
 
-When a user changes their email on the **My profile** page:
+When a user changes their email on the **My profile** page, the new address only takes effect after they open a link sent to it, and the old address gets a notice with a link to stop the change. See [Changing your email](authentication#changing-your-email).
+
+With `Auth(email_change_verification=False)` the older flow is used instead:
 
 1. The verified date is cleared, so the new address counts as unverified.
 2. A new verification link is sent to the new address (the resend limit is skipped for this one).

@@ -95,3 +95,46 @@ class ActivityLog(TungstenBase):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     properties: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
+
+
+class TwoFactorEmail(TungstenBase):
+    """A user who gets their sign-in codes by email instead of (or as well as) an authenticator app."""
+
+    __tablename__ = "tungsten_two_factor_email"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
+
+
+class EmailChange(TungstenBase):
+    """A new email address waiting for its owner to click the link we sent there."""
+
+    __tablename__ = "tungsten_email_changes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    old_email: Mapped[str] = mapped_column(String(255))
+    new_email: Mapped[str] = mapped_column(String(255))
+    token_hash: Mapped[str] = mapped_column(String(128), unique=True)
+    block_token_hash: Mapped[str] = mapped_column(String(128), unique=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
+
+
+class ApiToken(TungstenBase):
+    """A personal API token (like Laravel Sanctum). Only a SHA-256 hash of the token is stored."""
+
+    __tablename__ = "tungsten_api_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    abilities: Mapped[list[str]] = mapped_column(JSON, default=list)
+    last_used_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
+
+    def can(self, ability: str) -> bool:
+        abilities = self.abilities or []
+        return "*" in abilities or ability in abilities

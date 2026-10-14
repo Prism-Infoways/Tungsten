@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..forms import FileUpload, Form, Section, TextInput
 from ..hosts import Host
+from ..i18n import translate as __
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..context import Context
@@ -54,12 +55,31 @@ class ProfileHost(Host):
 
     def update(self, ctx: "Context", record: Any, data: dict, form: Form) -> Any:
         auth = self.panel.auth
-        old_email = str(getattr(record, auth.email_field, "") or "").lower()
+        old_value = getattr(record, auth.email_field, None)
+        old_email = str(old_value or "").lower()
         form.fill_record(record, data)
         new_password = form.get("new_password")
         if new_password:
             setattr(record, auth.password_field, auth.hash(new_password))
-        email_changed = str(getattr(record, auth.email_field, "") or "").lower() != old_email
+        new_email = str(getattr(record, auth.email_field, "") or "")
+        email_changed = new_email.lower() != old_email
+        if email_changed and auth.email_change_verification:
+            # the new address only counts once its owner clicks the link we send there
+            from ..notifications import Notification
+            from . import email_change
+
+            setattr(record, auth.email_field, old_value)
+            ctx.db.commit()
+            if email_change.can_send(ctx):
+                email_change.start(ctx, record, new_email)
+                self.panel.log_auth_event(ctx, "email_change_requested", record, new=new_email)
+                Notification("Check your new inbox").body(
+                    __("We sent a link to :email. Your email changes once you open it.", email=new_email)).send(ctx)
+            else:
+                Notification("Please wait a moment").body(
+                    "You can ask for a new link once a minute.").warning().send(ctx)
+            ctx.redirect(self.panel.url("profile"))
+            return record
         if email_changed and auth.email_verification:
             # a new address must be confirmed again
             setattr(record, auth.verified_field, None)

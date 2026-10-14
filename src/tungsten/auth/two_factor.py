@@ -2,6 +2,8 @@
 
 Works with Google Authenticator, Microsoft Authenticator, 1Password, Authy...
 Turn it on with ``Auth(User, two_factor=True)`` (or ``two_factor_required=True``).
+``Auth(two_factor_email=True)`` also lets users get a one-time code by email
+instead of (or as a backup to) an app.
 """
 
 from __future__ import annotations
@@ -82,9 +84,39 @@ class TwoFactor:
         return self.ctx.db.scalars(select(TwoFactorCredential).where(TwoFactorCredential.user_id == self.user_id)).first()
 
     @property
-    def enabled(self) -> bool:
+    def app_enabled(self) -> bool:
+        """An authenticator app is set up and confirmed."""
         cred = self.credential
         return bool(cred and cred.confirmed_at)
+
+    @property
+    def email_row(self):
+        from ..models import TwoFactorEmail
+
+        return self.ctx.db.scalars(select(TwoFactorEmail).where(TwoFactorEmail.user_id == self.user_id)).first()
+
+    @property
+    def email_enabled(self) -> bool:
+        """The user gets sign-in codes by email (only counts while the panel allows email codes)."""
+        return bool(self.ctx.panel.auth.two_factor_email and self.email_row is not None)
+
+    @property
+    def enabled(self) -> bool:
+        """Any second step is on, so signing in needs a code."""
+        return self.app_enabled or self.email_enabled
+
+    def enable_email(self) -> None:
+        from ..models import TwoFactorEmail
+
+        if self.email_row is None:
+            self.ctx.db.add(TwoFactorEmail(user_id=self.user_id))
+            self.ctx.db.commit()
+
+    def disable_email(self) -> None:
+        row = self.email_row
+        if row is not None:
+            self.ctx.db.delete(row)
+            self.ctx.db.commit()
 
     def start(self) -> str:
         """Create (or reuse) an unconfirmed secret."""
@@ -115,7 +147,7 @@ class TwoFactor:
         return codes
 
     def verify(self, code: str) -> bool:
-        """Check a login code (or a one-time recovery code)."""
+        """Check a login code from the app (or a one-time recovery code)."""
         cred = self.credential
         if cred is None or cred.confirmed_at is None:
             return False
@@ -145,3 +177,72 @@ class TwoFactor:
         if cred is not None:
             self.ctx.db.delete(cred)
             self.ctx.db.commit()
+
+
+# ---------------------------------------------------------------------- codes sent by email
+EMAIL_RESEND_SECONDS = 60
+
+
+def _email_slot(purpose: str) -> str:
+    return f"tw_2fa_mail_{purpose}"
+
+
+def _email_digest(ctx: "Context", user_id: str, purpose: str, code: str, expires: float) -> str:
+    # the session cookie is signed, not encrypted, so it only ever holds a keyed hash of the code
+    message = f"{purpose}|{user_id}|{code}|{expires}".encode()
+    return hmac.new(ctx.panel.secret_key.encode(), message, hashlib.sha256).hexdigest()
+
+
+def mask_email(email: str) -> str:
+    """``asha@example.com`` -> ``a•••@example.com``."""
+    name, at, domain = str(email or "").partition("@")
+    if not at:
+        return email
+    return f"{name[:1]}•••@{domain}"
+
+
+def send_email_code(ctx: "Context", user: Any, purpose: str = "login") -> bool:
+    """Email a fresh 6-digit code. Returns False when one was sent less than a minute ago."""
+    from ..i18n import translate as __
+    from ..support.evaluate import call
+
+    panel = ctx.panel
+    auth = panel.auth
+    user_id = auth.user_id(user)
+    slot = ctx.session.get(_email_slot(purpose)) or {}
+    now = time.time()
+    if slot.get("uid") == user_id and now - slot.get("sent", 0) < EMAIL_RESEND_SECONDS:
+        return False
+    code = str(secrets.randbelow(10 ** DIGITS)).zfill(DIGITS)
+    expires = now + auth.two_factor_email_minutes * 60
+    ctx.session[_email_slot(purpose)] = {"uid": user_id, "h": _email_digest(ctx, user_id, purpose, code, expires),
+                                         "exp": expires, "sent": now}
+    call(auth.mailer, to=getattr(user, auth.email_field),
+         subject=__("Your :app sign-in code: :code", app=panel.brand_name, code=code),
+         body=__("Hello :name,\n\nYour sign-in code is :code\n\nIt works for :minutes minutes. "
+                 "If you did not try to sign in, change your password.",
+                 name=auth.display_name(user), code=code, minutes=auth.two_factor_email_minutes),
+         code=code, user=user, kind="two_factor_code")
+    return True
+
+
+def email_code_sent(ctx: "Context", user: Any, purpose: str = "login") -> bool:
+    slot = ctx.session.get(_email_slot(purpose)) or {}
+    return slot.get("uid") == ctx.panel.auth.user_id(user) and time.time() < slot.get("exp", 0)
+
+
+def check_email_code(ctx: "Context", user: Any, code: str, purpose: str = "login") -> bool:
+    """True (and the code is used up) when ``code`` is the last one emailed for ``purpose``."""
+    slot = ctx.session.get(_email_slot(purpose)) or {}
+    user_id = ctx.panel.auth.user_id(user)
+    code = (code or "").replace(" ", "").strip()
+    if slot.get("uid") != user_id or time.time() > slot.get("exp", 0) or not code.isdigit():
+        return False
+    if not hmac.compare_digest(_email_digest(ctx, user_id, purpose, code, slot["exp"]), slot.get("h", "")):
+        return False
+    ctx.session.pop(_email_slot(purpose), None)
+    return True
+
+
+def forget_email_code(ctx: "Context", purpose: str = "login") -> None:
+    ctx.session.pop(_email_slot(purpose), None)
