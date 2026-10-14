@@ -93,11 +93,12 @@ Every part that is not converted is marked `# TODO(filament)` next to the code i
 - **Custom pages and widgets**: rebuild them with `tungsten make:page` and `tungsten make:widget`. See [Custom pages](custom-pages) and [Widgets](widgets).
 - **Policies and `canAccessPanel()`**: use roles and permissions or `Auth(can_access=...)`. See [Roles and permissions](roles-and-permissions).
 - **Page hooks** like `mutateFormDataBeforeCreate()` and the resource's `getEloquentQuery()`.
+- **Global scopes** (`addGlobalScope()` in `booted()` or in a trait's `boot<Trait>()`, and `#[ScopedBy]`). Many apps keep tenants apart this way. The converted admin does not filter those rows, so the report lists every scope first, under "Security: check these first", and suggests the matching `Tenancy(...)` when the scope is the usual `where(company_id, auth()->user()->company_id)`. See [Multi-tenancy](multi-tenancy).
 - **Morph relations** (`morphTo`, `morphMany`) and has-many-through relations.
 - **Laravel model events, observers, accessors and mutators** do not run when the panel saves a record.
 - **Filament plugins**: the report names the Tungsten plugin to use instead, for example Shield (built-in roles), Breezy (built-in two-factor), FullCalendar ([Calendar](calendar)), Spatie backup ([Backups](backups)), Spatie media library ([Media library](media-library)) and Spatie tags ([Tags](tags)).
 
-A filter whose query could not be converted is left out, so the panel never shows a filter that does nothing.
+A filter whose query could not be converted is left out, so the panel never shows a filter that does nothing. In the same way, a column, field or filter that names a relation the model does not have is left out and listed, instead of making the page fail. Relations defined in the app's own traits (for example a `BelongsToCompany` trait) are converted like the model's own.
 
 ## Command reference
 

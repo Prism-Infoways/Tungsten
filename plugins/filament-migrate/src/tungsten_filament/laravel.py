@@ -467,6 +467,17 @@ class RelationDef:
     pivot_rk: str | None = None
     src: str = ""
     line: int = 0
+    file: Path | None = None  # set when the relation comes from a trait in another file
+
+
+@dataclass
+class ScopeDef:
+    """A global scope: ``addGlobalScope(...)`` in ``booted()`` / ``boot<Trait>()``, or ``#[ScopedBy(...)]``."""
+    name: str  # the scope class, or "closure"
+    file: Path | None
+    line: int
+    src: str
+    column: str | None = None  # ``company_id`` when the scope is ``where(<table>.company_id, auth()->user()->...)``
 
 
 @dataclass
@@ -482,6 +493,7 @@ class ModelDef:
     is_user: bool = False
     timestamps: bool = True
     unique_ids: str | None = None  # "uuid" or "ulid" (HasUuids / HasUlids)
+    scopes: list[ScopeDef] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
 
@@ -506,7 +518,22 @@ def _cast_text(node: Node | None, php: PhpFile) -> str | None:
     return None
 
 
-def read_model(cls: PhpClass) -> ModelDef:
+def _app_traits(cls: PhpClass, classes: dict[str, PhpClass], seen: set[str] | None = None) -> list[PhpClass]:
+    """The app's own traits a class uses, traits used by those traits included (vendor traits are not read)."""
+    seen = set() if seen is None else seen
+    out = []
+    for t in cls.traits:
+        name = short(cls.file.resolve(t))
+        trait = classes.get(name)
+        if trait is None or trait.kind != "trait" or name in seen:
+            continue
+        seen.add(name)
+        out.append(trait)
+        out.extend(_app_traits(trait, classes, seen))
+    return out
+
+
+def read_model(cls: PhpClass, classes: dict[str, PhpClass] | None = None) -> ModelDef:
     php = cls.file
     table_node = cls.prop("table")
     model = ModelDef(name=cls.name, table=table_node.value if isinstance(table_node, Str) else table_for(cls.name),
@@ -517,7 +544,10 @@ def read_model(cls: PhpClass) -> ModelDef:
     ts = cls.prop("timestamps")
     if ts is not None and is_literal(ts) and literal(ts) is False:
         model.timestamps = False
+    app_traits = _app_traits(cls, classes or {})
     traits = {short(php.resolve(t)) for t in cls.traits}
+    for trait in app_traits:
+        traits |= {short(trait.file.resolve(t)) for t in trait.traits}
     model.soft_deletes = "SoftDeletes" in traits
     model.unique_ids = "uuid" if "HasUuids" in traits else "ulid" if "HasUlids" in traits else None
     parent = short(php.resolve(cls.extends or ""))
@@ -536,15 +566,83 @@ def read_model(cls: PhpClass) -> ModelDef:
                     text = _cast_text(v, php)
                     if text:
                         model.casts[k.value] = text
-    for mname in cls.methods:
-        if mname.startswith("__") or mname in ("casts", "boot", "booted"):
-            continue
-        for node in cls.returns(mname):
-            rel = _relation(mname, node, php)
-            if rel:
-                model.relations.append(rel)
-            break
+    # relations: the model's own methods first, then its app-level traits (a method on the model wins)
+    seen: set[str] = set()
+    for owner in [cls, *app_traits]:
+        for mname in owner.methods:
+            if mname.startswith("__") or mname in ("casts", "boot", "booted") or \
+                    re.match(r"(boot|booted|initialize)[A-Z]", mname) or mname.lower() in seen:
+                continue
+            for node in owner.returns(mname):
+                rel = _relation(mname, node, owner.file)
+                if rel:
+                    if owner is not cls:
+                        rel.file = owner.file.path
+                    model.relations.append(rel)
+                    seen.add(mname.lower())
+                break
+    model.scopes = read_scopes(cls, app_traits, classes or {})
     return model
+
+
+_SCOPED_BY = re.compile(r"#\[\s*\\?(?:[\w\\]*\\)?ScopedBy\s*\((.*?)\)\s*\]", re.DOTALL)
+_SCOPE_COLUMN = re.compile(
+    r"where\s*\(\s*(?:\$model\s*->\s*getTable\s*\(\s*\)\s*\.\s*)?['\"](?:[\w]*\.)?(\w+)['\"]\s*,"
+    r"\s*(?:['\"]=['\"]\s*,\s*)?(?:auth\s*\(\s*\)\s*->\s*user\s*\(\s*\)|Auth::user\s*\(\s*\)|\$user|"
+    r"auth\s*\(\s*\)\s*->\s*id\s*\(\s*\)|Auth::id\s*\(\s*\)|Filament::getTenant\s*\(\s*\))")
+
+
+def _scope_column(src: str) -> str | None:
+    m = _SCOPE_COLUMN.search(src)
+    return m.group(1) if m else None
+
+
+def read_scopes(cls: PhpClass, traits: list[PhpClass], classes: dict[str, PhpClass]) -> list[ScopeDef]:
+    """Every global scope on a model: ``addGlobalScope`` in ``booted()``/``boot()``/``boot<Trait>()`` and
+    ``#[ScopedBy([...])]`` on the model or its traits."""
+    out: list[ScopeDef] = []
+    for owner in [cls, *traits]:
+        php = owner.file
+        boots = [m for name, m in owner.methods.items() if name.lower() in ("boot", "booted") or
+                 (owner is not cls and name.lower() in ("boot" + owner.name.lower(), "booted" + owner.name.lower()))]
+        for method in boots:
+            for i in range(method.body_start, method.body_end):
+                t = php.toks[i]
+                if t.kind != "name" or t.value != "addGlobalScope":
+                    continue
+                end = i
+                depth = 0
+                for k in range(i + 1, method.body_end + 1):
+                    v = php.toks[k]
+                    if v.kind == "op" and v.value == "(":
+                        depth += 1
+                    elif v.kind == "op" and v.value == ")":
+                        depth -= 1
+                        if depth == 0:
+                            end = k
+                            break
+                src = php.src[t.start:php.toks[end].end]
+                out.append(_scope_def(src, php, t.line, classes))
+        if owner is not cls:
+            continue
+        head = "\n".join(php.src.split("\n")[:max(cls.line, 1)])  # attributes sit just above `class`
+        for m in _SCOPED_BY.finditer(head):
+            line = php.src.count("\n", 0, m.start()) + 1
+            for name in re.findall(r"([\w\\]+)::class", m.group(1)):
+                scope = classes.get(short(php.resolve(name)))
+                column = _scope_column(scope.file.src) if scope else None
+                out.append(ScopeDef(short(name), php.path, line, m.group(0), column))
+    return out
+
+
+def _scope_def(src: str, php: PhpFile, line: int, classes: dict[str, PhpClass]) -> ScopeDef:
+    m = re.search(r"new\s+\\?([\w\\]+)", src) or re.search(r"([\w\\]+)::class", src)
+    if m and not re.match(r"addGlobalScope\s*\(\s*['\"]", src):
+        name = short(php.resolve(m.group(1)))
+        scope = classes.get(name)
+        return ScopeDef(name, php.path, line, src, _scope_column(scope.file.src) if scope else None)
+    named = re.match(r"addGlobalScope\s*\(\s*['\"]([^'\"]+)['\"]", src)
+    return ScopeDef(f"'{named.group(1)}' (closure)" if named else "closure", php.path, line, src, _scope_column(src))
 
 
 def _relation(name: str, node: Node, php: PhpFile) -> RelationDef | None:
@@ -635,6 +733,8 @@ class LaravelProject:
     enums: dict[str, EnumDef]
     classes: dict[str, PhpClass]  # every class under app/, by short name
     notes: list[str]
+    #: relation names each converted model really has in models.py (filled by ModelWriter.plan)
+    converted_relations: dict[str, set[str]] = field(default_factory=dict)
 
     def model_for_table(self, table: str) -> ModelDef | None:
         return next((m for m in self.models.values() if m.table == table), None)
@@ -656,6 +756,7 @@ def read_project(root: Path) -> LaravelProject:
     classes: dict[str, PhpClass] = {}
     models: dict[str, ModelDef] = {}
     enums: dict[str, EnumDef] = {}
+    found: list[tuple[PhpClass, Path]] = []
     for path in _php_files(root / "app"):
         try:
             php = PhpFile.read(path)
@@ -664,13 +765,16 @@ def read_project(root: Path) -> LaravelProject:
             continue
         for cls in php.classes:
             classes.setdefault(cls.name, cls)
-            if cls.kind == "enum":
-                enums[cls.name] = read_enum(cls)
-            elif cls.kind == "class" and _is_model(cls, path, root):
-                try:
-                    models[cls.name] = read_model(cls)
-                except Exception as exc:  # noqa: BLE001
-                    notes.append(f"{path.relative_to(root)}: model {cls.name} could not be read ({exc})")
+            found.append((cls, path))
+    # models are read once every class is known, so relations and scopes in the app's traits are found
+    for cls, path in found:
+        if cls.kind == "enum":
+            enums[cls.name] = read_enum(cls)
+        elif cls.kind == "class" and _is_model(cls, path, root):
+            try:
+                models[cls.name] = read_model(cls, classes)
+            except Exception as exc:  # noqa: BLE001
+                notes.append(f"{path.relative_to(root)}: model {cls.name} could not be read ({exc})")
     return LaravelProject(root=root, env=read_env(root), tables=schema.tables, models=models, enums=enums,
                           classes=classes, notes=notes)
 

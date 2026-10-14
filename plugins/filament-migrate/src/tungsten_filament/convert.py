@@ -102,6 +102,12 @@ class Ctx:
     def resolve(self, name: str) -> str:
         return self.php.resolve(name)
 
+    def has_relation(self, name: str) -> bool:
+        """False only when the resource's model is known and models.py has no relation by that name."""
+        known = self.project.converted_relations.get(self.model or "")
+        model = self.project.models.get(self.model or "")
+        return known is None or name in known or bool(model and name in model.casts)  # a JSON column path
+
     def enum_value(self, cls: str, case: str) -> Any:
         enum = self.project.enums.get(short(self.resolve(cls)))
         if enum is None:
@@ -484,6 +490,18 @@ class Converter:
             return [Item(None, [ctx.todo(node, "`new` object not converted").comment()])]
         return [Item(None, [ctx.todo(node, "not converted (not a Filament component call)").comment()])]
 
+    def missing_relation(self, name: str | None, calls: list[MethodCall], kind: str) -> str | None:
+        """The relation a component names (``company.name``, ``->relationship('company')``) when the model lacks it."""
+        names = []
+        if kind in ("column", "entry") and name and name[:1] in "'\"" and "." in name:
+            names.append(name.strip("'\"").split(".", 1)[0])
+        for c in calls:
+            if c.method == "relationship" and c.args:
+                rel = next((a.value for a in c.args if a.name == "name"), c.args[0].value)
+                if isinstance(rel, Str):
+                    names.append(rel.value)
+        return next((n for n in names if not self.ctx.has_relation(n)), None)
+
     def inline_helper(self, call: StaticCall) -> Node | None:
         cls = self.ctx.project.classes.get(short(self.ctx.resolve(call.cls)))
         if cls is None:
@@ -517,6 +535,11 @@ class Converter:
 
         # constructor
         name, _ = _make_name(base, ctx)
+        missing = self.missing_relation(name, calls, kind)
+        if missing:
+            # code naming a relation the model lacks fails at runtime (a 500 on the list page): leave it out
+            return Item(None, [ctx.todo(node, f"{fil} uses relation `{missing}`, which {ctx.model} does not have in "
+                                              f"models.py: add the relation there, then add this back").comment()])
         layout = py in FORM_LAYOUTS.values() and kind in ("form", "entry")
         ctor_args: list[str] = []
         children_from_make: Node | None = None
