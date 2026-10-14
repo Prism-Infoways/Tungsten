@@ -14,7 +14,7 @@ def test_scan_writes_nothing(tmp_path, capsys):
     assert main(["scan", str(root)]) == 0
     out = capsys.readouterr().out
     assert "Filament 3 project: 7 models, 4 resources" in out
-    assert "createOptionForm() is not available" in out
+    assert "createOptionForm() uses a value that was not converted" in out
     assert not (tmp_path / "tungsten_admin").exists()
 
 
