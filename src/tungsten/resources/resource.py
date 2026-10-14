@@ -95,6 +95,13 @@ class Resource:
     relations: ClassVar[list] = []
     widgets: ClassVar[list] = []
 
+    # nested resources: records live under a parent record (``/courses/1/lessons/5/edit``).
+    # The parent lists them with ``RelationManager(related_resource=...)``; set these so the
+    # resource leaves the menu and links to its records (global search...) use the nested URLs.
+    parent_resource: ClassVar[Any] = None
+    #: the to-one relationship from this model to its parent (``"course"``)
+    parent_relationship: ClassVar[str | None] = None
+
     # tenancy: the column or relationship that links a record to the current tenant
     # (default: the panel's ``Tenancy(ownership=...)``); ``tenant_scoped = False`` shares
     # this resource's records between all tenants
@@ -206,7 +213,21 @@ class Resource:
         return page in cls.pages
 
     @classmethod
+    def parent_manager(cls) -> Any:
+        """The parent's relation manager that nests this resource."""
+        parent = cls.parent_resource
+        if parent is None:
+            return None
+        return next((m for m in parent.get_relations() if getattr(m, "related_resource", None) is cls), None)
+
+    @classmethod
     def get_url(cls, ctx: "Context", page: str = "index", record: Any = None, **query: Any) -> str:
+        if cls.parent_resource is not None and cls.parent_relationship and page in ("edit", "view") \
+                and record is not None and not isinstance(record, (str, int)):
+            owner = getattr(record, cls.parent_relationship, None)
+            manager = cls.parent_manager()
+            if owner is not None and manager is not None:
+                return manager.get_url(ctx, cls.parent_resource, owner, page, record, **query)
         slug = cls.get_slug()
         if page == "index":
             return ctx.url(slug, **query)

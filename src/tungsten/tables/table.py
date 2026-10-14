@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import base64
+import datetime as dt
+import decimal
 import itertools
+import json
 import math
 from typing import TYPE_CHECKING, Any, Callable
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode
 
 from markupsafe import Markup
-from sqlalchemy import String, cast, func, or_, select
+from starlette.datastructures import QueryParams
+from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import aliased, selectinload
 
@@ -18,7 +23,7 @@ from ..i18n import maybe
 from ..i18n import translate as __
 from ..support.component import Component, headline
 from ..support.evaluate import call, evaluate
-from .columns import Column, read_path
+from .columns import Column, ColumnGroup, read_path
 from .filters import Filter, TrashedFilter
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -26,6 +31,22 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..hosts import Host
 
 _ids = itertools.count(1)
+
+# written out in full so the Tailwind build finds every class
+_GRID_COLS = {
+    "default": ("grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-4", "grid-cols-5", "grid-cols-6"),
+    "sm": ("sm:grid-cols-1", "sm:grid-cols-2", "sm:grid-cols-3", "sm:grid-cols-4", "sm:grid-cols-5", "sm:grid-cols-6"),
+    "md": ("md:grid-cols-1", "md:grid-cols-2", "md:grid-cols-3", "md:grid-cols-4", "md:grid-cols-5", "md:grid-cols-6"),
+    "lg": ("lg:grid-cols-1", "lg:grid-cols-2", "lg:grid-cols-3", "lg:grid-cols-4", "lg:grid-cols-5", "lg:grid-cols-6"),
+    "xl": ("xl:grid-cols-1", "xl:grid-cols-2", "xl:grid-cols-3", "xl:grid-cols-4", "xl:grid-cols-5", "xl:grid-cols-6"),
+    "2xl": ("2xl:grid-cols-1", "2xl:grid-cols-2", "2xl:grid-cols-3", "2xl:grid-cols-4", "2xl:grid-cols-5",
+            "2xl:grid-cols-6"),
+}
+
+_PERSIST_LIMIT = 1200  # characters of remembered state per table
+
+# query-string keys that hold table state (anything else is ignored when deciding to restore)
+_STATE_KEYS = ("search", "sort", "direction", "_f", "page", "per_page", "cursor", "group", "tab", "reordering")
 
 
 class Group(Component):
@@ -139,6 +160,12 @@ class Table(Component):
         self._limit: int | None = None
         self._reorder_column: str | None = None
         self._tabs: list = []
+        self._deferred_filters: bool | None = None
+        self._pagination_mode = "default"
+        self._persist: set[str] = set()
+        self._content_grid: dict[str, int] | None = None
+        self._stacked_on_mobile = False
+        self._column_groups: dict[str, ColumnGroup] = {}
         # runtime
         self.ctx: Context | None = None
         self.host: Host | None = None
@@ -150,19 +177,97 @@ class Table(Component):
         self._relation_counts: dict[str, dict] = {}
         self.filter_form: Form | None = None
         self.filter_data: dict[str, dict] = {}
+        self._state_form: Form | None = None
         self._joins: dict[str, Any] = {}
+        self._has_more = False
+        self._cursors: dict[str, str | None] = {}
 
     # ------------------------------------------------------------------ config
-    def columns(self, columns: list[Column]) -> "Table":
-        self._columns = list(columns)
+    def columns(self, columns: list[Column | ColumnGroup]) -> "Table":
+        """The table's columns. A :class:`ColumnGroup` puts a shared heading over the columns in it."""
+        self._columns = []
+        self._column_groups = {}
+        for item in columns:
+            if isinstance(item, ColumnGroup):
+                for col in item.columns:
+                    self._column_groups[col.name] = item
+                    self._columns.append(col)
+            else:
+                self._columns.append(item)
         return self
 
+    FILTER_LAYOUTS = ("panel", "above", "modal", "dropdown")
+
     def filters(self, filters: list[Filter], layout: str | None = None) -> "Table":
-        """``layout``: ``"panel"`` (side panel, default) or ``"above"`` (all inline)."""
+        """``layout``: ``"panel"`` (side panel, default), ``"above"`` (all inline in the toolbar),
+        ``"modal"`` (a pop-up window) or ``"dropdown"`` (a menu under the Filters button)."""
         self._filters = list(filters)
         if layout:
-            self._filters_layout = layout
+            self.filters_layout(layout)
         return self
+
+    def filters_layout(self, layout: str) -> "Table":
+        if layout not in self.FILTER_LAYOUTS:
+            raise ValueError(f"Unknown filters layout {layout!r}; use one of {', '.join(self.FILTER_LAYOUTS)}")
+        self._filters_layout = layout
+        return self
+
+    def deferred_filters(self, condition: bool = True) -> "Table":
+        """Wait for the Apply button before running filters, instead of on every change.
+
+        On by default for the ``"modal"`` and ``"dropdown"`` layouts.
+        """
+        self._deferred_filters = condition
+        return self
+
+    def has_deferred_filters(self) -> bool:
+        if not self._filters:
+            return False
+        if self._deferred_filters is not None:
+            return self._deferred_filters
+        return self._filters_layout in ("modal", "dropdown")
+
+    def persist_filters_in_session(self, condition: bool = True) -> "Table":
+        """Remember the filters for this user, so they are still set on the next visit."""
+        return self._set_persist("filters", condition)
+
+    def persist_search_in_session(self, condition: bool = True) -> "Table":
+        """Remember the search text (and the per-column searches) for this user."""
+        return self._set_persist("search", condition)
+
+    def persist_sort_in_session(self, condition: bool = True) -> "Table":
+        """Remember the sort column and direction for this user."""
+        return self._set_persist("sort", condition)
+
+    def persist_in_session(self, condition: bool = True) -> "Table":
+        """Remember filters, search and sort (shortcut for the three ``persist_*`` methods)."""
+        for part in ("filters", "search", "sort"):
+            self._set_persist(part, condition)
+        return self
+
+    def _set_persist(self, part: str, condition: bool) -> "Table":
+        if condition:
+            self._persist.add(part)
+        else:
+            self._persist.discard(part)
+        return self
+
+    def content_grid(self, columns: dict[str, int] | int = 3) -> "Table":
+        """Show records as cards in a grid instead of rows. ``{"md": 2, "xl": 3}`` sets columns per screen width."""
+        self._content_grid = {"default": columns} if isinstance(columns, int) else dict(columns)
+        return self
+
+    def stacked_on_mobile(self, condition: bool = True) -> "Table":
+        """On phones, show each row as a card with the column labels next to the values."""
+        self._stacked_on_mobile = condition
+        return self
+
+    def content_grid_classes(self) -> str:
+        out = ["grid", "gap-4", "grid-cols-1"]
+        for size, n in (self._content_grid or {}).items():
+            if size in _GRID_COLS:
+                out.append(_GRID_COLS[size][max(1, min(int(n), 6)) - 1])
+        return " ".join(out)
 
     def actions(self, actions: list) -> "Table":
         """Row actions (shown at the end of every row)."""
@@ -186,7 +291,13 @@ class Table(Component):
         self._default_direction = direction
         return self
 
-    def paginated(self, options: list[int] | bool = True, default: int | None = None) -> "Table":
+    PAGINATION_MODES = ("default", "simple", "cursor")
+
+    def paginated(self, options: list[int] | bool = True, default: int | None = None,
+                  mode: str | None = None) -> "Table":
+        """Per-page choices, or ``False`` for one page. ``mode``: see :meth:`pagination_mode`."""
+        if mode:
+            self.pagination_mode(mode)
         if options is False:
             self._paginated = False
         elif isinstance(options, list):
@@ -196,6 +307,20 @@ class Table(Component):
         elif isinstance(options, list) and options:
             self._default_per_page = options[0]
         return self
+
+    def pagination_mode(self, mode: str) -> "Table":
+        """``"default"`` (page numbers and a total), ``"simple"`` (Previous / Next, no row count) or
+        ``"cursor"`` (Previous / Next that stays fast deep into very large tables)."""
+        if mode not in self.PAGINATION_MODES:
+            raise ValueError(f"Unknown pagination mode {mode!r}; use one of {', '.join(self.PAGINATION_MODES)}")
+        self._pagination_mode = mode
+        return self
+
+    def simple_pagination(self) -> "Table":
+        return self.pagination_mode("simple")
+
+    def cursor_pagination(self) -> "Table":
+        return self.pagination_mode("cursor")
 
     def limit(self, n: int) -> "Table":
         """Show only the first ``n`` rows, without pagination (good for widgets)."""
@@ -321,8 +446,83 @@ class Table(Component):
         for f in self._filters:
             if hasattr(f, "bind_options"):
                 f.bind_options(self)
-        self._load_filters()
+        restored = self._restore_persisted()
+        pending = None
+        if self.has_deferred_filters() and "_applied" in self.params and not self.params.get("_apply"):
+            # deferred filters: the query uses the last applied values, not what is typed in the form
+            pending = self.params
+            self.params = self._with_applied_filters(self.params)
+        if not restored:
+            self._remember_state()
+        self.filter_form, self.filter_data = self._load_filters(self.params)
+        self._state_form = self.filter_form
+        if pending is not None and pending.get("_qb"):
+            # a query-builder edit (add a rule, ...) keeps the unapplied rules on screen
+            self.filter_form, _ = self._load_filters(pending)
         return self
+
+    # ---- deferred filters
+    def _with_applied_filters(self, params: Any) -> QueryParams:
+        items = [(k, v) for k, v in params.multi_items()
+                 if not k.startswith("filters.") and k not in ("_qb", "_applied", "_apply")]
+        items += [(k, v) for k, v in parse_qsl(str(params.get("_applied") or ""), keep_blank_values=False)
+                  if k.startswith("filters.")]
+        return QueryParams(items)
+
+    def applied_filters_value(self) -> str:
+        """The applied filter values, sent back with each request while the form holds unapplied changes."""
+        return urlencode(self.filter_state_items(include_marker=False))
+
+    # ---- session persistence
+    def persist_key(self) -> str:
+        return f"tw_table:{self.host.key if self.host else self.id}"
+
+    def _session(self) -> dict | None:
+        if not self._persist or self.ctx is None:
+            return None
+        if "session" not in getattr(self.ctx.request, "scope", {}):
+            return None
+        return self.ctx.session
+
+    def _has_state(self, params: Any) -> bool:
+        return any(params.get(k) is not None for k in _STATE_KEYS) or any(
+            k.startswith("col_search.") for k in params.keys())
+
+    def _restore_persisted(self) -> bool:
+        """With no table state in the URL, open the table as the user last left it."""
+        session = self._session()
+        if session is None or self._has_state(self.params):
+            return False
+        saved = session.get(self.persist_key()) or {}
+        items = [tuple(i) for part in ("filters", "search", "sort") if part in self._persist
+                 for i in saved.get(part, [])]
+        if not items:
+            return False
+        self.params = QueryParams(list(self.params.multi_items()) + items)
+        return True
+
+    def _remember_state(self) -> None:
+        session = self._session()
+        if session is None or not self._has_state(self.params):
+            return
+        params = self.params
+        saved: dict[str, list] = {}
+        if "filters" in self._persist and params.get("_f") is not None:
+            saved["filters"] = [("_f", "1")] + [
+                (k, v) for k, v in params.multi_items() if k.startswith("filters.") and v not in (None, "")]
+        if "search" in self._persist:
+            saved["search"] = [(k, v) for k, v in params.multi_items()
+                               if (k == "search" or k.startswith("col_search.")) and str(v).strip()]
+        if "sort" in self._persist and params.get("sort") is not None:
+            saved["sort"] = [("sort", params.get("sort")), ("direction", params.get("direction") or "")]
+        saved = {k: [list(i) for i in v] for k, v in saved.items() if v}
+        # the session lives in a cookie (about 4 KB for everything): big query-builder rules are not kept
+        while saved and len(json.dumps(saved)) > _PERSIST_LIMIT:
+            saved.pop("filters" if "filters" in saved else next(iter(saved)))
+        if saved:
+            session[self.persist_key()] = saved
+        else:
+            session.pop(self.persist_key(), None)
 
     def ev(self) -> dict[str, Any]:
         """Closure arguments for this table. Built once per request: every cell asks for them.
@@ -453,26 +653,38 @@ class Table(Component):
         ev = self.ev()
         return [c for c in self._columns if c.name not in hidden and c.is_visible(**ev)]
 
+    def column_group_headers(self, columns: list[Column]) -> list[dict]:
+        """The extra heading row over grouped columns: ``[{"group": ColumnGroup | None, "span": n}, ...]``."""
+        if not self._column_groups or not any(c.name in self._column_groups for c in columns):
+            return []
+        out: list[dict] = []
+        for col in columns:
+            group = self._column_groups.get(col.name)
+            if out and out[-1]["group"] is group:
+                out[-1]["span"] += 1
+            else:
+                out.append({"group": group, "span": 1})
+        return out
+
     def toggleable_columns(self) -> list[dict]:
         hidden = self.hidden_columns()
         return [{"name": c.name, "label": c.get_label(), "visible": c.name not in hidden}
                 for c in self._columns if c._toggleable]
 
     # ---- filters
-    def _load_filters(self) -> None:
+    def _load_filters(self, params: Any) -> tuple[Form, dict[str, dict]]:
         form = Form().columns(1)
         form.bind(self.ctx, operation="filter", refresh_url=None)
         form.id = self.id + "-filters"
         form.table = self  # type: ignore[attr-defined]  # the query builder renders table-aware buttons
-        self.filter_form = form
-        submitted = self.params.get("_f") is not None
-        builder_action = str(self.params.get("_qb") or "")
-        self.filter_data = {}
+        submitted = params.get("_f") is not None
+        builder_action = str(params.get("_qb") or "")
+        filter_data: dict[str, dict] = {}
         for f in self._filters:
             base = f.base()
             if submitted:
                 for field in f.get_fields():
-                    field.load_state(form, self.params, base)
+                    field.load_state(form, params, base)
                 verb, _, rest = builder_action.partition(":")
                 target, _, args = rest.partition(":")
                 if target == f.name and hasattr(f, "field"):
@@ -487,7 +699,8 @@ class Table(Component):
             errors: dict[str, list] = {}
             for field in f.get_fields():
                 field.process(form, base, data, errors)
-            self.filter_data[f.name] = data
+            filter_data[f.name] = data
+        return form, filter_data
 
     def active_indicators(self) -> list[dict]:
         out = []
@@ -684,20 +897,149 @@ class Table(Component):
         query = query.order_by(self.host.primary_key().desc() if not column else self.host.primary_key())
         return query
 
+    # ---- cursor pagination
+    def _keyset(self, query) -> tuple[Any, list[tuple[Any, bool, Callable, bool]] | None]:
+        """The sort keys as ``(expression, descending, read value, nullable)``, or ``None`` when the
+        order cannot be paged by cursor (a custom sort, drag-to-reorder, or a composite key)."""
+        mapper = sa_inspect(self.model)
+        if self.is_reordering or len(mapper.primary_key) != 1:
+            return query, None
+        keys: list[tuple[Any, bool, Callable, bool]] = []
+        group = self.group
+        if group is not None:
+            query, expr = self._sort_expression(query, group.attribute)
+            keys.append((expr, False, lambda r, p=group.attribute: read_path(r, p), _nullable(expr)))
+        column, direction = self.sort
+        if column:
+            col = next((c for c in self._columns if c.name == column), None)
+            if col is not None and col._sort_query is not None:
+                return query, None
+            query, expr = self._sort_expression(query, column)
+            keys.append((expr, direction == "desc", lambda r, p=column: read_path(r, p), _nullable(expr)))
+        pk = mapper.primary_key[0]
+        keys.append((self.host.primary_key(), not column, lambda r, k=pk.key: getattr(r, k), False))
+        return query, keys
+
+    @staticmethod
+    def _keyset_order(keys: list, reverse: bool) -> list:
+        order = []
+        for expr, desc, _, nullable in keys:
+            if nullable:  # empty values last (first when paging backwards), the same on every database
+                order.append(expr.is_(None).desc() if reverse else expr.is_(None))
+            order.append(expr.desc() if desc != reverse else expr.asc())
+        return order
+
+    @staticmethod
+    def _keyset_after(keys: list, values: list, reverse: bool):
+        """WHERE for the rows after ``values`` in the (possibly reversed) order."""
+        from sqlalchemy import false
+
+        parts: list[tuple[Any, Any]] = []  # (equal, after) for each sort component
+        for (expr, desc, _, nullable), value in zip(keys, values):
+            if nullable and value is None:
+                parts.append((expr.is_(None), expr.is_not(None) if reverse else false()))
+                continue
+            if nullable:
+                parts.append((expr.is_not(None), false() if reverse else expr.is_(None)))
+            parts.append((expr == value, expr < value if desc != reverse else expr > value))
+        return or_(*[and_(*[eq for eq, _ in parts[:i]], after) for i, (_, after) in enumerate(parts)])
+
+    def encode_cursor(self, keys: list, record: Any, direction: str) -> str:
+        values = [_cursor_value(read(record)) for _, _, read, _ in keys]
+        raw = json.dumps({"d": direction, "v": values}, separators=(",", ":"))
+        return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+
+    def decode_cursor(self, keys: list) -> tuple[str, list] | None:
+        token = self.param("cursor")
+        if not token:
+            return None
+        try:
+            data = json.loads(base64.urlsafe_b64decode(str(token) + "=" * (-len(str(token)) % 4)))
+            values = [_cursor_load(v) for v in data["v"]]
+            if data["d"] not in ("n", "p") or len(values) != len(keys):
+                return None
+            return data["d"], values
+        except (ValueError, KeyError, TypeError):  # a stale or edited link opens the first page
+            return None
+
+    def _cursor_page(self, query, per_page: int) -> list | None:
+        """One page by cursor. Sets ``self._cursors``; ``None`` when this order can't use cursors."""
+        query, keys = self._keyset(query)
+        if keys is None:
+            return None
+        cursor = self.decode_cursor(keys)
+        reverse = cursor is not None and cursor[0] == "p"
+        if cursor is not None:
+            query = query.where(self._keyset_after(keys, cursor[1], reverse))
+        query = self._eager_loads(query.order_by(*self._keyset_order(keys, reverse)).limit(per_page + 1))
+        records = list(self.ctx.db.scalars(query).unique().all())
+        more = len(records) > per_page
+        records = records[:per_page]
+        if reverse:
+            records.reverse()
+        has_next = more if not reverse else True
+        has_prev = cursor is not None and (more if reverse else True)
+        self._cursors = {
+            "next": self.encode_cursor(keys, records[-1], "n") if records and has_next else None,
+            "prev": self.encode_cursor(keys, records[0], "p") if records and has_prev else None,
+        }
+        return records
+
     def get_total(self, query) -> int:
         return int(self.ctx.db.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0)
 
-    def get_records(self) -> tuple[list, int]:
-        query = self.filtered_query()
-        total = self.get_total(query)
-        query = self._eager_loads(self.sorted_query(query))
-        if self._paginated:
-            pages = max(1, math.ceil(total / self.per_page))
+    def get_records(self) -> tuple[list, int | None]:
+        """The current page and the total (``None`` with simple or cursor pagination, which skip the count)."""
+        page = self._page(self.filtered_query())
+        return page["records"], page["total"]
+
+    def _page(self, query) -> dict[str, Any]:
+        """Fetch the rows on screen, by the table's pagination mode."""
+        per_page = self.per_page
+        paginated = self._paginated and not self.is_reordering
+        mode = self._pagination_mode if paginated else "default"
+        self._cursors = {}
+        out: dict[str, Any] = {"paginated": paginated, "mode": mode, "per_page": per_page, "total": None,
+                               "page": 1, "pages": 1, "start": 0, "has_next": False}
+        records = None
+        if mode == "cursor":
+            records = self._cursor_page(query, per_page)
+            if records is None:
+                mode = out["mode"] = "simple"  # this sort can't use cursors; page by number instead
+            else:
+                out["has_next"] = bool(self._cursors.get("next"))
+        if mode == "simple":
+            page = self.page
+            rows = list(self.ctx.db.scalars(
+                self._eager_loads(self.sorted_query(query)).limit(per_page + 1).offset((page - 1) * per_page)
+            ).unique().all())
+            if not rows and page > 1:  # past the end (rows were deleted): back to the first page
+                page = 1
+                rows = list(self.ctx.db.scalars(
+                    self._eager_loads(self.sorted_query(query)).limit(per_page + 1)).unique().all())
+            records = rows[:per_page]
+            out.update(page=page, start=(page - 1) * per_page, has_next=len(rows) > per_page)
+        if mode == "default":
+            total = self.get_total(query)
+            sorted_q = self._eager_loads(self.sorted_query(query))
+            pages = max(1, math.ceil(total / per_page)) if paginated else 1
             page = min(self.page, pages)
-            query = query.limit(self.per_page).offset((page - 1) * self.per_page)
-        records = list(self.ctx.db.scalars(query).unique().all())
+            if paginated:
+                sorted_q = sorted_q.limit(per_page).offset((page - 1) * per_page)
+            elif self._limit:
+                sorted_q = sorted_q.limit(self._limit)
+            records = list(self.ctx.db.scalars(sorted_q).unique().all())
+            out.update(total=total, page=page, pages=pages, start=(page - 1) * per_page if paginated else 0)
+        self._prepare(records)
         self._page_records = records
-        return records, total
+        out["records"] = records
+        return out
+
+    def _prepare(self, records: list) -> None:
+        """Let the host add data to the rows (a relation's link-table columns as ``record.pivot``)."""
+        prepare = getattr(self.host, "prepare_records", None)
+        if prepare is not None and records:
+            prepare(self.ctx, records)
 
     def summaries(self, query) -> dict[str, list[dict]]:
         out: dict[str, list[dict]] = {}
@@ -713,7 +1055,7 @@ class Table(Component):
                 for s in col._summarizers:
                     entry = {"label": s.get_label(), "value": None}
                     out.setdefault(col.name, []).append(entry)
-                    in_sql.append((entry, s, s.expression(sub.c[col.name])))
+                    in_sql.append((entry, s, s.expressions(sub.c[col.name])))
                 continue
             # computed (``state()``) or non-column values: summarise in Python over every matching row
             if records is None:
@@ -729,9 +1071,10 @@ class Table(Component):
                     value = None
                 out.setdefault(col.name, []).append({"label": s.get_label(), "value": s.format(value)})
         if in_sql:
-            row = self.ctx.db.execute(select(*[expr for _, _, expr in in_sql])).one()
-            for (entry, s, _), value in zip(in_sql, row):
-                entry["value"] = s.format(value)
+            row = list(self.ctx.db.execute(select(*[e for _, _, exprs in in_sql for e in exprs])).one())
+            for entry, s, exprs in in_sql:
+                values, row = row[:len(exprs)], row[len(exprs):]
+                entry["value"] = s.format(s.combine(values))
         return out
 
     def reorder(self, keys: list[str]) -> None:
@@ -762,22 +1105,31 @@ class Table(Component):
             "sort": self.param("sort"),
             "direction": self.param("direction"),
             "page": self.param("page"),
+            "cursor": self.param("cursor"),
             "per_page": self.param("per_page") if str(self.param("per_page")) != str(self._default_per_page) else None,
             "group": self.param("group"),
         }
+        if "page" in overrides and "cursor" not in overrides:
+            params["cursor"] = None  # a new page, sort, tab or filter starts again from the top
         params.update(overrides)
         items = [(k, v) for k, v in params.items() if v not in (None, "")]
         items.extend((f"col_search.{name}", term) for name, term in self.column_searches.items())
         if self.params.get("_f") is not None:
-            items.append(("_f", "1"))
-            builders = {f.name: f for f in self._filters if hasattr(f, "field")}
-            for key in self.params.keys():
-                if key.startswith("filters.") and key.split(".")[1] not in builders:
-                    for v in self.params.getlist(key):
-                        if v not in (None, ""):
-                            items.append((key, v))
-            for f in builders.values():
-                items.extend(f.field.url_items(self.filter_form, f.base()))
+            items.extend(self.filter_state_items())
+        return items
+
+    def filter_state_items(self, include_marker: bool = True) -> list[tuple[str, Any]]:
+        """The applied filter values as query-string pairs."""
+        items: list[tuple[str, Any]] = [("_f", "1")] if include_marker else []
+        builders = {f.name: f for f in self._filters if hasattr(f, "field")}
+        for key in self.params.keys():
+            if key.startswith("filters.") and key.split(".")[1] not in builders:
+                for v in self.params.getlist(key):
+                    if v not in (None, ""):
+                        items.append((key, v))
+        form = self._state_form or self.filter_form
+        for f in builders.values():
+            items.extend(f.field.url_items(form, f.base()))
         return items
 
     def url(self, **overrides: Any) -> str:
@@ -854,18 +1206,10 @@ class Table(Component):
     def view_data(self) -> dict[str, Any]:
         ctx = self.ctx
         query = self.filtered_query()
-        total = self.get_total(query)
-        sorted_q = self._eager_loads(self.sorted_query(query))
-        per_page = self.per_page
-        paginated = self._paginated and not self.is_reordering
-        pages = max(1, math.ceil(total / per_page)) if paginated else 1
-        page = min(self.page, pages)
-        if paginated:
-            sorted_q = sorted_q.limit(per_page).offset((page - 1) * per_page)
-        elif self._limit:
-            sorted_q = sorted_q.limit(self._limit)
-        records = list(ctx.db.scalars(sorted_q).unique().all())
-        self._page_records = records
+        paging = self._page(query)
+        records = paging["records"]
+        total, page, pages, per_page = paging["total"], paging["page"], paging["pages"], paging["per_page"]
+        paginated = paging["paginated"]
         columns = self.visible_columns()
         self._scoped(self._actions, "row")
         self._scoped(self._bulk_actions, "bulk")
@@ -875,7 +1219,7 @@ class Table(Component):
         rows = []
         last_group = object()
         group_index = -1
-        start = (page - 1) * per_page if paginated else 0
+        start = paging["start"]
         for i, record in enumerate(records):
             if group is not None:
                 title = group.get_title(record)
@@ -909,6 +1253,14 @@ class Table(Component):
             "summaries": self.summaries(query) if any(c._summarizers for c in columns) else {},
             "selectable": self.is_selectable(),
             "paginated": paginated,
+            "pagination_mode": paging["mode"],
+            "has_next": paging["has_next"],
+            "cursors": self._cursors,
+            "column_groups": self.column_group_headers(columns),
+            "content_grid": self.content_grid_classes() if self._content_grid else None,
+            "stacked": self._stacked_on_mobile and not self._content_grid,
+            "deferred": self.has_deferred_filters(),
+            "filters_layout": self._filters_layout,
             "reordering": self.is_reordering,
             "reorderable": bool(self._reorder_column) and self.host.can(ctx, "update"),
             "tabs": self.tab_data() if self._tabs else [],
@@ -942,6 +1294,37 @@ class Table(Component):
 
     def __html__(self) -> str:
         return str(self.render())
+
+
+def _nullable(expr: Any) -> bool:
+    try:
+        return bool(expr.property.columns[0].nullable)
+    except (AttributeError, IndexError):
+        return True
+
+
+def _cursor_value(value: Any) -> Any:
+    if isinstance(value, dt.datetime):
+        return {"$dt": value.isoformat()}
+    if isinstance(value, dt.date):
+        return {"$d": value.isoformat()}
+    if isinstance(value, dt.time):
+        return {"$t": value.isoformat()}
+    if isinstance(value, decimal.Decimal):
+        return {"$n": str(value)}
+    if hasattr(value, "value") and hasattr(type(value), "__members__"):  # an Enum
+        return _cursor_value(value.value)
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
+def _cursor_load(value: Any) -> Any:
+    if isinstance(value, dict):
+        (tag, raw), = value.items()
+        return {"$dt": dt.datetime.fromisoformat, "$d": dt.date.fromisoformat, "$t": dt.time.fromisoformat,
+                "$n": decimal.Decimal}[tag](raw)
+    return value
 
 
 def _page_links(page: int, pages: int) -> list[int | None]:

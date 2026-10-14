@@ -135,9 +135,27 @@ table.paginated(False)                  # all rows on one page
 
 | Method | What it does |
 | --- | --- |
-| `paginated(options, default=None)` | Per-page choices, or `False` to turn pagination off. |
+| `paginated(options, default=None, mode=None)` | Per-page choices, or `False` to turn pagination off. |
+| `pagination_mode(mode)` | `"default"`, `"simple"` or `"cursor"` (see below). |
 | `default_per_page(n)` | Rows per page when the user has not picked. |
 | `limit(n)` | Show only the first `n` rows, with no pagination. Handy in [widgets](widgets). |
+
+### Simple and cursor pagination
+
+The default pagination counts every matching row to show page numbers and "Showing 1 to 10 of 2,431 results". On very large tables, that count and deep pages get slow. Two other modes skip it:
+
+```python
+table.paginated([25, 50], mode="simple")   # or table.simple_pagination()
+table.paginated([25, 50], mode="cursor")   # or table.cursor_pagination()
+```
+
+| Mode | Shows | Good for |
+| --- | --- | --- |
+| `"default"` | Page numbers and the total. | Most tables. |
+| `"simple"` | **Previous** and **Next**, no total. | Big tables where the count is slow. |
+| `"cursor"` | **Previous** and **Next**, no total. Each page starts after the last row of the one before, so page 5,000 is as fast as page 1. | Very large tables (millions of rows). |
+
+Cursor pagination follows the current sort and grouping. Rows with an empty value in the sort column come last. When a column uses a custom `sortable(query=...)`, the table can't page by cursor and uses simple pagination for that sort.
 
 ## Scoping the query
 
@@ -217,5 +235,18 @@ SelectFilter("role").options(lambda db: [(r.id, r.name) for r in db.scalars(sele
 ## Table state in the URL
 
 Search text, sort, page, per-page, list tab, grouping and filter values are stored in the query string. Reloading the page or sharing the link shows the same view. The table updates in place (no full page reload) as users type, sort or filter.
+
+## Remember the table state
+
+The URL is lost when a user opens the table again from the menu. To bring back their last filters, search or sort, store them in the user's session:
+
+```python
+table.persist_filters_in_session()
+table.persist_search_in_session()   # the search box and the per-column searches
+table.persist_sort_in_session()
+table.persist_in_session()          # all three
+```
+
+When the URL has no table state, the table opens as the user last left it. A link with its own state (a shared link, a list tab, a saved view) still wins. **Clear filters** clears the remembered filters too.
 
 More features — list tabs, grouping, totals, toggleable columns, drag-to-reorder and inline editing — are covered in [Table features](table-features).

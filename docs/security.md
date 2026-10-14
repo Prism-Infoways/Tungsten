@@ -174,5 +174,5 @@ Go through this list before you put a panel on the internet:
 9. **Set upload limits** (`max_size`, `accepted_file_types`) on every `FileUpload`.
 10. **Keep the storage folder out of your web root**, and back it up with your database.
 11. **Protect custom routes** you add with `panel.routes`: they skip Tungsten's login and CSRF checks.
-12. **Turn on `activity_log=True`** if you want a record of who created and changed what. Rows are written to the `tungsten_activity_log` table when records are created or saved on the create and edit pages.
+12. **Turn on `activity_log=True`** to keep a record of who created, changed, deleted and exported what, every action run, and every sign-in (including failed ones, with the IP address). See [Activity log](activity-log).
 13. **Rate limit at the proxy** for public panels, since the built-in login limit is per process.

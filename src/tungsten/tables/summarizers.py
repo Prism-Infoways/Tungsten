@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any, Callable
 
 from ..i18n import translate as __
@@ -46,6 +47,13 @@ class Summarizer(Component):
 
         return getattr(func, {"average": "avg"}.get(self.function, self.function))(column)
 
+    def expressions(self, column: Any) -> list:
+        """The SQL this summary needs; :meth:`combine` turns the results into one value."""
+        return [self.expression(column)]
+
+    def combine(self, values: list) -> Any:
+        return values[0]
+
     def compute(self, values: list) -> Any:
         """The same summary in Python, for columns without a database column (``state()``)."""
         values = [v for v in values if v is not None]
@@ -62,7 +70,7 @@ class Summarizer(Component):
     def format(self, value: Any) -> Any:
         if self._format is not None:
             return call(self._format, state=value)
-        if isinstance(value, float):
+        if isinstance(value, (float, Decimal)):
             return f"{value:,.2f}"
         if isinstance(value, int):
             return f"{value:,}"
@@ -92,3 +100,38 @@ class Min(Summarizer):
 class Max(Summarizer):
     function = "max"
     default_label = "Max"
+
+
+class Range(Summarizer):
+    """The lowest and highest value: ``Range()`` shows ``120 – 4,500``."""
+
+    function = "range"
+    default_label = "Range"
+
+    def __init__(self, label: str | None = None) -> None:
+        super().__init__(label)
+        self._separator = "\u00a0– "  # a no-break space keeps the dash with the low value
+
+    def separator(self, text: str) -> "Range":
+        self._separator = text
+        return self
+
+    def expressions(self, column: Any) -> list:
+        from sqlalchemy import func
+
+        return [func.min(column), func.max(column)]
+
+    def combine(self, values: list) -> Any:
+        low, high = values
+        return None if low is None and high is None else (low, high)
+
+    def compute(self, values: list) -> Any:
+        values = [v for v in values if v is not None]
+        return (min(values), max(values)) if values else None
+
+    def format(self, value: Any) -> Any:
+        if value is None:
+            return None
+        low, high = value
+        low, high = super().format(low), super().format(high)
+        return low if str(low) == str(high) else f"{low}{self._separator}{high}"

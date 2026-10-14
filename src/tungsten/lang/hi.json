@@ -400,5 +400,13 @@
   "The file is too large.": "फ़ाइल बहुत बड़ी है।",
   "The file could not be uploaded.": "फ़ाइल अपलोड नहीं हो सकी।",
   "Click a block in the editor first.": "पहले एडिटर में किसी ब्लॉक पर क्लिक करें।",
-  "Choose a file.": "एक फ़ाइल चुनें।"
+  "Choose a file.": "एक फ़ाइल चुनें।",
+  "Associate": "संबद्ध करें",
+  "Associated": "संबद्ध कर दिया गया",
+  "Dissociate": "संबंध हटाएँ",
+  "Dissociated": "संबंध हटा दिया गया",
+  "Details": "विवरण",
+  "Record pages": "रिकॉर्ड के पेज",
+  "Range": "सीमा",
+  "Apply filters": "फ़िल्टर लागू करें"
 }

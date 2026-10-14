@@ -122,6 +122,9 @@
         {% if user and panel.database_notifications %}
         {% include "tungsten/components/notification-bell.html" %}
         {% endif %}
+        {% if user and panel.notifications_live %}
+        <div id="tw-live" hidden data-tw-live-url="{{ panel.url('_tw', 'live') }}"></div>
+        {% endif %}
         {% if user %}
         {% call(part) ui.dropdown(width='w-60') %}
           {% if part == 'trigger' %}

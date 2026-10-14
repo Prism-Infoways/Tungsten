@@ -74,6 +74,7 @@ class Action(Component):
         self._refresh_table = True
         self._modal_content: Any = None
         self._deselect_after = True
+        self._log_activity: bool | None = None
 
     # ------------------------------------------------------------------ config
     def label(self, label: Any) -> "Action":
@@ -246,6 +247,20 @@ class Action(Component):
         if self._label is None:
             return __(headline(self.name))
         return __(str(evaluate(self._label, **(ev or {}))))
+
+    def log_activity(self, enabled: bool = True) -> "Action":
+        """Write a row to the activity log each time the action runs (on by default with ``activity_log=True``)."""
+        self._log_activity = enabled
+        return self
+
+    def logs_activity(self) -> bool:
+        if self._log_activity is not None:
+            return self._log_activity
+        return not self.logged_by_host()
+
+    def logged_by_host(self) -> bool:
+        """True when the host already logs what this action does (create, edit, delete ...)."""
+        return False
 
     def needs_modal(self) -> bool:
         return bool(self._requires_confirmation or self._form is not None or self._modal_content is not None)

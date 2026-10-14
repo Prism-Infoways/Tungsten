@@ -397,10 +397,53 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
     initMasks(root);
   }
 
+  // ------------------------------------------------------------------ live push
+  // one WebSocket per tab while signed in: toasts and bell updates arrive at once (polling stays as fallback)
+  var live = { ws: null, url: null, retry: 0, timer: null };
+  function liveSync() {
+    var el = document.getElementById("tw-live");
+    var url = el ? el.getAttribute("data-tw-live-url") : null;
+    if (url === live.url) return;
+    liveClose();
+    live.url = url;
+    live.retry = 0;
+    if (url) liveOpen();
+  }
+  function liveClose() {
+    clearTimeout(live.timer);
+    if (live.ws) {
+      live.ws.onclose = null;
+      live.ws.close();
+      live.ws = null;
+    }
+  }
+  function liveOpen() {
+    if (!live.url || !window.WebSocket) return;
+    var ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + live.url);
+    live.ws = ws;
+    ws.onopen = function () { live.retry = 0; };
+    ws.onmessage = function (e) {
+      var msg;
+      try { msg = JSON.parse(e.data); } catch (err) { return; }
+      if (msg.type === "toast" && msg.toast) window.twToast(msg.toast);
+      if (msg.type === "notifications") document.body.dispatchEvent(new CustomEvent("tw-notifications-changed"));
+    };
+    ws.onclose = function () {
+      live.ws = null;
+      if (!live.url) return;
+      live.retry = Math.min(live.retry + 1, 6);
+      live.timer = setTimeout(liveOpen, 1000 * Math.pow(2, live.retry)); // 2s, 4s ... up to about a minute
+    };
+  }
+
   function boot() {
     init(document);
+    liveSync();
     if (window.htmx) {
-      window.htmx.onLoad(function (el) { if (el && el.querySelectorAll) init(el); });
+      window.htmx.onLoad(function (el) {
+        if (el && el.querySelectorAll) init(el);
+        liveSync();
+      });
     }
   }
 

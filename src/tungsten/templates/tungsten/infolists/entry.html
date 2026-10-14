@@ -1,9 +1,13 @@
+{% set acts = v.actions if v.actions is defined else {} %}
 <div class="{{ 'grid grid-cols-3 items-start gap-x-4' if v.inline else 'grid gap-y-1.5' }}">
   {% if v.show_label %}
   <dt class="flex items-center gap-x-1 text-sm font-medium text-gray-500 dark:text-gray-400">
-    {{ v.label }}{% if v.hint %}<span class="ms-auto flex items-center gap-1 text-xs font-normal">{{ __(v.hint) }}{{ icon(v.hint_icon, 'h-3.5 w-3.5') }}</span>{% endif %}
+    {{ v.label }}{% if v.hint or acts.hint %}<span class="ms-auto flex items-center gap-1 text-xs font-normal">{% if v.hint %}{{ __(v.hint) }}{{ icon(v.hint_icon, 'h-3.5 w-3.5') }}{% endif %}{{ acts.hint }}</span>{% endif %}
   </dt>
   {% endif %}
-  <dd class="{{ 'col-span-2' if v.inline }} min-w-0 text-gray-950 dark:text-white">{{ cell }}</dd>
+  <dd class="{{ 'col-span-2' if v.inline }} min-w-0 text-gray-950 dark:text-white">
+    {% if acts.prefix or acts.suffix %}<div class="flex items-center gap-2">{{ acts.prefix }}<div class="min-w-0">{{ cell }}</div>{{ acts.suffix }}</div>{% else %}{{ cell }}{% endif %}
+    {% if acts.below %}<div class="mt-2 flex flex-wrap items-center gap-2">{{ acts.below }}</div>{% endif %}
+  </dd>
   {% if v.helper_text %}<p class="text-xs text-gray-500 dark:text-gray-400 {{ 'col-span-3' if v.inline }}">{{ __(v.helper_text) }}</p>{% endif %}
 </div>
