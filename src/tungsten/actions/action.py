@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import threading
+import time
+from collections import deque
 from typing import TYPE_CHECKING, Any, Callable
 
 from markupsafe import Markup
@@ -19,6 +22,40 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class Halt(Exception):
     """Raise inside an action to stop it quietly (the modal stays open)."""
+
+
+#: how many modals can sit on top of each other (an action's modal plus nested ones)
+MAX_MODAL_LEVEL = 2
+
+
+class RateLimiter:
+    """Counts attempts per key in memory (per server process)."""
+
+    def __init__(self) -> None:
+        self._hits: dict[Any, deque] = {}
+        self._lock = threading.Lock()
+
+    def hit(self, key: Any, max_attempts: int, seconds: float) -> float:
+        """Record an attempt. Returns 0 when allowed, else the seconds to wait."""
+        now = time.monotonic()
+        with self._lock:
+            hits = self._hits.setdefault(key, deque())
+            while hits and hits[0] <= now - seconds:
+                hits.popleft()
+            if len(hits) >= max_attempts:
+                return max(hits[0] + seconds - now, 0.001)
+            hits.append(now)
+            if len(self._hits) > 10000:  # forget idle keys
+                for k in [k for k, v in self._hits.items() if not v or v[-1] <= now - seconds]:
+                    self._hits.pop(k, None)
+            return 0
+
+    def clear(self) -> None:
+        with self._lock:
+            self._hits.clear()
+
+
+rate_limiter = RateLimiter()
 
 
 class Action(Component):
@@ -75,6 +112,21 @@ class Action(Component):
         self._modal_content: Any = None
         self._deselect_after = True
         self._log_activity: bool | None = None
+        self._parent: Action | None = None
+        self._nested: list[Action] = []
+        self._footer_actions: list[str] = []
+        self._extra_submits: list[dict[str, Any]] = []
+        self._then: Any = None
+        self._cancel_parents = False
+        self._wizard = False
+        self._before: list[Callable] = []
+        self._after: list[Callable] = []
+        self._rate_limit: tuple[int, float, str] | None = None
+        self._rate_limit_message: Any = None
+        self._sticky_header = True
+        self._sticky_footer = True
+        #: ``arguments`` of the extra submit button that was pressed (see ``extra_modal_submit_action``)
+        self.arguments: dict[str, Any] = {}
 
     # ------------------------------------------------------------------ config
     def label(self, label: Any) -> "Action":
@@ -229,6 +281,136 @@ class Action(Component):
         self._deselect_after = condition
         return self
 
+    # ------------------------------------------------------------------ modals, chaining, hooks
+    def steps(self, steps: list, skippable: bool = False) -> "Action":
+        """Show the modal form as a wizard: ``steps([Step("Details").schema([...]), Step("Price")...])``.
+
+        Each "Next" checks that step; the last step's button runs the action."""
+        from ..forms.layout import Wizard
+
+        wizard = Wizard(list(steps)).horizontal().skippable(skippable)
+        self._form = [wizard]
+        self._wizard = True
+        return self
+
+    def extra_modal_footer_actions(self, actions: list["Action"]) -> "Action":
+        """More buttons in the modal footer. Each is a full action: one with a form or confirmation
+        opens its own modal on top of this one; the rest run straight away."""
+        for action in actions:
+            self._add_nested(action)
+            self._footer_actions.append(action.name)
+        return self
+
+    modal_footer_actions = extra_modal_footer_actions
+
+    def extra_modal_submit_action(self, name: str, label: Any = None, arguments: dict | None = None,
+                                  color: str = "gray") -> "Action":
+        """Another submit button that runs this action with ``arguments`` (the closure gets
+        ``arguments``), e.g. ``extra_modal_submit_action("draft", "Save as draft", {"draft": True})``."""
+        self._extra_submits.append({"name": name, "label": label or headline(name), "arguments": dict(arguments or {}),
+                                    "color": color})
+        return self
+
+    def then(self, next_action: Any) -> "Action":
+        """Open (or run) another action when this one succeeds, on the same record.
+
+        ``next_action`` is an :class:`Action`, the name of one of the page's/table's actions, or a
+        closure returning either (or None to stop): ``then(lambda result: "notify" if result else None)``."""
+        if isinstance(next_action, Action):
+            self._add_nested(next_action)
+        self._then = next_action
+        return self
+
+    def cancel_parent_actions(self, condition: bool = True) -> "Action":
+        """For an action in another action's modal: close every modal when it finishes, not only its own."""
+        self._cancel_parents = condition
+        return self
+
+    def before(self, fn: Callable) -> "Action":
+        """Run ``fn`` before the action (after the form is checked). Raise :class:`Halt` to stop."""
+        self._before.append(fn)
+        return self
+
+    def after(self, fn: Callable) -> "Action":
+        """Run ``fn`` after the action succeeded. It also gets ``result``."""
+        self._after.append(fn)
+        return self
+
+    def rate_limit(self, max_attempts: int, per_seconds: float = 60, by: str = "user") -> "Action":
+        """Allow at most ``max_attempts`` runs per ``per_seconds`` for each user (``by="user"``),
+        each client address (``by="ip"``) or everyone together (``by="action"``). Counted per server process."""
+        self._rate_limit = (max(1, int(max_attempts)), float(per_seconds), by)
+        return self
+
+    def rate_limited_notification_title(self, title: Any) -> "Action":
+        self._rate_limit_message = title
+        return self
+
+    def sticky_modal_header(self, condition: bool = True) -> "Action":
+        """Keep the modal heading in view while the content scrolls (on by default)."""
+        self._sticky_header = condition
+        return self
+
+    def sticky_modal_footer(self, condition: bool = True) -> "Action":
+        """Keep the modal buttons in view while the content scrolls (on by default)."""
+        self._sticky_footer = condition
+        return self
+
+    def _add_nested(self, action: "Action") -> None:
+        action._parent = self
+        self._nested = [a for a in self._nested if a.name != action.name] + [action]
+
+    def find_nested(self, name: str) -> "Action | None":
+        return next((a for a in self._nested if a.name == name), None)
+
+    @property
+    def path(self) -> str:
+        """The name used to find this action again: ``parent/child`` for nested actions."""
+        return f"{self._parent.path}/{self.name}" if self._parent is not None else self.name
+
+    def check_rate_limit(self, ctx: "Context", host: "Host | None") -> float:
+        """0 when the action may run now, else the seconds to wait. Counts this attempt."""
+        if self._rate_limit is None:
+            return 0
+        max_attempts, seconds, by = self._rate_limit
+        if by == "ip":
+            who = ctx.request.client.host if ctx.request.client else ""
+        elif by == "action":
+            who = ""
+        else:
+            who = ctx.panel.auth.user_id(ctx.user) if ctx.user is not None else (
+                ctx.request.client.host if ctx.request.client else "")
+        key = (ctx.panel.id, host.key if host else "", self.path, by, who)
+        return rate_limiter.hit(key, max_attempts, seconds)
+
+    def rate_limited_notification(self, ctx: "Context", wait: float):
+        from ..notifications import Notification
+
+        title = evaluate(self._rate_limit_message, **self.ev(ctx)) or "Too many attempts"
+        return Notification(title).body(__("Please try again in :seconds seconds.", seconds=max(1, round(wait + 0.49)))
+                                        ).danger()
+
+    def call_hooks(self, kind: str, ctx: "Context", host: "Host | None", record: Any = None, records: Any = None,
+                   data: dict | None = None, **extra: Any) -> None:
+        for fn in self._before if kind == "before" else self._after:
+            call(fn, **{**self.ev(ctx, record, records), "data": data or {}, "host": host, **extra})
+
+    def execute(self, ctx: "Context", host: "Host | None", record: Any = None, records: Any = None,
+                data: dict | None = None, form: "Form | None" = None) -> Any:
+        """``before`` hooks, the action, then ``after`` hooks when it did not fail."""
+        self.call_hooks("before", ctx, host, record, records, data, form=form)
+        result = self.run(ctx, host, record, records, data, form)
+        if result is not False:
+            self.call_hooks("after", ctx, host, record, records, data, form=form, result=result)
+        return result
+
+    def next_action(self, ctx: "Context", record: Any = None, records: Any = None, result: Any = None) -> Any:
+        """The action to open after this one (see :meth:`then`): an Action, a name, or None."""
+        target = self._then
+        if target is None or isinstance(target, (Action, str)):
+            return target
+        return call(target, **{**self.ev(ctx, record, records), "result": result})
+
     # ------------------------------------------------------------------ resolve
     def ev(self, ctx: "Context | None", record: Any = None, records: Any = None, **extra: Any) -> dict[str, Any]:
         return {
@@ -240,6 +422,7 @@ class Action(Component):
             "record": record,
             "records": records,
             "action": self,
+            "arguments": self.arguments,
             **extra,
         }
 
@@ -299,6 +482,10 @@ class Action(Component):
             form.schema(list(self._form))
         if host is not None and getattr(host, "model", None) is not None and form._model is None:
             form.model(host.model)
+        if self._wizard and self._modal_submit_label is not None:
+            for component in form._schema:
+                if hasattr(component, "submit_label"):
+                    component.submit_label(self._modal_submit_label)
         return form
 
     def fill(self, form: "Form", ctx: "Context", record: Any = None, records: Any = None) -> None:
@@ -312,6 +499,26 @@ class Action(Component):
         if self._action is None:
             return None
         return call(self._action, **{**self.ev(ctx, record, records), "data": data or {}, "form": form, "host": host})
+
+    def modal_footer_view(self, ctx: "Context", host: "Host | None", record: Any = None, level: int = 0,
+                          record_keys: list | None = None) -> dict:
+        """Buttons for the modal footer: nested actions (opening one level up) and extra submits."""
+        ev = self.ev(ctx, record)
+        actions = []
+        for name in self._footer_actions:
+            nested = self.find_nested(name)
+            if nested is None or not nested.is_available(host, ctx, record):
+                continue
+            nested.scope = self.scope
+            view = nested.view_data(ctx, host, record, style=nested._style or "button", level=level + 1)
+            if record_keys:
+                view["vals"]["records"] = list(record_keys)
+            if level + 1 > MAX_MODAL_LEVEL:  # no room for another modal: replace this one
+                view["target"] = modal_target(level)
+                view["vals"]["_tw_level"] = str(level)
+            actions.append(view)
+        submits = [{**s, "label": __(str(evaluate(s["label"], **ev)))} for s in self._extra_submits]
+        return {"actions": actions, "submits": submits}
 
     def success_notification(self, ctx: "Context", record: Any = None, records: Any = None):
         from ..notifications import Notification
@@ -332,16 +539,19 @@ class Action(Component):
 
     # ------------------------------------------------------------------ render
     def view_data(self, ctx: "Context", host: "Host | None", record: Any = None, *, style: str | None = None,
-                  table_id: str | None = None) -> dict[str, Any]:
+                  table_id: str | None = None, level: int = 0) -> dict[str, Any]:
         ev = self.ev(ctx, record, host=host)
         style = style or self._style or self.default_style
         color = evaluate(self._color, **ev) or "primary"
         url = self.get_url(ctx, record)
         record_key = host.record_key(record) if (host is not None and record is not None) else None
         endpoint = ctx.panel.url("_tw", "action")
-        vals = {"_tw_host": host.key if host else "", "_tw_scope": self.scope, "_tw_name": self.name}
+        vals = {"_tw_host": host.key if host else "", "_tw_scope": self.scope, "_tw_name": self.path}
         if record_key is not None:
             vals["_tw_record"] = record_key
+        level = max(0, min(level, MAX_MODAL_LEVEL))
+        if level:
+            vals["_tw_level"] = str(level)
         label = self.get_label(ev)
         return {
             "name": self.name,
@@ -363,6 +573,8 @@ class Action(Component):
             "bulk": self.scope == "bulk",
             "table_id": table_id,
             "keyboard": self._keyboard,
+            "level": level,
+            "target": modal_target(level),
         }
 
     def render(self, ctx: "Context", host: "Host | None", record: Any = None, *, style: str | None = None,
@@ -375,8 +587,16 @@ class Action(Component):
         )
 
 
+def modal_target(level: int) -> str:
+    """The element a modal of this nesting level is drawn into."""
+    return "#tw-modal" if level <= 0 else f"#tw-modal-{level}"
+
+
 class BulkAction(Action):
-    """An action run on the selected table rows. The closure gets ``records``."""
+    """An action run on the selected table rows. The closure gets ``records``.
+
+    ``chunk_selected_records(100)`` calls it once per 100 records; ``background()`` runs it after
+    the response and sends the user a notification when it is done."""
 
     scope = "bulk"
     default_style = "soft"
@@ -384,6 +604,27 @@ class BulkAction(Action):
     def __init__(self, name: str) -> None:
         super().__init__(name)
         self._color = "gray"
+        self._chunk_size: int | None = None
+        self._background: Any = False
+        self._background_message: Any = None
+
+    def chunk_selected_records(self, size: int = 100) -> "BulkAction":
+        """Load and process the selected records ``size`` at a time (the closure runs once per chunk)."""
+        self._chunk_size = max(1, int(size))
+        return self
+
+    def background(self, condition: Any = True, chunk_size: int | None = None) -> "BulkAction":
+        """Run after the response, in chunks, and notify the user when done. ``condition`` may be a
+        closure, e.g. ``background(lambda keys: len(keys) > 500)``."""
+        self._background = condition
+        if chunk_size is not None:
+            self._chunk_size = max(1, int(chunk_size))
+        elif self._chunk_size is None:
+            self._chunk_size = 100
+        return self
+
+    def runs_in_background(self, ctx: "Context", keys: list) -> bool:
+        return bool(evaluate(self._background, **{**self.ev(ctx), "keys": keys}))
 
     def is_available(self, host: "Host | None", ctx: "Context", record: Any = None) -> bool:
         ev = self.ev(ctx, None, host=host)

@@ -138,3 +138,29 @@ class ApiToken(TungstenBase):
     def can(self, ability: str) -> bool:
         abilities = self.abilities or []
         return "*" in abilities or ability in abilities
+
+
+class Job(TungstenBase):
+    """Work run in the background: a bulk action or an export (see :mod:`tungsten.jobs`).
+
+    Exports stay here as the user's export history, with their file while it is kept.
+    """
+
+    __tablename__ = "tungsten_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(50), index=True)
+    name: Mapped[str] = mapped_column(String(255), default="")
+    user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    tenant_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: queued, running, done, failed or expired (an export whose file was removed)
+    status: Mapped[str] = mapped_column(String(20), default="queued")
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    result: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    processed: Mapped[int] = mapped_column(Integer, default=0)
+    failed: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
+    started_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)

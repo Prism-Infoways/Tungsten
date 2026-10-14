@@ -300,6 +300,130 @@ table.bulk_actions([
 - The default confirmation text includes the number of selected rows.
 - After the action, the selection is cleared. Call `.deselect_records_after_completion(False)` to keep it.
 
+### Big selections: chunks and background
+
+`chunk_selected_records(100)` loads and runs the selected records 100 at a time. The closure is called once per chunk, with that chunk as `records`.
+
+`background()` answers at once ("Started in the background") and runs the action after the response, in chunks. Each chunk is saved on its own, so one bad chunk does not undo the rest. When it is done, the user gets a notification in the bell, like "Publish finished: 498 of 500 records done, 2 failed".
+
+```python
+BulkAction("publish").chunk_selected_records(200).action(publish)   # in the request, 200 at a time
+BulkAction("reindex").background().action(reindex)                  # after the response, 100 at a time
+BulkAction("recalculate").background(lambda keys: len(keys) > 500, chunk_size=50).action(recalculate)
+```
+
+Background work needs nothing extra: it runs in a small thread pool next to the web server (or on the event loop with an [async database](async-database)). See [Background jobs](#background-jobs) below.
+
+## Modals in depth
+
+### Buttons in the modal footer
+
+`extra_modal_footer_actions()` puts more actions in the footer. They are full actions: one with a form or a confirmation opens its own modal on top of the first one (up to two levels deep), and the rest run straight away. They get the same `record` (or `records`).
+
+```python
+Action("approve").form([Textarea("note")])
+    .extra_modal_footer_actions([
+        Action("ask").label("Ask a question").form([TextInput("question").required()]).action(ask),
+        Action("reject").color("danger").requires_confirmation().cancel_parent_actions().action(reject),
+    ])
+    .action(approve)
+```
+
+When a nested action finishes, only its own modal closes. `cancel_parent_actions()` closes every modal.
+
+`extra_modal_submit_action()` adds another submit button that runs the same action with some `arguments`:
+
+```python
+Action("save").form([...])
+    .extra_modal_submit_action("draft", "Save as draft", {"draft": True})
+    .action(lambda record, data, arguments: save(record, data, draft=arguments.get("draft", False)))
+```
+
+### Chaining actions
+
+`then()` opens (or runs) another action after this one succeeds, on the same record. Give it an action, the name of another action in the same table or page, or a closure that returns a name (or `None` to stop):
+
+```python
+Action("publish").action(publish).then(Action("share").form([TextInput("to")]).action(share))
+Action("check").action(check).then(lambda result: "fix" if result == "problems" else None)
+```
+
+### A wizard in a modal
+
+`steps()` turns the modal form into a step-by-step wizard. Each "Next" checks that step first. The last step's button runs the action.
+
+```python
+from tungsten.forms.layout import Step
+
+CreateAction().steps([
+    Step("Details").schema([TextInput("name").required()]),
+    Step("Price").schema([TextInput("price").numeric()]),
+]).modal_submit_action_label("Create product")
+```
+
+### Sticky header and footer
+
+The modal heading and buttons stay in view while a long form scrolls. Turn that off with `sticky_modal_header(False)` or `sticky_modal_footer(False)`.
+
+## Before and after hooks
+
+```python
+Action("ship")
+    .before(lambda record: check_stock(record))          # raise Halt() to stop
+    .after(lambda record, result: send_tracking_email(record))
+    .action(ship)
+```
+
+`before` runs after the form is checked and before the action. `after` runs only when the action succeeded and gets `result`. Both get `data` and the usual `record`/`records`/`db`/`user`.
+
+## Rate limiting
+
+```python
+Action("send_otp").rate_limit(3, per_seconds=60).action(send_otp)
+```
+
+The fourth try within a minute shows "Too many attempts. Please try again in N seconds." Limits count per user by default; use `by="ip"` for per address or `by="action"` for everyone together. Change the message with `rate_limited_notification_title()`. Counts live in the server process memory.
+
+## Downloading files
+
+`DownloadAction` sends a file. It can have a form or a confirmation like any action. The file is built at a signed link that only works for the same user, for 5 minutes.
+
+```python
+from tungsten.actions import DownloadAction, DownloadBulkAction
+
+DownloadAction("invoice").icon("file-down")
+    .file(lambda record: f"invoices/{record.number}.pdf")      # a path in storage or on disk
+    .filename(lambda record: f"invoice-{record.number}.pdf")
+
+DownloadAction("report").form([DatePicker("from"), DatePicker("to")])
+    .stream(lambda data: report_rows(data["from"], data["to"]))   # yields str or bytes pieces
+    .filename("report.csv")
+
+DownloadBulkAction("labels").file(lambda records: make_labels_pdf(records)).filename("labels.pdf")
+```
+
+`file()` can return a path, `bytes`, or a ready response. `stream()` sends the pieces as they are made, for big files (the generator runs after the request's database session closes, so read what it needs first). `mime_type()` sets the type, and `open_in_browser()` shows PDFs and images instead of saving them.
+
+## Background jobs
+
+Background bulk actions and exports run as jobs. Each job is saved in the `tungsten_jobs` table (run `panel.create_tables(engine)` once after upgrading) with its status and progress. You can run your own:
+
+```python
+def rebuild_index(job):
+    products = job.db.scalars(select(Product)).all()
+    for i, product in enumerate(products, 1):
+        index(product)
+        if i % 100 == 0:
+            job.progress(i, total=len(products))
+            yield                    # lets other work run
+    Notification("Search index rebuilt").success().send_to_database(job.user, job.db)
+
+panel.jobs.register("rebuild-index", rebuild_index)
+panel.jobs.dispatch(ctx, "rebuild-index", name="Rebuild search index")   # inside an action
+```
+
+A job gets its own database session (`job.db`), the user who started it (`job.user`), their tenant and a ready `job.ctx`. Set `panel.jobs.workers` to run more at once (default 2). Jobs stop if the server stops; with one server process, call `panel.jobs.fail_unfinished()` at startup to mark those as failed.
+
 ## Action groups
 
 Put several actions behind one dropdown button with `ActionGroup`.

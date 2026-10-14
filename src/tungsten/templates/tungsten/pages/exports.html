@@ -1,0 +1,51 @@
+{# The signed-in user's exports. vars: title, items ({job, format, url, fresh, background}), keep_days #}
+{% extends "tungsten/layout/app.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block content %}
+{% set subheading = __('Files made in the background are kept for :days days. Other exports download again with fresh data.', days=keep_days) %}
+{% include "tungsten/components/page-header.html" %}
+<div class="tw-card overflow-hidden">
+  {% if items %}
+  <div class="overflow-x-auto">
+    <table class="w-full table-auto divide-y divide-gray-100 text-start dark:divide-white/5">
+      <thead>
+        <tr>
+          <th class="px-4 py-3 text-start text-sm font-medium text-gray-600 dark:text-gray-300">{{ __('Export') }}</th>
+          <th class="px-3 py-3 text-start text-sm font-medium text-gray-600 dark:text-gray-300">{{ __('Rows') }}</th>
+          <th class="px-3 py-3 text-start text-sm font-medium text-gray-600 dark:text-gray-300">{{ __('Status') }}</th>
+          <th class="px-3 py-3 text-start text-sm font-medium text-gray-600 dark:text-gray-300">{{ __('Date') }}</th>
+          <th class="px-4 py-3 text-end text-sm font-medium text-gray-600 dark:text-gray-300"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+        {% for item in items %}{% set job = item.job %}
+        <tr>
+          <td class="px-4 py-3 text-sm text-gray-950 dark:text-white">
+            <span class="font-medium">{{ job.name }}</span>
+            <span class="ms-2">{{ ui.badge(item.format, 'gray') }}</span>
+          </td>
+          <td class="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">
+            {% if job.status in ('queued', 'running') and job.total %}{{ job.processed }} / {{ job.total }}{% else %}{{ job.processed }}{% endif %}
+          </td>
+          <td class="px-3 py-3 text-sm">
+            {% if job.status == 'done' %}{{ ui.badge(__('Ready'), 'success') }}
+            {% elif job.status == 'failed' %}<span title="{{ job.error or '' }}">{{ ui.badge(__('Failed'), 'danger') }}</span>
+            {% elif job.status == 'expired' %}{{ ui.badge(__('File removed'), 'gray') }}
+            {% else %}{{ ui.badge(__('Working'), 'warning') }}{% endif %}
+          </td>
+          <td class="px-3 py-3 text-sm text-gray-500 dark:text-gray-400">{{ job.created_at.strftime('%Y-%m-%d %H:%M') if job.created_at else '' }}</td>
+          <td class="px-4 py-3 text-end">
+            {% if item.url %}
+            <a href="{{ item.url }}" hx-boost="false" class="{{ colors.LINK.primary }} text-sm font-medium">{{ __('Download again') if item.fresh else __('Download') }}</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {{ ui.empty_state(__('No exports yet'), __('Exports you make from tables show up here.'), 'download') }}
+  {% endif %}
+</div>
+{% endblock %}

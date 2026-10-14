@@ -12,7 +12,7 @@
    {% if a.tooltip %}title="{{ a.tooltip }}" aria-label="{{ a.tooltip }}"{% endif %}>{{ label_html }}</a>
 {% elif a.modal %}
 <button type="button" class="{{ cls }}" {{ keys }} {% if a.tooltip %}title="{{ a.tooltip }}" aria-label="{{ a.tooltip }}"{% endif %}
-        hx-get="{{ a.endpoint }}" hx-vals='{{ a.vals | tojson }}' hx-target="#tw-modal" hx-swap="innerHTML"
+        hx-get="{{ a.endpoint }}" hx-vals='{{ a.vals | tojson }}' hx-target="{{ a.target or '#tw-modal' }}" hx-swap="innerHTML"
         {% if include %}hx-include="{{ include }}"{% endif %}>{{ label_html }}</button>
 {% else %}
 <button type="button" class="{{ cls }}" {{ keys }} {% if a.tooltip %}title="{{ a.tooltip }}" aria-label="{{ a.tooltip }}"{% endif %}

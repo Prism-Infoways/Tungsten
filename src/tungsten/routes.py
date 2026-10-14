@@ -19,7 +19,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 
-from .actions.action import Action, Halt, flatten_actions
+from .actions.action import MAX_MODAL_LEVEL, Action, BulkAction, Halt, flatten_actions, modal_target
 from .context import Context
 from .forms.form import Form, ValidationError
 from .hosts import Host, RelationHost
@@ -248,6 +248,19 @@ class Routes:
 
     def find_action(self, ctx: Context, host: Host, scope: str, name: str, record: Any = None,
                     params: Any = None) -> Action:
+        """The action ``name`` (``parent/child`` for an action opened from another action's modal)."""
+        root_name, *nested = (name or "").split("/")
+        action = self._find_root_action(ctx, host, scope, root_name, record, params)
+        for part in nested:
+            child = action.find_nested(part)
+            if child is None:
+                raise NotFound()
+            child.scope = action.scope
+            action = child
+        return action
+
+    def _find_root_action(self, ctx: Context, host: Host, scope: str, name: str, record: Any = None,
+                          params: Any = None) -> Action:
         if scope == "page":
             getter = getattr(host, "all_page_actions", None) or host.page_actions
             for a in flatten_actions(getter(ctx, record)):
@@ -270,6 +283,16 @@ class Routes:
         if action is None:
             raise NotFound()
         return action
+
+    @staticmethod
+    def action_available(action: Action, host: Host, ctx: Context, record: Any) -> bool:
+        """The action and every action whose modal it was opened from may be used."""
+        current: Action | None = action
+        while current is not None:
+            if not current.is_available(host, ctx, record):
+                return False
+            current = current._parent
+        return True
 
     def host_form(self, ctx: Context, host: Host, operation: str, record: Any) -> Form:
         form = host.form(ctx, operation, record)
@@ -431,6 +454,18 @@ class Routes:
         async def form_attachment(request: Request):
             return await r.run(request, r.form_attachment, read_form=True)
 
+        @g("/_tw/download")
+        async def download(request: Request):
+            return await r.run(request, r.download)
+
+        @g("/_tw/exports")
+        async def exports(request: Request):
+            return await r.run(request, r.export_history)
+
+        @g("/_tw/exports/{job_id}/download")
+        async def export_file(request: Request, job_id: int):
+            return await r.run(request, r.export_file, job_id=job_id)
+
         @g("/_tw/search")
         async def search(request: Request):
             return await r.run(request, r.search)
@@ -546,7 +581,10 @@ class Routes:
             return Response(status_code=404)
         try:
             full = storage.path(path)
-        except ValueError:
+            # background export files are only served to their owner (see export_file)
+            if full.relative_to(storage.root.resolve()).parts[:1] == ("exports",):
+                return Response(status_code=404)
+        except (ValueError, AttributeError):
             return Response(status_code=404)
         if not full.is_file():
             return Response(status_code=404)
@@ -1477,7 +1515,7 @@ class Routes:
         return ctx.finalize(Response(status_code=204))
 
     # ------------------------------------------------------------------ actions
-    def _action_context(self, ctx: Context, src: Any) -> tuple:
+    def _action_context(self, ctx: Context, src: Any, lazy_records: bool = False) -> tuple:
         host = self.resolve_host(ctx, src.get("_tw_host"))
         scope = src.get("_tw_scope") or "page"
         name = src.get("_tw_name") or ""
@@ -1487,12 +1525,17 @@ class Routes:
             raise NotFound()
         action = self.find_action(ctx, host, scope, name, record, params=src)
         records = None
+        keys: list[str] = []
         if scope == "bulk":
-            keys = list(dict.fromkeys(src.getlist("records")))
-            records = host.find_records(ctx, keys)
-        if not action.is_available(host, ctx, record):
+            keys = [k for k in dict.fromkeys(src.getlist("records")) if k]
+            if lazy_records and getattr(action, "_chunk_size", None):
+                pass  # loaded a chunk at a time when the action runs
+            else:
+                records = host.find_records(ctx, keys)
+                keys = [host.record_key(r) for r in records]
+        if not self.action_available(action, host, ctx, record):
             raise Forbidden()
-        return host, action, record, records, scope
+        return host, action, record, records, scope, keys
 
     def _action_form(self, ctx: Context, host: Host, action: Action, record: Any, records: Any, scope: str,
                      form_id: str | None = None) -> Form | None:
@@ -1501,13 +1544,15 @@ class Routes:
             return None
         operation = getattr(action, "operation", "create")
         form.bind(ctx, operation=operation, record=record, id=form_id or "tw-action-form",
-                  source={"kind": "action", "host": host.key, "scope": scope, "name": action.name,
+                  source={"kind": "action", "host": host.key, "scope": scope, "name": action.path,
                           "record": host.record_key(record) if record is not None else ""})
         return form
 
     def _modal(self, ctx: Context, host: Host, action: Action, record: Any, records: Any, scope: str,
-               form: Form | None) -> Response:
+               form: Form | None, keys: list | None = None, level: int = 0) -> Response:
         ev = action.ev(ctx, record, records, host=host)
+        if keys is None:
+            keys = [host.record_key(r) for r in records or []]
         heading = evaluate(action._modal_heading, **ev)
         if heading is None:
             heading = action.get_modal_heading(host) if hasattr(action, "get_modal_heading") else action.get_label(ev)
@@ -1522,15 +1567,16 @@ class Routes:
         if description is None and confirm_only:
             description = __("Are you sure you would like to do this?")
             if scope == "bulk":
-                description = __("Are you sure you want to do this to :count selected records?", count=len(records or []))
+                description = __("Are you sure you want to do this to :count selected records?", count=len(keys))
         submit = maybe(evaluate(action._modal_submit_label, **ev)) if action._modal_submit_label is not None else (
             None if getattr(action, "operation", None) == "view" else (__("Confirm") if form is None else __("Submit")))
         if hasattr(action, "operation") and action._modal_submit_label is None:
             submit = {"create": __("Create"), "edit": __("Save changes"), "view": None}.get(action.operation, submit)
-        if not action._modal_submit:
+        if not action._modal_submit or action._wizard:  # a wizard has its own buttons
             submit = None
         another = form is not None and getattr(action, "_create_another", False)
         color = evaluate(action._color, **ev) or "primary"
+        level = max(0, min(level, MAX_MODAL_LEVEL))
         m = {
             "endpoint": ctx.url("_tw", "action"),
             "heading": heading,
@@ -1546,42 +1592,69 @@ class Routes:
             "content": content,
             "multipart": False,
             "create_another_label": __("Create & create another") if another else None,
+            "level": level,
+            "target": modal_target(level),
+            "sticky_header": action._sticky_header,
+            "sticky_footer": action._sticky_footer,
+            "footer": action.modal_footer_view(ctx, host, record, level, keys),
         }
-        hidden = {"_tw_host": host.key, "_tw_scope": scope, "_tw_name": action.name,
+        hidden = {"_tw_host": host.key, "_tw_scope": scope, "_tw_name": action.path,
                   "_tw_record": host.record_key(record) if record is not None else ""}
-        keys = [host.record_key(r) for r in records or []]
+        if level:
+            hidden["_tw_level"] = str(level)
         html = self.panel.renderer.render("tungsten/actions/modal.html", m=m, form=form, hidden=hidden, records=keys,
                                           ctx=ctx)
         return ctx.html(html)
 
+    def _keep_open(self, ctx: Context, host: Host, action: Action, record: Any, records: Any, scope: str,
+                   form: Form | None, keys: list, level: int) -> Response:
+        """Draw the modal again (after an error), or answer with nothing when there is no modal."""
+        if form is not None or action._modal_content is not None:
+            return self._modal(ctx, host, action, record, records, scope, form, keys, level)
+        return ctx.finalize(Response(status_code=204))
+
     def action(self, ctx: Context, fd: Any) -> Response:
         src = fd if fd is not None else ctx.request.query_params
-        host, action, record, records, scope = self._action_context(ctx, src)
-        if scope == "bulk" and not records:
+        try:
+            level = max(0, min(int(src.get("_tw_level") or 0), MAX_MODAL_LEVEL))
+        except ValueError:
+            level = 0
+        host, action, record, records, scope, keys = self._action_context(ctx, src, lazy_records=fd is not None)
+        if scope == "bulk" and not keys:
             Notification("Select some records first").warning().send(ctx)
             return ctx.finalize(Response(status_code=204))
         form = self._action_form(ctx, host, action, record, records, scope)
         if fd is None:  # open the modal
             if form is not None:
                 action.fill(form, ctx, record, records)
-            return self._modal(ctx, host, action, record, records, scope, form)
+            return self._modal(ctx, host, action, record, records, scope, form, keys, level)
+        pressed = fd.get("_tw_submit")
+        if pressed:
+            extra = next((s for s in action._extra_submits if s["name"] == pressed), None)
+            if extra is None:
+                raise NotFound()
+            action.arguments = dict(extra["arguments"])
         data: dict = {}
         if form is not None:
             form.load(fd)
             try:
                 data = form.validate()
             except ValidationError:
-                return self._modal(ctx, host, action, record, records, scope, form)
+                return self._modal(ctx, host, action, record, records, scope, form, keys, level)
+        wait = action.check_rate_limit(ctx, host)
+        if wait:
+            action.rate_limited_notification(ctx, wait).send(ctx)
+            return self._keep_open(ctx, host, action, record, records, scope, form, keys, level)
+        if scope == "bulk" and isinstance(action, BulkAction) and action.runs_in_background(ctx, keys):
+            return self._bulk_in_background(ctx, fd, host, action, record, scope, keys, level)
         try:
-            result = action.run(ctx, host, record, records, data, form)
+            result = self._execute(ctx, host, action, record, records, keys, data, form)
         except Halt:
-            if form is not None or action._modal_content is not None:  # keep the modal open, freshly drawn
-                return self._modal(ctx, host, action, record, records, scope, form)
-            return ctx.finalize(Response(status_code=204))
+            return self._keep_open(ctx, host, action, record, records, scope, form, keys, level)
         except ValidationError as exc:
             if form is not None:
                 form.errors = exc.errors
-                return self._modal(ctx, host, action, record, records, scope, form)
+                return self._modal(ctx, host, action, record, records, scope, form, keys, level)
             raise
         except (NotFound, Forbidden, PermissionError):
             raise
@@ -1590,7 +1663,7 @@ class Routes:
                 raise
             # a failure toast is set: show it instead of an error page
             ctx.db.rollback()
-            logging.getLogger("tungsten").exception("Action %r failed", action.name)
+            logging.getLogger("tungsten").exception("Action %r failed", action.path)
             result = False
         if result is not False:
             self._log_action(ctx, host, action, record, records, scope)
@@ -1601,8 +1674,8 @@ class Routes:
             if note is not None:
                 note.send(ctx)
             if form is not None:
-                return self._modal(ctx, host, action, record, records, scope, form)
-            ctx.dispatch("tw-close-modal")
+                return self._modal(ctx, host, action, record, records, scope, form, keys, level)
+            ctx.dispatch("tw-close-modal", {"from": level} if level else None)
             return ctx.html("")
         note = action.success_notification(ctx, record, records)
         if note is not None:
@@ -1612,15 +1685,20 @@ class Routes:
             ctx.dispatch("tw-refresh")
             fresh = self._action_form(ctx, host, action, record, records, scope)
             action.fill(fresh, ctx, record, records)
-            return self._modal(ctx, host, action, record, records, scope, fresh)
+            return self._modal(ctx, host, action, record, records, scope, fresh, keys, level)
         redirect = ctx.redirect_to or evaluate(action._success_redirect, **action.ev(ctx, record, records, result=result))
         if redirect:
+            if getattr(action, "_is_download", False):
+                ctx.dispatch("tw-close-modal", {"from": level} if level else None)
             return ctx.go(redirect)
-        if scope in ("page", "infolist"):
+        chained = self._chain(ctx, host, action, record, records, scope, keys, level, result)
+        if chained is not None:
+            return chained
+        if scope in ("page", "infolist") and not level:
             return ctx.refresh()
         ctx.dispatch("tw-refresh")
-        ctx.dispatch("tw-close-modal")
-        if scope == "bulk" and action._deselect_after:
+        ctx.dispatch("tw-close-modal", {"from": level} if level and not action._cancel_parents else None)
+        if scope == "bulk" and action._deselect_after and (not level or action._cancel_parents):
             ctx.dispatch("tw-deselect")
         return ctx.html("")
 
@@ -1643,6 +1721,108 @@ class Routes:
             panel.log_activity(ctx, "action", None, description, props,
                                subject_type=getattr(model, "__name__", None) or getattr(host, "key", ""))
         ctx.db.commit()
+
+    def _execute(self, ctx: Context, host: Host, action: Action, record: Any, records: Any, keys: list,
+                 data: dict, form: Form | None) -> Any:
+        """Run the action, one chunk of records at a time for ``chunk_selected_records()``."""
+        size = getattr(action, "_chunk_size", None)
+        if action.scope != "bulk" or not size:
+            return action.execute(ctx, host, record, records, data, form)
+        from .jobs import chunks
+
+        action.call_hooks("before", ctx, host, record, None, data, form=form)
+        result: Any = None
+        for chunk in chunks(keys, size):
+            part = action.run(ctx, host, record, host.find_records(ctx, chunk), data, form)
+            if isinstance(part, Response):
+                return part
+            if part is False:
+                result = False
+        if result is not False:
+            action.call_hooks("after", ctx, host, record, None, data, form=form, result=result)
+        return result
+
+    def _chain(self, ctx: Context, host: Host, action: Action, record: Any, records: Any, scope: str, keys: list,
+               level: int, result: Any, depth: int = 0) -> Response | None:
+        """Open (or run) the action set with ``then()``, in the same modal. None when there is none."""
+        target = action.next_action(ctx, record, records, result)
+        if target is None or depth > 5:
+            return None
+        nxt: Action | None = None
+        if isinstance(target, Action):
+            nxt = action.find_nested(target.name)  # ``then(Action(...))`` keeps it as a nested action
+            if nxt is None:
+                target = target.name
+            else:
+                nxt.scope = action.scope
+        if nxt is None:
+            nxt = action.find_nested(str(target))
+            if nxt is not None:
+                nxt.scope = action.scope
+            else:
+                try:
+                    nxt = self._find_root_action(ctx, host, action.scope, str(target), record)
+                except NotFound:
+                    if action.scope == "page":
+                        raise
+                    nxt = self._find_root_action(ctx, host, "page", str(target), record)
+        if not self.action_available(nxt, host, ctx, record):
+            raise Forbidden()
+        ctx.dispatch("tw-refresh")
+        form = self._action_form(ctx, host, nxt, record, records, nxt.scope)
+        if nxt.needs_modal():
+            if form is not None:
+                nxt.fill(form, ctx, record, records)
+            response = self._modal(ctx, host, nxt, record, records, nxt.scope, form, keys, level)
+            response.headers["HX-Retarget"] = modal_target(level)
+            response.headers["HX-Reswap"] = "innerHTML"
+            return response
+        outcome = self._execute(ctx, host, nxt, record, records, keys, {}, None)
+        if outcome is False:
+            note = nxt.failure_notification(ctx, record, records)
+            if note is not None:
+                note.send(ctx)
+            ctx.dispatch("tw-close-modal", {"from": level} if level else None)
+            return ctx.html("")
+        note = nxt.success_notification(ctx, record, records)
+        if note is not None:
+            note.send(ctx)
+        return self._chain(ctx, host, nxt, record, records, scope, keys, level, outcome, depth + 1)
+
+    def _bulk_in_background(self, ctx: Context, fd: Any, host: Host, action: Action, record: Any, scope: str,
+                            keys: list, level: int) -> Response:
+        fields = [(k, v) for k, v in fd.multi_items() if isinstance(v, str) and k != "records"]
+        payload = {"host": host.key, "scope": scope, "name": action.path, "keys": keys, "fields": fields,
+                   "record": host.record_key(record) if record is not None else "", "arguments": action.arguments}
+        label = action.get_label(action.ev(ctx, host=host))
+        self.panel.jobs.dispatch(ctx, "bulk_action", payload, name=f"{label} ({len(keys)})", total=len(keys))
+        Notification("Started in the background").body(
+            "You will get a notification when it is done.").info().send(ctx)
+        ctx.dispatch("tw-close-modal", {"from": level} if level and not action._cancel_parents else None)
+        if action._deselect_after:
+            ctx.dispatch("tw-deselect")
+        return ctx.html("")
+
+    def download(self, ctx: Context, fd: Any) -> Response:
+        """The file of a :class:`~tungsten.actions.DownloadAction` (a signed link made when it ran)."""
+        from .actions.download import read_token
+
+        payload = read_token(self.panel, ctx.request.query_params.get("token") or "")
+        if payload is None:
+            raise NotFound()
+        if payload.get("user") != (self.panel.auth.user_id(ctx.user) if ctx.user is not None else None):
+            raise Forbidden()
+        host = self.resolve_host(ctx, payload.get("host"))
+        key = payload.get("record") or ""
+        record = host.find_record(ctx, key) if key else None
+        if key and record is None:
+            raise NotFound()
+        action = self.find_action(ctx, host, payload.get("scope") or "page", payload.get("name") or "", record)
+        if not getattr(action, "_is_download", False) or not self.action_available(action, host, ctx, record):
+            raise Forbidden()
+        records = host.find_records(ctx, payload.get("keys") or []) if payload.get("scope") == "bulk" else None
+        action.arguments = dict(payload.get("arguments") or {})
+        return action.response(ctx, host, record, records, payload.get("data") or {})
 
     # ------------------------------------------------------------------ live forms
     def _resolve_form(self, ctx: Context, fd: Any) -> Form:
@@ -1919,33 +2099,84 @@ class Routes:
         return ctx.html(widget.render(ctx))
 
     def export(self, ctx: Context, fd: Any) -> Response:
-        from .importexport import (ExportAction, ExportBulkAction, export_rows, find_offered_action, write_csv,
-                                   write_xlsx)
+        import io
+
+        from .importexport import (ExportAction, ExportBulkAction, export_name, export_rows, find_offered_action,
+                                   record_export, write_file)
 
         params = ctx.request.query_params
         host = self.resolve_host(ctx, params.get("host"))
         if host.get_table(ctx) is None:
             raise NotFound()
         keys = params.getlist("keys") or None
-        fmt = params.get("format", "csv")
+        fmt = "xlsx" if params.get("format") == "xlsx" else "csv"
         # only export what the table offers: an export action (bulk for selected rows) the user may run
         action = find_offered_action(ctx, host, ExportBulkAction if keys else ExportAction, params.get("action"),
                                      bulk=bool(keys))
         if action is None:
             raise Forbidden()
         rows = export_rows(ctx, host, params, keys, params.getlist("columns") or None, action.export_columns)
-        name = re.sub(r"[^a-z0-9-]+", "-", (host.title() or "export").lower()).strip("-") or "export"
-        if fmt == "xlsx":
-            body, media = write_xlsx(rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        else:
-            body, media, fmt = write_csv(rows), "text/csv; charset=utf-8", "csv"
+        out = io.BytesIO()
+        count = write_file(rows, fmt, out)
+        media = ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if fmt == "xlsx"
+                 else "text/csv; charset=utf-8")
+        record_export(ctx, host, fmt, count, str(ctx.request.url.path) + "?" + str(ctx.request.url.query))
         if self.panel.activity_log:
             model = getattr(host, "model", None)
             self.panel.log_activity(ctx, "exported", None, f"Exported {fmt.upper()}",
                                     {"format": fmt, "selected": len(keys or [])},
                                     subject_type=getattr(model, "__name__", None) or host.key, commit=True)
-        return Response(body, media_type=media,
-                        headers={"Content-Disposition": f'attachment; filename="{name}.{fmt}"'})
+        return Response(out.getvalue(), media_type=media,
+                        headers={"Content-Disposition": f'attachment; filename="{export_name(host)}.{fmt}"'})
+
+    def export_history(self, ctx: Context, fd: Any) -> Response:
+        """The signed-in user's exports, newest first, with their files while they are kept."""
+        from .importexport import EXPORT_FILE_DAYS
+        from .models import Job
+
+        if ctx.user is None:
+            raise NotFound()
+        query = select(Job).where(Job.kind == "export", Job.user_id == self.panel.auth.user_id(ctx.user))
+        if self.panel.tenancy.enabled:
+            key = self.panel.tenancy.key_of(ctx.tenant) if ctx.tenant is not None else None
+            query = query.where(Job.tenant_key == key)
+        jobs = ctx.db.scalars(query.order_by(Job.id.desc()).limit(100)).all()
+        items = []
+        for job in jobs:
+            payload, result = job.payload or {}, job.result or {}
+            url = None
+            if job.status == "done" and result.get("file"):
+                url = self.panel.url("_tw", "exports", job.id, "download")
+            elif job.status in ("done", "expired") and payload.get("rerun"):
+                url = payload["rerun"]
+            items.append({"job": job, "format": (payload.get("format") or result.get("format") or "csv").upper(),
+                          "url": url, "fresh": url is not None and not result.get("file"),
+                          "background": "rerun" not in payload})
+        return ctx.render("tungsten/pages/exports.html", title=__("Export history"), items=items,
+                          keep_days=EXPORT_FILE_DAYS)
+
+    def export_file(self, ctx: Context, fd: Any, job_id: int) -> Response:
+        from .models import Job
+
+        job = ctx.db.get(Job, job_id)
+        if job is None or job.kind != "export" or ctx.user is None:
+            raise NotFound()
+        if job.user_id != self.panel.auth.user_id(ctx.user):
+            raise Forbidden()
+        path = (job.result or {}).get("file")
+        if job.status != "done" or not path:
+            raise NotFound()
+        storage = self.panel.storage
+        filename = (job.result or {}).get("filename") or path.rsplit("/", 1)[-1]
+        if hasattr(storage, "path"):
+            try:
+                full = storage.path(path)
+            except ValueError:
+                raise NotFound() from None
+            if not full.is_file():
+                raise NotFound()
+            return FileResponse(full, filename=filename, headers={"Cache-Control": "no-store"})
+        return ctx.go(storage.url(path))
 
     def import_example(self, ctx: Context, fd: Any) -> Response:
         """The sample CSV of an import action (the "Download example CSV" link in its popup)."""
