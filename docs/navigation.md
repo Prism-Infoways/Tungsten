@@ -287,16 +287,18 @@ Members keep their own URLs (`/admin/taxes`), so old links keep working.
 
 ## Sub-menu on a record's pages
 
-Give a resource's record pages their own sub-menu with `record_sub_navigation`. It lists page names and/or your own `NavigationItem` links:
+Give a resource's record pages their own sub-menu with `record_sub_navigation`. It lists page names (`"view"`, `"edit"`), the slugs of [relation managers](relation-managers) and/or your own `NavigationItem` links:
 
 ```python
 class CustomerResource(Resource):
     model = Customer
     record_sub_navigation = ("view", "edit")
-    sub_navigation_position = "top"      # tabs; or "start" / "end" for a side menu
+    sub_navigation_position = "top"      # tabs; "start" (the default) or "end" for a side menu
 ```
 
-The View and Edit links only show when the resource has that page and the user may open it. For links that depend on the record, override `get_record_sub_navigation`:
+The View and Edit links only show when the resource has that page and the user may open it. A relation manager's link goes to [its own page](relation-managers#related-records-on-their-own-page) when it has `separate_page = True`, and only shows when the user may see those records.
+
+Without `record_sub_navigation`, a resource whose relation managers have their own pages gets tabs for the record and each of those pages. For links that depend on the record, override `get_record_sub_navigation`:
 
 ```python
 class CustomerResource(Resource):
@@ -310,6 +312,11 @@ class CustomerResource(Resource):
 ```
 
 The link of the page you are on is highlighted. A record sub-menu wins over a cluster's sub-menu on that record's pages.
+
+```python
+class TeamResource(Resource):
+    record_sub_navigation = ("view", "edit", "projects", "members")   # "projects": a relation manager's slug
+```
 
 ## Menu along the top
 

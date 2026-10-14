@@ -32,6 +32,7 @@ class Team(Base):
     name: Mapped[str] = mapped_column(String(50))
     slug: Mapped[str] = mapped_column(String(50), unique=True)
     plan: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    projects: Mapped[list["Project"]] = relationship(viewonly=True)
 
 
 class Member(Base):
@@ -344,3 +345,56 @@ def test_top_navigation():
     assert 'href="/admin/projects"' in top and 'href="/admin/settings"' in top and "Admin" in top
     assert "lg:ps-64" not in html
     assert "data-tw-top-navigation" not in make_nav_app().get("/admin/projects").text
+
+
+def test_record_sub_navigation_lists_relation_pages():
+    from tungsten import RelationManager
+
+    class ProjectsManager(RelationManager):
+        relationship = "projects"
+        separate_page = True
+
+        @classmethod
+        def table(cls, table):
+            return table.columns([TextColumn("name")])
+
+    class TeamResource(Resource):
+        model = Team
+        slug = "teams"
+        tenant_scoped = False
+        relations = [ProjectsManager]
+        record_sub_navigation = ("view", "edit", "projects")
+
+        @classmethod
+        def form(cls, form):
+            return form.schema([TextInput("name")])
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(engine, expire_on_commit=False)
+    with Session() as db:
+        red = Team(name="Red", slug="red")
+        db.add(red)
+        db.flush()
+        db.add(Member(name="Ann", email="ann@x.com", password=hash_password("password"), teams=[red]))
+        db.add(Project(name="Red rocket", team_id=red.id))
+        db.commit()
+    panel = Panel(session_factory=Session, secret_key="t", auth=Auth(Member))
+    panel.resources([TeamResource])
+    panel.create_tables(engine)
+    app = FastAPI()
+    panel.mount(app)
+    c = PanelClient(TestClient(app))
+    c.login("ann@x.com")
+    html = c.get("/admin/teams/1/projects").text
+    nav = html[html.index('data-tw-sub-navigation="start"'):]
+    nav = nav[:nav.index("</nav>")]
+    assert 'href="/admin/teams/1"' in nav and 'href="/admin/teams/1/edit"' in nav
+    assert nav.count('aria-current="page"') == 1
+    assert 'href="/admin/teams/1/projects" class' in nav and "Red rocket" in html
+    active = nav[nav.index('aria-current="page"') - 300:nav.index('aria-current="page"')]
+    assert "/admin/teams/1/projects" in active
+    edit = c.get("/admin/teams/1/edit").text
+    nav = edit[edit.index("data-tw-sub-navigation"):]
+    active = nav[:nav.index('aria-current="page"')]
+    assert active.rindex('href="/admin/teams/1/edit"') > active.rindex('href="/admin/teams/1"')

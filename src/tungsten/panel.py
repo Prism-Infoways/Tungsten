@@ -431,9 +431,16 @@ class Panel:
         if resource is not None and record is not None:
             items = list(resource.get_record_sub_navigation(ctx, record) or [])
             if items:
+                # the deepest link that holds the current page is active (``/teams/1`` vs ``/teams/1/projects``)
+                def holds(url: str) -> bool:
+                    path = url.split("?", 1)[0].rstrip("/")
+                    return current.rstrip("/") == path or current.startswith(path + "/")
+
+                best = max((i for i in items if holds(i.url)), key=lambda i: len(i.url), default=None)
                 for item in items:
-                    item.active = item.url == current
-                return {"items": items, "position": resource.sub_navigation_position,
+                    item.active = item is best
+                position = resource.sub_navigation_position or ("start" if resource.record_sub_navigation else "top")
+                return {"items": items, "position": position,
                         "heading": resource.get_record_title(record), "description": None}
         owner = resource if resource is not None else page
         cluster = getattr(owner, "cluster", None)

@@ -1379,7 +1379,6 @@ class Routes:
             operation=operation,
             header_actions=actions,
             relations=relations,
-            record_tabs=self.record_tabs(ctx, resource, record, operation),
             trashed=host.is_trashed(record),
             title=(__("Edit :label", label=resource.get_label().lower()) if operation == "edit" else title_record),
             breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)),
@@ -1395,26 +1394,6 @@ class Routes:
         if resource.has_page("view"):
             return host.view_url(ctx, record)
         return host.edit_url(ctx, record)
-
-    def record_tabs(self, ctx: Context, resource: Any, record: Any, active: str) -> list[dict]:
-        """Links to the record's own page and to each relation shown on a separate page."""
-        pages = [m for m in resource.get_relations() if m.separate_page]
-        if not pages:
-            return []
-        operation = "edit" if active == "edit" else "view"
-        if not resource.has_page(operation):
-            operation = "edit" if resource.has_page("edit") else "view"
-        main_url = self.record_url(ctx, resource, record)
-        tabs = [{"label": __("Edit") if "/edit" in (main_url or "") else __("Details"), "icon": "file-text",
-                 "url": main_url, "active": active in ("edit", "view"), "badge": None}]
-        for manager in pages:
-            rhost = RelationHost(resource, record, manager)
-            if not rhost.can(ctx, "view_any"):
-                continue
-            tabs.append({"label": manager.get_title(), "icon": manager.icon,
-                         "url": manager.get_url(ctx, resource, record), "active": active == manager.get_slug(),
-                         "badge": call(manager.badge, ctx=ctx, owner=record)})
-        return tabs
 
     def _relation_host(self, ctx: Context, slug: str, key: str, relation: str) -> RelationHost:
         resource = self.panel.resource(slug)
@@ -1454,7 +1433,6 @@ class Routes:
             record=owner,
             manager=manager,
             header_actions=[],
-            record_tabs=self.record_tabs(ctx, resource, owner, manager.get_slug()),
             title=title,
             subheading=resource.get_record_title(owner),
             breadcrumbs=[*self._owner_crumbs(ctx, host), (title, None)],

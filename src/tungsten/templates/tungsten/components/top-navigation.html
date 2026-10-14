@@ -1,6 +1,6 @@
 {# The menu as a bar along the top (Panel(top_navigation=True)). Groups and items with children open a dropdown. #}
 {% import "tungsten/components/ui.html" as ui %}
-<nav class="hidden min-w-0 items-center gap-1 lg:flex" aria-label="{{ __('Main') }}" data-tw-top-navigation>
+<nav class="hidden shrink-0 items-center gap-1 lg:flex" aria-label="{{ __('Main') }}" data-tw-top-navigation>
   {% macro top_link(item) %}
   <a href="{{ item.url }}" {% if item.new_tab %}target="_blank"{% endif %} class="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition {{ 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400' if item.active or item.expanded else 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white' }}" {% if item.active %}aria-current="page"{% endif %}>
     {{ icon(item.current_icon, 'h-4 w-4') }}<span class="truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
