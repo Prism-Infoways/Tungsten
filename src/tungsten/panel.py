@@ -494,7 +494,7 @@ class Panel:
                                         self.dashboard.icon, self.dashboard.navigation_group,
                                         self.dashboard.navigation_sort, active=current.rstrip("/") == (self.path or "")))
         for r in self._resources:
-            if not r.show_in_navigation or not r.can(ctx, "view_any"):
+            if not r.show_in_navigation or r.parent_resource is not None or not r.can(ctx, "view_any"):
                 continue
             url = r.get_url(ctx)
             badge = call(r.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user)

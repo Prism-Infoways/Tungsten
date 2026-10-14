@@ -200,6 +200,72 @@ RepeatableEntry("items").columns(3).schema([
 
 For a JSON list of dicts, entry names are the dict keys.
 
+## Code entry
+
+`CodeEntry` shows code or JSON in a monospaced block with colours, a copy button and an optional line count. A dict or list (a JSON column) is shown as pretty JSON.
+
+```python
+from tungsten.infolists import CodeEntry
+
+CodeEntry("payload")                                   # JSON column: pretty, coloured JSON
+CodeEntry("script").language("python").line_numbers()
+CodeEntry("query").language("sql").wrap().max_height(200)
+```
+
+| Method | What it does |
+| --- | --- |
+| `language("python")` | Colours for `json`, `python`, `js`/`ts`, `sql`, `bash`, `php`, `html`/`xml`, `yaml`. Default: `json` for dicts and lists. |
+| `line_numbers()` | Show line numbers. |
+| `copyable(False)` | Hide the copy button (shown by default). |
+| `max_height(px)` | Scroll inside the block above this height. Default: `384`. `None` never scrolls. |
+| `wrap()` | Wrap long lines instead of scrolling sideways. |
+
+The colours come from a small built-in highlighter, so no extra package is needed.
+
+## View entry
+
+`ViewEntry` renders your own Jinja template. Use it for anything the built-in entries can't show, like a map or a chart.
+
+```python
+from tungsten.infolists import ViewEntry
+
+ViewEntry("location").view("admin/map-entry.html").view_data({"zoom": 12})
+```
+
+```html
+<!-- templates/admin/map-entry.html -->
+<div class="rounded-lg p-3 ring-1 ring-gray-950/5">{{ state.lat }}, {{ state.lng }} (zoom {{ zoom }})</div>
+```
+
+The template gets `state` (the value), `record`, `entry`, `label`, `ctx` and every key of `view_data()` (a dict, or a closure returning one). Put the template in a folder passed to `Panel(template_dirs=[...])`. The label, hint and helper text are drawn around it; call `without_label_wrapper()` to render only your template.
+
+## Entry actions
+
+Any entry can carry [action](actions) buttons:
+
+```python
+from tungsten.actions import Action
+from tungsten.infolists import TextEntry
+
+TextEntry("email").suffix_action(
+    Action("mail").icon("mail").url(lambda record: f"mailto:{record.email}")
+)
+TextEntry("status").badge().actions([
+    Action("approve").icon("check").color("success").requires_confirmation()
+    .action(lambda record: record.approve()),
+])
+TextEntry("api_key").hint_action(Action("rotate").icon("refresh-cw").action(rotate_key))
+```
+
+| Method | Where the button goes |
+| --- | --- |
+| `prefix_action(a)` / `prefix_actions([...])` | An icon button before the value. |
+| `suffix_action(a)` / `suffix_actions([...])` | An icon button after the value. |
+| `hint_action(a)` / `hint_actions([...])` | A small icon button at the end of the label row. |
+| `actions([...])` | Buttons under the value. |
+
+They work like page actions: confirmations, popup forms, notifications and permissions (`authorize()`) all work. `record` is the record the infolist shows (also inside a `RepeatableEntry`). After the action runs, the page reloads. Entry actions work on the view page and in `ViewAction` popups.
+
 ## Layouts
 
 Infolists use the form layouts from `tungsten.forms`. See [Form layouts](form-layouts) for all their options.

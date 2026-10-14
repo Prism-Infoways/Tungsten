@@ -1,0 +1,26 @@
+<div class="grid gap-y-1.5">
+  {% if v.show_label %}
+  <dt class="flex items-center gap-x-1 text-sm font-medium text-gray-500 dark:text-gray-400">
+    {{ v.label }}{% if v.language %}<span class="rounded bg-gray-100 px-1.5 font-mono text-[10px] uppercase text-gray-500 dark:bg-white/10 dark:text-gray-400">{{ v.language }}</span>{% endif %}
+    {% if v.hint or v.actions.hint %}<span class="ms-auto flex items-center gap-1 text-xs font-normal">{% if v.hint %}{{ __(v.hint) }}{{ icon(v.hint_icon, 'h-3.5 w-3.5') }}{% endif %}{{ v.actions.hint }}</span>{% endif %}
+  </dt>
+  {% endif %}
+  <dd class="min-w-0">
+    {% if code %}
+    <div class="group relative overflow-hidden rounded-lg bg-gray-50 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
+      {% if v.copyable %}
+      <button type="button" data-tw-local title="{{ __('Copy') }}" aria-label="{{ __('Copy') }}"
+              class="absolute end-2 top-2 rounded-md bg-white/80 p-1.5 text-gray-500 opacity-0 shadow-sm ring-1 ring-gray-950/10 transition hover:text-gray-700 focus:opacity-100 group-hover:opacity-100 dark:bg-gray-900/80 dark:text-gray-400 dark:ring-white/10"
+              onclick="event.preventDefault(); navigator.clipboard.writeText({{ code | tojson | forceescape }}); window.twToast && twToast({title: twT('Copied'), status: 'success'})">{{ icon('copy', 'h-3.5 w-3.5') }}</button>
+      {% endif %}
+      <div class="flex overflow-auto text-[13px] leading-6" {% if v.max_height %}style="max-height: {{ v.max_height | int }}px"{% endif %}>
+        {% if v.line_numbers %}<pre aria-hidden="true" class="select-none border-e border-gray-950/5 px-3 py-3 text-end font-mono text-gray-400 dark:border-white/10 dark:text-gray-500">{% for i in range(1, v.lines + 1) %}{{ i }}
+{% endfor %}</pre>{% endif %}
+        <pre class="min-w-0 flex-1 px-4 py-3 font-mono text-gray-800 dark:text-gray-200 {{ 'whitespace-pre-wrap break-words' if v.wrap else '' }}"><code{% if v.language %} class="language-{{ v.language }}"{% endif %}>{{ v.html }}</code></pre>
+      </div>
+    </div>
+    {% else %}<span class="text-sm text-gray-400">{{ v.placeholder or '—' }}</span>{% endif %}
+    {% if v.actions.below %}<div class="mt-2 flex flex-wrap items-center gap-2">{{ v.actions.below }}</div>{% endif %}
+  </dd>
+  {% if v.helper_text %}<p class="text-xs text-gray-500 dark:text-gray-400">{{ __(v.helper_text) }}</p>{% endif %}
+</div>

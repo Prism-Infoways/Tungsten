@@ -1,0 +1,6 @@
+{% extends "tungsten/layout/app.html" %}
+{% block content %}
+{% include "tungsten/components/page-header.html" %}
+{% include "tungsten/resources/record-tabs.html" %}
+{{ table.render() }}
+{% endblock %}

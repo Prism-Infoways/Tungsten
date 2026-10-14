@@ -696,8 +696,15 @@ class Table(Component):
             page = min(self.page, pages)
             query = query.limit(self.per_page).offset((page - 1) * self.per_page)
         records = list(self.ctx.db.scalars(query).unique().all())
+        self._prepare(records)
         self._page_records = records
         return records, total
+
+    def _prepare(self, records: list) -> None:
+        """Let the host add data to the rows (a relation's link-table columns as ``record.pivot``)."""
+        prepare = getattr(self.host, "prepare_records", None)
+        if prepare is not None and records:
+            prepare(self.ctx, records)
 
     def summaries(self, query) -> dict[str, list[dict]]:
         out: dict[str, list[dict]] = {}
@@ -865,6 +872,7 @@ class Table(Component):
         elif self._limit:
             sorted_q = sorted_q.limit(self._limit)
         records = list(ctx.db.scalars(sorted_q).unique().all())
+        self._prepare(records)
         self._page_records = records
         columns = self.visible_columns()
         self._scoped(self._actions, "row")

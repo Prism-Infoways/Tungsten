@@ -177,7 +177,7 @@ class DeleteAction(Action):
             return super().run(ctx, host, record, records, data, form)
         host.delete(ctx, record)
         if self.scope == "page":
-            url = host.page_url(ctx)
+            url = (getattr(host, "return_url", None) or host.page_url)(ctx)
             if url:
                 ctx.redirect(url)
 
@@ -221,7 +221,7 @@ class ForceDeleteAction(Action):
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
         host.force_delete(ctx, record)
         if self.scope == "page":
-            url = host.page_url(ctx)
+            url = (getattr(host, "return_url", None) or host.page_url)(ctx)
             if url:
                 ctx.redirect(url)
 
@@ -323,7 +323,17 @@ class ForceDeleteBulkAction(BulkAction):
 
 # ---------------------------------------------------------------------- relations
 class AttachAction(Action):
-    """Many-to-many: pick existing records to link to the owner."""
+    """Many-to-many: pick existing records to link to the owner.
+
+    Extra fields are saved on the link table (``role`` on ``project_members``)::
+
+        AttachAction().form([Select("role").options({"lead": "Lead", "dev": "Developer"}).required()])
+
+    Read them back in the table with ``TextColumn("pivot.role")``.
+    """
+
+    #: the host ability checked before showing the button
+    ability = "attach"
 
     def __init__(self, name: str = "attach", title_attribute: str | None = None) -> None:
         super().__init__(name)
@@ -332,42 +342,135 @@ class AttachAction(Action):
         self._color = "gray"
         self._title_attribute = title_attribute
         self._success_title = "Attached"
-        self._authorize = "attach"
+        self._authorize = self.ability
         self._form = True
+        self._extra_fields: Any = None
+        self._record_select_query: Any = None
+        self._multiple = True
+        self._preload_limit = 500
+
+    def form(self, schema: Any, columns: int = 1) -> "AttachAction":  # type: ignore[override]
+        """Extra fields shown under the record picker (saved on the link table when attaching)."""
+        self._extra_fields = schema
+        self._form_columns = columns
+        return self
+
+    def record_select_options_query(self, fn: Any) -> "AttachAction":
+        """Narrow the records offered: ``lambda query: query.where(Tag.active.is_(True))``."""
+        self._record_select_query = fn
+        return self
+
+    def multiple(self, condition: bool = True) -> "AttachAction":
+        """Pick several records at once (on by default)."""
+        self._multiple = condition
+        return self
+
+    def _candidates_query(self, ctx, host):
+        from sqlalchemy import select
+
+        model = host.model
+        pk = host.primary_key()
+        linked = host.link.query(host.owner).with_only_columns(pk)
+        query = ctx.panel.tenancy.scope(ctx, model, select(model).where(pk.not_in(linked)))
+        if self._record_select_query is not None:
+            query = call(self._record_select_query, query=query, ctx=ctx, owner=host.owner) or query
+        return query
 
     def build_form(self, ctx, host, record=None, records=None):  # type: ignore[override]
-        from sqlalchemy import select
-        from sqlalchemy.orm import with_parent
-
         from ..forms.fields import Select
         from ..forms.form import Form
 
         title = self._title_attribute or getattr(host.manager, "record_title_attribute", None)
         model = host.model
         pk = host.primary_key()
-        attached = select(pk).where(with_parent(host.owner, getattr(type(host.owner), host.manager.relationship)))
-        query = ctx.panel.tenancy.scope(ctx, model, select(model).where(pk.not_in(attached)))
+        query = self._candidates_query(ctx, host)
         if title:
             query = query.order_by(getattr(model, title))
-        rows = ctx.db.scalars(query.limit(500)).all()
-        options = {str(getattr(r, pk.key)): (str(getattr(r, title)) if title else str(r)) for r in rows}
-        form = Form().schema([
-            Select("records").label(host.model_label().capitalize() if host.model_label() else "Records")
-            .multiple().searchable().options(options).required()
-        ]).columns(1)
+        rows = ctx.db.scalars(query.limit(self._preload_limit)).all()
+        options = {str(getattr(r, pk.key)): (str(getattr(r, title)) if title else host.record_title(r)) for r in rows}
+        picker = Select("records").label(host.model_label().capitalize() if host.model_label() else "Records")
+        picker = picker.searchable().options(options).required()
+        if self._multiple:
+            picker = picker.multiple()
+        schema: list = [picker]
+        if self._extra_fields is not None:
+            extra = self._extra_fields
+            if callable(extra) and not isinstance(extra, list):
+                extra = call(extra, **self.ev(ctx, record, records, host=host)) or []
+            schema.extend(extra)
+        form = Form().schema(schema).columns(self._form_columns)
         return form
 
     def fill(self, form, ctx, record=None, records=None):  # type: ignore[override]
         form.fill(None)
+        if self._fill_form is not None:
+            form.fill_from(call(self._fill_form, **self.ev(ctx, record, records, form=form)) or {})
 
-    def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
+    def _picked(self, ctx, host, data):
         from sqlalchemy import select
 
-        keys = [host._typed_key(k) for k in (data or {}).get("records") or []]
-        # look up outside the relation scope: these records are not attached yet
-        query = ctx.panel.tenancy.scope(ctx, host.model, select(host.model).where(host.primary_key().in_(keys)))
-        found = ctx.db.scalars(query).all() if keys else []
-        host.attach(ctx, list(found))
+        picked = (data or {}).get("records") or []
+        if not isinstance(picked, list):
+            picked = [picked]
+        keys = [host._typed_key(k) for k in picked]
+        if not keys:
+            return []
+        # look up outside the relation scope (these records are not linked yet), but only among the offered ones
+        query = self._candidates_query(ctx, host).where(host.primary_key().in_(keys))
+        return list(ctx.db.scalars(query).all())
+
+    def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
+        found = self._picked(ctx, host, data)
+        pivot = {k: v for k, v in (data or {}).items() if k != "records"}
+        if host.many_to_many:
+            host.attach(ctx, found, pivot=pivot)
+        else:
+            host.associate(ctx, found)
+
+
+class AssociateAction(AttachAction):
+    """One-to-many: pick existing records and point them at the owner (``order.customer_id = 1``)."""
+
+    ability = "associate"
+
+    def __init__(self, name: str = "associate", title_attribute: str | None = None) -> None:
+        super().__init__(name, title_attribute)
+        self._label = "Associate"
+        self._success_title = "Associated"
+
+
+class DissociateAction(Action):
+    """One-to-many: unlink a record from the owner (its link column is set to empty; the record stays)."""
+
+    def __init__(self, name: str = "dissociate") -> None:
+        super().__init__(name)
+        self._label = "Dissociate"
+        self._icon = "unlink"
+        self._color = "danger"
+        self._requires_confirmation = True
+        self._modal_submit_label = "Dissociate"
+        self._success_title = "Dissociated"
+        self._authorize = "dissociate"
+        self._modal_width = "md"
+
+    def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
+        host.dissociate(ctx, [record])
+
+
+class DissociateBulkAction(BulkAction):
+    def __init__(self, name: str = "dissociate") -> None:
+        super().__init__(name)
+        self._label = "Dissociate"
+        self._icon = "unlink"
+        self._color = "danger"
+        self._requires_confirmation = True
+        self._modal_submit_label = "Dissociate"
+        self._success_title = "Dissociated"
+        self._authorize = "dissociate"
+        self._modal_width = "md"
+
+    def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
+        host.dissociate(ctx, list(records or []))
 
 
 class DetachAction(Action):

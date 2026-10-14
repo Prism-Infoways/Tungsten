@@ -273,7 +273,8 @@ class Auth:
             return True
         # "view" is implied by "view_any", bulk abilities by their single ability
         implied = {"view": "view_any", "delete_any": "delete", "restore_any": "restore",
-                   "force_delete_any": "force_delete", "attach": "update", "detach": "update"}
+                   "force_delete_any": "force_delete", "attach": "update", "detach": "update",
+                   "associate": "update", "dissociate": "update"}
         if ability in implied and f"{prefix}.{implied[ability]}" in perms:
             return True
         return False
