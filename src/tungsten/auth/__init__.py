@@ -9,12 +9,12 @@ import hmac
 import logging
 import secrets
 import time
-from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Callable
 
 from sqlalchemy import func, select
 
 from ..support.aio import blocking
+from .throttle import MemoryThrottle, ThrottleStore
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..context import Context
@@ -91,6 +91,7 @@ class Auth:
         verification_minutes: int = 60,
         reset_token_minutes: int = 60,
         max_login_attempts: int = 5,
+        throttle: ThrottleStore | None = None,
     ) -> None:
         self.user_model = user_model
         self.email_field = email_field
@@ -131,7 +132,9 @@ class Auth:
         self.reset_token_minutes = reset_token_minutes
         self.max_login_attempts = max_login_attempts
         self.panel: Panel | None = None
-        self._attempts: dict[str, list[float]] = defaultdict(list)
+        #: where failed sign-ins are counted (in memory by default); pass a shared store when you run several
+        #: server processes so the limit holds across them
+        self.throttle: ThrottleStore = throttle if throttle is not None else MemoryThrottle()
 
     @property
     def enabled(self) -> bool:
@@ -206,10 +209,10 @@ class Auth:
         return bool(call(self.can_access, user=user, ctx=ctx, panel=self.panel))
 
     def throttled(self, key: str) -> bool:
-        now = time.monotonic()
-        attempts = [t for t in self._attempts[key] if now - t < 60]
-        self._attempts[key] = attempts
-        return len(attempts) >= self.max_login_attempts
+        return self.throttle.failures(key, 60) >= self.max_login_attempts
+
+    def failed_attempt(self, key: str) -> None:
+        self.throttle.fail(key)
 
     def attempt(self, ctx: "Context", email: str, password: str) -> Any:
         key = f"{ctx.request.client.host if ctx.request.client else ''}|{email.lower()}"
@@ -217,12 +220,12 @@ class Auth:
             raise PermissionError("Too many login attempts. Please try again in a minute.")
         user = self.find_by_email(ctx.db, email) if email else None
         if user is None or not self.verify(password, getattr(user, self.password_field, None)):
-            self._attempts[key].append(time.monotonic())
+            self.failed_attempt(key)
             return None
         if not self.is_active(user) or not self.allowed(ctx, user):
-            self._attempts[key].append(time.monotonic())
+            self.failed_attempt(key)
             return None
-        self._attempts.pop(key, None)
+        self.throttle.clear(key)
         return user
 
     def login(self, ctx: "Context", user: Any) -> None:

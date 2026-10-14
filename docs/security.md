@@ -75,7 +75,8 @@ Built-in forms ask for at least 8 characters for new passwords (sign-up, reset, 
 
 ## Login protection
 
-- **Rate limiting.** 5 failed sign-ins per minute for the same IP address and email, then the form refuses for a minute. Change it with `Auth(max_login_attempts=...)`. The two-factor code page has the same limit.
+- **Rate limiting.** 5 failed sign-ins per minute for the same IP address and email, then the form refuses for a minute. Change it with `Auth(max_login_attempts=...)`. The two-factor code page has the same limit. Counts live in the server process memory, and keys with no recent attempts are dropped, so sign-ins with ever new emails cannot fill memory. With several processes (`uvicorn --workers 4`, or several servers) each keeps its own count, so the real limit is the number times the processes: pass a shared store with `Auth(throttle=...)` (see [Authentication](authentication#rate-limiting)).
+- **Behind a proxy.** The IP part of the limit is `request.client.host`. Behind nginx or a load balancer that is the proxy's address, the same for everyone, unless you run uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy ip>` so the real address is used.
 - **Same error for everything.** A wrong email and a wrong password both show "These credentials do not match our records."
 - **Password reset doesn't reveal users.** The "Forgot password?" page says the same thing whether the email exists or not.
 - **Reset links** are random, stored only as a hash, work once, and expire after 60 minutes (`reset_token_minutes`).
