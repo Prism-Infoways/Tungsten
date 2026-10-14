@@ -76,6 +76,8 @@ All of these are explained with examples in [Theming](theming).
 | `navigation_groups` | `None` | The order of sidebar groups, as names or `NavigationGroup` objects. See [Navigation](navigation#groups). |
 | `database_notifications` | `True` | Shows the notification bell. See [Notifications](notifications). |
 | `notifications_polling` | `"30s"` | How often the bell checks for new notifications. `None` checks only when a page loads. |
+| `notifications_live` | `True` | Push notifications to open tabs over a WebSocket. See [Notifications](notifications#live-notifications). |
+| `broadcaster` | in-process | Where live messages go. Use a shared one (Redis ...) with several workers. See [Notifications](notifications#more-than-one-worker-or-server). |
 
 ### Data, files and tenants
 
@@ -83,7 +85,7 @@ All of these are explained with examples in [Theming](theming).
 | --- | --- | --- |
 | `storage` | `LocalStorage()` | Where uploaded files go. The default saves under `storage/tungsten` and serves files from `<path>/storage/...` to signed-in users. `LocalStorage(public=True)` serves them to anyone. See [Security](security#file-uploads). |
 | `tenancy` | none | A `Tenancy(...)` object for teams or companies. See [Multi-tenancy](multi-tenancy). |
-| `activity_log` | `False` | Records a row in the `tungsten_activity_log` table each time a record is created or updated through the panel. |
+| `activity_log` | `False` | Records who created, changed, deleted or exported what, sign-ins, and actions, in the `tungsten_activity_log` table. See [Activity log](activity-log). |
 
 ### Languages
 

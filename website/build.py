@@ -48,7 +48,7 @@ NAV = [
     ("Tables", ["tables", "table-columns", "table-filters", "query-builder", "table-features"]),
     ("Actions & notifications", ["actions", "notifications"]),
     ("Widgets", ["widgets"]),
-    ("Users & security", ["authentication", "email-verification", "roles-and-permissions", "security"]),
+    ("Users & security", ["authentication", "email-verification", "roles-and-permissions", "security", "activity-log"]),
     ("More", ["import-export", "multi-tenancy", "translations", "async-database", "plugins-and-hooks", "cli"]),
     ("Plugins", ["leads", "facebook-leads", "whatsapp", "mcp", "tickets", "hr", "finance", "tags", "blog", "seo-audit",
                  "security-audit", "quick-create", "environment-indicator", "backups", "kanban", "pwa",

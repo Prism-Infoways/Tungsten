@@ -26,6 +26,9 @@ class RecordFormAction(Action):
         self._mutate: Any = None
         self._using: Any = None
 
+    def logged_by_host(self) -> bool:
+        return self._using is None and self._action is None
+
     def mutate_form_data_using(self, fn: Any) -> "RecordFormAction":
         self._mutate = fn
         return self
@@ -148,6 +151,9 @@ class ViewAction(RecordFormAction):
             v["modal"] = False
         return v
 
+    def logged_by_host(self) -> bool:
+        return True  # only shows the record
+
 
 class DeleteAction(Action):
     def __init__(self, name: str = "delete") -> None:
@@ -171,6 +177,9 @@ class DeleteAction(Action):
 
     def is_available(self, host, ctx, record=None) -> bool:  # type: ignore[override]
         return super().is_available(host, ctx, record) and not (host and record is not None and host.is_trashed(record))
+
+    def logged_by_host(self) -> bool:
+        return self._action is None
 
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
         if self._action is not None:
@@ -196,6 +205,9 @@ class RestoreAction(Action):
     def is_available(self, host, ctx, record=None) -> bool:  # type: ignore[override]
         return super().is_available(host, ctx, record) and bool(host and record is not None and host.is_trashed(record))
 
+    def logged_by_host(self) -> bool:
+        return True
+
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
         host.restore(ctx, record)
 
@@ -217,6 +229,9 @@ class ForceDeleteAction(Action):
 
     def is_available(self, host, ctx, record=None) -> bool:  # type: ignore[override]
         return super().is_available(host, ctx, record) and bool(host and record is not None and host.is_trashed(record))
+
+    def logged_by_host(self) -> bool:
+        return True
 
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
         host.force_delete(ctx, record)
@@ -279,6 +294,9 @@ class DeleteBulkAction(BulkAction):
         self._success_title = "Deleted"
         self._modal_width = "md"
 
+    def logged_by_host(self) -> bool:
+        return True
+
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
         for r in records or []:
             if host.can(ctx, "delete", r) and not host.is_trashed(r):
@@ -295,6 +313,9 @@ class RestoreBulkAction(BulkAction):
         self._authorize = "restore_any"
         self._success_title = "Restored"
         self._modal_width = "md"
+
+    def logged_by_host(self) -> bool:
+        return True
 
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
         for r in records or []:
@@ -315,6 +336,9 @@ class ForceDeleteBulkAction(BulkAction):
         self._authorize = "force_delete_any"
         self._success_title = "Deleted"
         self._modal_width = "md"
+
+    def logged_by_host(self) -> bool:
+        return True
 
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
         for r in records or []:

@@ -127,6 +127,7 @@ class Host:
         form.record = record
         form.save_relationships(record, data)
         self.hook("after_create", ctx, record=record, data=data, form=form)
+        ctx.panel.log_activity(ctx, "created", record)
         ctx.db.commit()
         return record
 
@@ -137,11 +138,13 @@ class Host:
         ctx.db.flush()
         form.save_relationships(record, data)
         self.hook("after_save", ctx, record=record, data=data, form=form)
+        ctx.panel.log_activity(ctx, "updated", record)
         ctx.db.commit()
         return record
 
     def delete(self, ctx: "Context", record: Any) -> None:
         self.hook("before_delete", ctx, record=record)
+        ctx.panel.log_activity(ctx, "deleted", record)
         if self.soft_delete_column:
             setattr(record, self.soft_delete_column, dt.datetime.now())
         else:
@@ -154,10 +157,12 @@ class Host:
         if self.soft_delete_column:
             setattr(record, self.soft_delete_column, None)
             self.hook("after_restore", ctx, record=record)
+            ctx.panel.log_activity(ctx, "restored", record)
             ctx.db.commit()
 
     def force_delete(self, ctx: "Context", record: Any) -> None:
         self.hook("before_delete", ctx, record=record)
+        ctx.panel.log_activity(ctx, "force_deleted", record)
         ctx.db.delete(record)
         ctx.db.flush()
         self.hook("after_delete", ctx, record=record)

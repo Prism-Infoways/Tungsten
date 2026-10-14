@@ -10,7 +10,7 @@ import secrets
 import time
 from typing import TYPE_CHECKING, Any, Callable
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import String, cast, func, or_, select, update
 from starlette.concurrency import run_in_threadpool
@@ -404,6 +404,10 @@ class Routes:
         async def notifications_post(request: Request):
             return await r.run(request, r.notifications, read_form=True)
 
+        @app.websocket("/_tw/live")
+        async def live(websocket: WebSocket):
+            await r.live(websocket)
+
         @g("/_tw/notifications/badge")
         async def notifications_badge(request: Request):
             return await r.run(request, r.notifications_badge)
@@ -546,6 +550,7 @@ class Routes:
                 data = form.validate()
                 user = panel.auth.attempt(ctx, data["email"], form.get("password") or "")
                 if user is None:
+                    panel.log_auth_event(ctx, "login_failed", email=data["email"])
                     form.add_error("email", "These credentials do not match our records.")
                 else:
                     nxt = ctx.request.query_params.get("next") or fd.get("next") or ""
@@ -559,10 +564,12 @@ class Routes:
                                                              "at": time.time()}
                             return RedirectResponse(panel.url("two-factor", "challenge"), status_code=303)
                     panel.auth.login(ctx, user)
+                    panel.log_auth_event(ctx, "login", user)
                     return RedirectResponse(nxt, status_code=303)
             except ValidationError:
                 pass
             except PermissionError as exc:
+                panel.log_auth_event(ctx, "login_failed", email=form.get("email"), reason="throttled")
                 error = str(exc)
         else:
             form.fill()
@@ -570,6 +577,8 @@ class Routes:
                           next=ctx.request.query_params.get("next", ""))
 
     def logout(self, ctx: Context, fd: Any) -> Response:
+        if ctx.user is not None:
+            self.panel.log_auth_event(ctx, "logout", ctx.user)
         self.panel.auth.logout(ctx)
         return RedirectResponse(self.panel.url("login"), status_code=303)
 
@@ -601,8 +610,10 @@ class Routes:
                 if TwoFactor(ctx, user).verify(data["code"]):
                     ctx.session.pop("tw_2fa_pending", None)
                     panel.auth.login(ctx, user)
+                    panel.log_auth_event(ctx, "login", user, two_factor=True)
                     return RedirectResponse(pending.get("next") or panel.url(), status_code=303)
                 panel.auth._attempts[key].append(time.monotonic())
+                panel.log_auth_event(ctx, "two_factor_failed", user)
                 form.add_error("code", "That code is not valid.")
             except ValidationError:
                 pass
@@ -691,8 +702,10 @@ class Routes:
                     from .auth import verification
 
                     verification.send(ctx, user)
+                panel.log_auth_event(ctx, "registered", user)
                 if auth.is_active(user) and auth.allowed(ctx, user):
                     auth.login(ctx, user)
+                    panel.log_auth_event(ctx, "login", user)
                     Notification("Welcome!").body("Your account was created.").success().send(ctx)
                     ctx.flash()
                     return RedirectResponse(panel.url(), status_code=303)
@@ -789,6 +802,7 @@ class Routes:
                 if user is not None:
                     setattr(user, panel.auth.password_field, panel.auth.hash(form.get("password")))
                     ctx.db.commit()
+                    panel.log_auth_event(ctx, "password_reset", user)
                 panel.auth.consume_token(ctx.db, token)
                 Notification("Password updated").body("You can now sign in with your new password.").success().send(ctx)
                 ctx.flash()
@@ -922,8 +936,6 @@ class Routes:
             except ValidationError:
                 return ctx.html(form.render())
             record = host.create(ctx, data, form)
-            self.panel.log_activity(ctx, "created", record)
-            ctx.db.commit()
             Notification("Created").body(__(":label was created.", label=resource.get_label())).success().send(ctx)
             if fd.get("_another"):
                 return ctx.go(resource.get_url(ctx, "create"))
@@ -977,8 +989,6 @@ class Routes:
             except ValidationError:
                 return ctx.html(form.render())
             host.update(ctx, record, data, form)
-            self.panel.log_activity(ctx, "updated", record)
-            ctx.db.commit()
             Notification("Saved").body("Your changes were saved.").success().send(ctx)
             ctx.db.refresh(record)
             form = host.form(ctx, operation, record)
@@ -1385,6 +1395,8 @@ class Routes:
             ctx.db.rollback()
             logging.getLogger("tungsten").exception("Action %r failed", action.name)
             result = False
+        if result is not False:
+            self._log_action(ctx, host, action, record, records, scope)
         if isinstance(result, Response):
             return result
         if result is False:  # the action failed
@@ -1414,6 +1426,26 @@ class Routes:
         if scope == "bulk" and action._deselect_after:
             ctx.dispatch("tw-deselect")
         return ctx.html("")
+
+    def _log_action(self, ctx: Context, host: Host, action: Action, record: Any, records: Any, scope: str) -> None:
+        """Activity log row(s) for an action that ran: one per record, or one for a page/header action."""
+        panel = self.panel
+        if not panel.activity_log or not action.logs_activity():
+            return
+        try:
+            label = action.get_label(action.ev(ctx, record, records))
+        except Exception:  # noqa: BLE001 - a label that needs more than we have
+            label = action.name
+        props = {"action": action.name, "label": label, "scope": scope}
+        description = f"Ran {label}"
+        targets = [record] if record is not None else list(records or [])
+        for target in targets:
+            panel.log_activity(ctx, "action", target, description, dict(props))
+        if not targets:
+            model = getattr(host, "model", None)
+            panel.log_activity(ctx, "action", None, description, props,
+                               subject_type=getattr(model, "__name__", None) or getattr(host, "key", ""))
+        ctx.db.commit()
 
     # ------------------------------------------------------------------ live forms
     def _resolve_form(self, ctx: Context, fd: Any) -> Form:
@@ -1579,6 +1611,70 @@ class Routes:
             self._notification_query(ctx).where(DatabaseNotification.read_at.is_(None)).subquery())) or 0
         return ctx.html(self.panel.renderer.render("tungsten/components/notification-badge.html", count=count))
 
+    # ------------------------------------------------------------------ live push
+    async def live(self, websocket: WebSocket) -> None:
+        """The WebSocket each signed-in tab keeps open: forwards what the broadcaster publishes for its user."""
+        import asyncio
+        import json
+        from urllib.parse import urlsplit
+
+        panel = self.panel
+        origin = websocket.headers.get("origin")
+        if origin and urlsplit(origin).netloc != websocket.headers.get("host"):
+            await websocket.close(code=4403)  # another site trying to listen in with the user's cookie
+            return
+        user_id = await self._live_user(websocket) if panel.notifications_live else None
+        if user_id is None:
+            await websocket.close(code=4401)
+            return
+        await websocket.accept()
+
+        async def reader() -> None:  # notices the tab going away; the browser sends nothing else
+            while True:
+                if (await websocket.receive()).get("type") == "websocket.disconnect":
+                    return
+
+        async with panel.broadcaster.subscribe(user_id) as queue:
+            closed = asyncio.ensure_future(reader())
+            getter = asyncio.ensure_future(queue.get())
+            try:
+                while not closed.done():
+                    done, _ = await asyncio.wait({getter, closed}, timeout=25,
+                                                 return_when=asyncio.FIRST_COMPLETED)
+                    if getter in done:
+                        await websocket.send_text(json.dumps(getter.result(), default=str))
+                        getter = asyncio.ensure_future(queue.get())
+                    elif not closed.done():  # keep proxies from dropping a quiet connection
+                        await websocket.send_text('{"type": "ping"}')
+            except (WebSocketDisconnect, RuntimeError):
+                pass
+            finally:
+                getter.cancel()
+                closed.cancel()
+
+    async def _live_user(self, websocket: WebSocket) -> str | None:
+        """The id of the signed-in, active user on this socket's session cookie."""
+        panel, auth = self.panel, self.panel.auth
+        if not auth.enabled:
+            return None
+        raw = websocket.session.get(auth.session_key())
+        if raw is None:
+            return None
+
+        def check(db: Any) -> str | None:
+            user = auth.find_by_id(db, raw)
+            return auth.user_id(user) if user is not None and auth.is_active(user) else None
+
+        if panel.is_async:
+            async with panel.session_factory() as adb:
+                return await adb.run_sync(check)
+
+        def run() -> str | None:
+            with panel.session_factory() as db:
+                return check(db)
+
+        return await run_in_threadpool(run)
+
     # ------------------------------------------------------------------ widgets / tenants
     def widget(self, ctx: Context, fd: Any, widget_id: str) -> Response:
         widget = self.panel.widget(widget_id)
@@ -1614,6 +1710,11 @@ class Routes:
             body, media = write_xlsx(rows), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         else:
             body, media, fmt = write_csv(rows), "text/csv; charset=utf-8", "csv"
+        if self.panel.activity_log:
+            model = getattr(host, "model", None)
+            self.panel.log_activity(ctx, "exported", None, f"Exported {fmt.upper()}",
+                                    {"format": fmt, "selected": len(keys or [])},
+                                    subject_type=getattr(model, "__name__", None) or host.key, commit=True)
         return Response(body, media_type=media,
                         headers={"Content-Disposition": f'attachment; filename="{name}.{fmt}"'})
 

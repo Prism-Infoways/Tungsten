@@ -2,6 +2,13 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-14 · Notifications and activity log
+
+- **Email notifications**: `Notification(...).send_to_mail(users, ctx)` emails a notification through the panel's mailer, with an HTML version and full links.
+- **Live notifications**: open tabs keep a WebSocket, so `broadcast(users, ctx)` pops a toast at once and `send_to_database` updates the bell count at once. Works with several workers through a custom broadcaster (Redis example in the docs).
+- **Activity log** now also records deletes, restores, force deletes, every action run, exports, sign-ins, sign-outs, failed sign-ins and password resets. Create and edit popups are logged too. New docs page: Activity log.
+- Fixed: the unread count on the notification bell never showed.
+
 ## 2026-10-14 · Move from Filament to Tungsten
 
 - **New tool: Filament migration** (`tungsten-filament`). Point it at a Laravel Filament project and it writes a Tungsten admin: models from your migrations, relations, PHP enums, resources, forms, tables, filters, actions, infolists and relation managers, for Filament 3 and 4. The new admin runs on the same database and people sign in with the same passwords. What it cannot convert is marked in the code and listed in a report. Not on PyPI yet.
