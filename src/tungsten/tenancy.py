@@ -18,11 +18,14 @@ check (see :class:`BillingProvider`).
 
 from __future__ import annotations
 
+import contextlib
 import contextvars
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, Callable
 
-from sqlalchemy import false
+from sqlalchemy import event, false
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.orm import Session, with_loader_criteria
 
 from .support.evaluate import call
 
@@ -43,6 +46,48 @@ def set_url_slug(slug: str | None) -> Any:
 
 def reset_url_slug(token: Any) -> None:
     _url_slug.reset(token)
+
+
+#: set inside ``with tenancy.unscoped():`` so session-level scoping steps aside on purpose
+_unscoped: contextvars.ContextVar[bool] = contextvars.ContextVar("tungsten_tenant_unscoped", default=False)
+#: key in ``Session.info`` holding the current tenant's scope (set by :meth:`Tenancy.bind`)
+SCOPE_INFO = "tungsten_tenant_scope"
+_listening = False
+
+
+def _install_listeners() -> None:
+    """Hook every ORM session once; sessions without a bound tenant scope are left alone."""
+    global _listening
+    if _listening:
+        return
+    _listening = True
+    event.listen(Session, "do_orm_execute", _filter_statement)
+    event.listen(Session, "before_flush", _set_ownership)
+
+
+def _filter_statement(state: Any) -> None:
+    scope = state.session.info.get(SCOPE_INFO)
+    if scope is None or _unscoped.get() or state.execution_options.get("tungsten_unscoped"):
+        return
+    if not (state.is_select or state.is_update or state.is_delete) or state.is_column_load:
+        return
+    key = scope["key"]
+    options = []
+    for model, column in scope["models"].items():
+        criteria = false() if key is None else (column == key)
+        options.append(with_loader_criteria(model, criteria, include_aliases=True))
+    if options:
+        state.statement = state.statement.options(*options)
+
+
+def _set_ownership(session: Any, flush_context: Any, instances: Any) -> None:
+    scope = session.info.get(SCOPE_INFO)
+    if scope is None or scope["key"] is None or _unscoped.get():
+        return
+    for obj in session.new:
+        column = scope["models"].get(type(obj))
+        if column is not None and getattr(obj, column.key, None) is None:
+            setattr(obj, column.key, scope["key"])
 
 
 class BillingProvider:
@@ -126,6 +171,7 @@ class Tenancy(NoTenancy):
         require_subscription: bool = False,
         avatar_attribute: str | None = None,
         label: str | None = None,
+        scope_session: bool = False,
     ) -> None:
         self.model = model
         self.ownership = ownership
@@ -148,6 +194,62 @@ class Tenancy(NoTenancy):
         self.avatar_attribute = avatar_attribute
         #: what a tenant is called in the menu ("Team", "Company"); defaults to the model's name
         self.tenant_label = label
+        #: filter every ORM query on the panel's sessions (custom pages, widgets, routes, jobs, MCP tools),
+        #: not only the queries Tungsten builds, like a Laravel global scope; see :meth:`unscoped`
+        self.scope_session = scope_session
+        if scope_session:
+            _install_listeners()
+
+    # ------------------------------------------------------------------ session-level scope
+    def owned_columns(self, panel: Any) -> dict[Any, Any]:
+        """``{model: column}`` for every model of the app that belongs to a tenant by a column (or a
+        many-to-one relationship's column), after the resources' ``tenant_scoped`` / ``tenant_ownership``."""
+        cache = getattr(self, "_owned_columns", None)
+        if cache is not None and cache[0] is panel:
+            return cache[1]
+        out: dict[Any, Any] = {}
+        for mapper in self.model.registry.mappers:
+            model = mapper.class_
+            attribute = self.ownership_for(None, model, panel.resource_for_model(model) if panel else None)
+            if attribute is None:
+                continue
+            if attribute in mapper.columns:
+                out[model] = getattr(model, attribute)
+            elif attribute in mapper.relationships:
+                rel = mapper.relationships[attribute]
+                if not rel.uselist and len(rel.local_columns) == 1:
+                    out[model] = getattr(model, mapper.get_property_by_column(next(iter(rel.local_columns))).key)
+        self._owned_columns = (panel, out)
+        return out
+
+    def bind(self, ctx: "Context") -> None:
+        """Filter ``ctx.db`` by ``ctx.tenant`` (called when the tenant is set). Without a signed-in user the
+        session stays unfiltered, so sign-in can find the user."""
+        db = getattr(ctx, "db", None)
+        if db is None:
+            return
+        info = db.info
+        if ctx.user is None:
+            info.pop(SCOPE_INFO, None)
+            return
+        key = self._tenant_key(ctx.tenant) if ctx.tenant is not None else None
+        info[SCOPE_INFO] = {"key": key, "models": self.owned_columns(ctx.panel)}
+
+    @staticmethod
+    @contextlib.contextmanager
+    def unscoped() -> Iterator[None]:
+        """Step outside the session-level scope on purpose (super-admin screens, reports over all tenants)::
+
+            with Tenancy.unscoped():
+                total = db.scalar(select(func.count()).select_from(Order))
+
+        One statement can also opt out with ``.execution_options(tungsten_unscoped=True)``.
+        """
+        token = _unscoped.set(True)
+        try:
+            yield
+        finally:
+            _unscoped.reset(token)
 
     def get_label(self) -> str:
         from .i18n import translate as __
