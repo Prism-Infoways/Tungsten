@@ -1,9 +1,11 @@
 ---
 title: Notifications
-description: Show toast messages after something happens, and store notifications for the bell in the top bar.
+description: Show toast messages, store notifications for the bell, email them, and push them live to open tabs.
 ---
 
 Tungsten has two kinds of notifications, both built with the same `Notification` class. A **toast** is a small message that pops up in the corner and disappears after a few seconds. A **database notification** is stored and shown in the notification bell in the top bar, so users see it even if they were not online.
+
+The same notification can also go out by **email**, and be **pushed live** to the user's open tabs, so they see it right away without reloading.
 
 ## Toast notifications
 
@@ -96,7 +98,7 @@ Notification("New order") \
 - The second argument can be a database session or `ctx`.
 - It commits the session.
 
-In the bell, users can open the list (the 30 newest), click the action links, **Mark read** one notification, **Mark all read**, or **Clear** them all. The unread count refreshes every 30 seconds.
+In the bell, users can open the list (the 30 newest), click the action links, **Mark read** one notification, **Mark all read**, or **Clear** them all. The unread count updates at once over the [live connection](#live-notifications), and is also checked every 30 seconds.
 
 A full example from the demo: tell every admin about a new order, in a resource hook.
 
@@ -128,6 +130,7 @@ panel = Panel(
     ...,
     database_notifications=True,     # show the bell (default True)
     notifications_polling="30s",     # how often the unread count refreshes; None turns polling off
+    notifications_live=True,         # push to open tabs over a WebSocket (default True)
 )
 ```
 
@@ -143,6 +146,111 @@ with SessionLocal() as db:
 ```
 
 With an async engine, use `panel.with_session(lambda db: ...)` to get a normal session. See [Async database](async-database).
+
+## Email notifications
+
+`send_to_mail(users, ctx)` emails the notification. It uses the mailer you gave `Auth(mailer=...)`, the same one that sends password reset links (see [Authentication](authentication)).
+
+```python
+Notification("Invoice paid") \
+    .body(f"{invoice.number} was paid by {invoice.customer.name}.") \
+    .action("Open invoice", InvoiceResource.get_url(ctx, "view", invoice)) \
+    .send_to_mail(accountants, ctx)
+```
+
+- `users` can be a user object, a user id, an email address, or a list of these. Users without an email are skipped.
+- The title is the subject. Pass `subject="..."` for another one.
+- The email text is the body, then each action as `Label: link`. Links that start with `/` become full links using the panel's `app_url` (or the current request's address). Set `app_url` so links in emails from background jobs work too.
+- A mailer that also takes an `html` argument gets an HTML version with buttons. A mailer that takes `notification` gets the notification as a dict.
+- If the mailer fails, the error is logged and the request carries on, so a mail server problem never undoes the user's work.
+
+A mailer that sends both versions with Python's `smtplib`:
+
+```python
+import smtplib
+from email.message import EmailMessage
+
+def mailer(to, subject, body, html=None):
+    msg = EmailMessage()
+    msg["From"], msg["To"], msg["Subject"] = "admin@acme.example", to, subject
+    msg.set_content(body)
+    if html:
+        msg.add_alternative(html, subtype="html")
+    with smtplib.SMTP("smtp.acme.example", 587) as smtp:
+        smtp.starttls()
+        smtp.login("admin@acme.example", "app-password")
+        smtp.send_message(msg)
+
+panel = Panel(auth=Auth(User, mailer=mailer), app_url="https://admin.acme.example", ...)
+```
+
+To store a notification and email it, chain both:
+
+```python
+Notification("Ticket assigned").action("Open", url).send_to_database(agent, ctx).send_to_mail(agent, ctx)
+```
+
+## Live notifications
+
+Every signed-in tab keeps a WebSocket open to the panel (`<path>/_tw/live`). Two things use it:
+
+- `send_to_database(...)` tells the users' open tabs, and their bell count updates at once instead of at the next check.
+- `broadcast(users, ctx)` shows the notification as a toast right now, in every open tab of those users. It is not stored, so a user with no tab open never sees it. Chain `send_to_database` too if it should also stay in the bell.
+
+```python
+# a long export finished in a background job: pop a toast and keep a copy in the bell
+Notification("Export ready").body("orders.xlsx is ready to download.") \
+    .action("Download", download_url).success().persistent() \
+    .broadcast(user, db).send_to_database(user, db)
+```
+
+`broadcast` and `send_to_database` take `ctx` or a database session, like before. Outside a request the panel is found from the session (inside `panel.with_session(...)`), or it is the app's only panel.
+
+### Server setup
+
+- The server needs WebSocket support. Install `uvicorn[standard]` (or `pip install "tungsten-admin[live]"`, which adds the `websockets` package). Without it the bell still works by polling.
+- Behind nginx, pass the upgrade headers for the panel path:
+
+  ```nginx
+  location /admin/_tw/live {
+      proxy_pass http://127.0.0.1:8000;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      proxy_set_header Host $host;
+      proxy_read_timeout 1h;
+  }
+  ```
+
+- The socket only accepts the signed-in user's own session cookie from the same site, and only carries that user's notifications.
+- `notifications_live=False` turns it off.
+
+### More than one worker or server
+
+By default, messages go to tabs connected to the same process. With several workers (`uvicorn --workers 4`, gunicorn) or servers, a message sent in one process must reach the others. Give the panel a broadcaster that passes messages through a shared channel. A Redis example:
+
+```python
+import asyncio, json
+import redis
+from tungsten.broadcast import Broadcaster
+
+class RedisBroadcaster(Broadcaster):
+    def __init__(self, url):
+        super().__init__()
+        self.redis = redis.Redis.from_url(url)
+        listener = self.redis.pubsub(ignore_subscribe_messages=True)
+        listener.subscribe(**{"tungsten-live": self._received})
+        listener.run_in_thread(daemon=True, sleep_time=0.5)
+
+    def publish(self, user_id, message):          # every process ...
+        self.redis.publish("tungsten-live", json.dumps({"user": str(user_id), "message": message}))
+
+    def _received(self, item):                    # ... delivers to its own tabs
+        data = json.loads(item["data"])
+        self.deliver(data["user"], data["message"])
+
+panel = Panel(..., broadcaster=RedisBroadcaster("redis://localhost:6379/0"))
+```
 
 ## Translations
 
@@ -169,5 +277,7 @@ Database notifications are stored as written, and the bell translates the title,
 | `persistent()` | Keep a toast open until closed. |
 | `action(label, url, color="primary")` | Add a link button. |
 | `send(ctx)` | Show as a toast now. |
-| `send_to_database(users, db_or_ctx)` | Store for the bell. |
+| `send_to_database(users, db_or_ctx)` | Store for the bell (and update open bells live). |
+| `send_to_mail(users, db_or_ctx, subject=None)` | Email it through the panel's mailer. |
+| `broadcast(users, db_or_ctx)` | Show as a toast now in the users' open tabs. |
 | `to_dict()` | The notification as a plain dict. |

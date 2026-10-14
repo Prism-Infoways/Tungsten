@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+import weakref
 from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
@@ -67,6 +68,9 @@ class Panel:
         panel.mount(app)
     """
 
+    #: every panel built in this process (so a plain DB session in a script can still find its panel)
+    _instances: "weakref.WeakSet[Panel]" = weakref.WeakSet()
+
     def __init__(
         self,
         *,
@@ -93,6 +97,8 @@ class Panel:
         global_search: bool = True,
         database_notifications: bool = True,
         notifications_polling: str | None = "30s",
+        notifications_live: bool = True,
+        broadcaster: Any = None,
         navigation_groups: list[str | NavigationGroup] | None = None,
         dashboard: type[Page] | None = Dashboard,
         template_dirs: Iterable[str | Path] = (),
@@ -106,6 +112,7 @@ class Panel:
         lang_dirs: Iterable[str | Path] = (),
         theme_stylesheet: str | Path | None = None,
     ) -> None:
+        Panel._instances.add(self)
         self.id = id
         self.path = "/" + path.strip("/") if path.strip("/") else ""
         if session_factory is None and engine is not None:
@@ -143,6 +150,13 @@ class Panel:
         self.global_search_enabled = global_search
         self.database_notifications = database_notifications
         self.notifications_polling = notifications_polling
+        #: push notifications to open tabs over a WebSocket (``/_tw/live``); polling stays as the fallback
+        self.notifications_live = notifications_live
+        if broadcaster is None:
+            from .broadcast import Broadcaster
+
+            broadcaster = Broadcaster()
+        self.broadcaster = broadcaster
         self.dashboard = dashboard
         #: the dark panel beside the login form. ``highlight`` is the part of the heading shown in the brand color;
         #: ``features`` is a list of ``{"icon": ..., "label": ...}`` tiles (an empty list hides them).
@@ -683,20 +697,66 @@ class Panel:
         """The panel a DB session belongs to, inside a panel request or :meth:`with_session` (plugins use this)."""
         return getattr(db, "info", {}).get("tungsten_panel")
 
-    def log_activity(self, ctx: "Context", event: str, record: Any, description: str | None = None,
-                     properties: dict | None = None) -> None:
+    @staticmethod
+    def only() -> "Panel | None":
+        """The app's panel when it has exactly one (the usual case), else ``None``."""
+        panels = list(Panel._instances)
+        return panels[0] if len(panels) == 1 else None
+
+    def log_activity(self, ctx: "Context", event: str, record: Any = None, description: str | None = None,
+                     properties: dict | None = None, *, subject_type: str | None = None,
+                     subject_id: Any = None, user: Any = None, commit: bool = False) -> None:
+        """Add a row to the activity log (when ``activity_log=True``).
+
+        ``record`` is what the event is about; leave it out and pass ``subject_type`` / ``subject_id`` for
+        events without a record. ``user`` is who did it (the signed-in user by default). The same event on the
+        same record is written once per request, so a plugin that logs a delete itself is not counted twice.
+        """
         if not self.activity_log:
             return
         from sqlalchemy import inspect as sa_inspect
+        from sqlalchemy.exc import NoInspectionAvailable
 
         from .models import ActivityLog
 
-        pk = sa_inspect(type(record)).primary_key[0]
+        if record is not None:
+            try:
+                pk = sa_inspect(type(record)).primary_key[0]
+                subject_id = getattr(record, pk.key) if subject_id is None else subject_id
+            except (NoInspectionAvailable, IndexError):
+                pass
+            subject_type = subject_type or type(record).__name__
+        subject_type = (subject_type or "")[:100]
+        subject_id = "" if subject_id is None else str(subject_id)[:64]
+        seen = ctx.__dict__.setdefault("_tw_activity_logged", set())
+        key = (event, subject_type, subject_id)
+        if record is not None and key in seen:
+            return
+        seen.add(key)
+        user = ctx.user if user is None else user
         ctx.db.add(ActivityLog(
-            user_id=self.auth.user_id(ctx.user) if ctx.user is not None else None,
-            subject_type=type(record).__name__,
-            subject_id=str(getattr(record, pk.key)),
-            event=event,
+            user_id=self.auth.user_id(user) if user is not None and self.auth.enabled else None,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            event=event[:50],
             description=description,
             properties=properties or {},
         ))
+        if commit:
+            ctx.db.commit()
+
+    def log_auth_event(self, ctx: "Context", event: str, user: Any = None, description: str | None = None,
+                       **properties: Any) -> None:
+        """Log a sign-in event (``login``, ``logout``, ``login_failed`` ...) with the visitor's IP and browser."""
+        if not self.activity_log:
+            return
+        request = ctx.request
+        props = {
+            "ip": request.client.host if request.client else None,
+            "user_agent": (request.headers.get("user-agent") or "")[:255],
+            **{k: v for k, v in properties.items() if v is not None},
+        }
+        model = self.auth.user_model
+        self.log_activity(ctx, event, user, description, props, user=user,
+                          subject_type=None if user is not None else getattr(model, "__name__", "User"),
+                          commit=True)
