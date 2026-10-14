@@ -88,6 +88,7 @@ db.commit()
 | `verification_minutes` | `60` | How long a verification link works |
 | `reset_token_minutes` | `60` | How long a password reset link works |
 | `max_login_attempts` | `5` | Failed sign-ins allowed per minute |
+| `throttle` | in memory | Where failed sign-ins are counted; pass a shared store for several processes |
 
 ## Login
 
@@ -112,6 +113,29 @@ Auth(User, active_field="is_active")
 ### Rate limiting
 
 After 5 failed attempts within a minute for the same IP address and email, the login form shows "Too many login attempts. Please try again in a minute." Change the number with `max_login_attempts`.
+
+The counts are kept in the server process memory. When you run several processes, give them one shared store so the limit holds across all of them. A store has three methods:
+
+```python
+import redis
+
+r = redis.Redis()
+
+class RedisThrottle:
+    def failures(self, key, seconds):
+        return int(r.get(f"tw-login:{key}") or 0)
+
+    def fail(self, key):
+        pipe = r.pipeline()
+        pipe.incr(f"tw-login:{key}")
+        pipe.expire(f"tw-login:{key}", 60)
+        pipe.execute()
+
+    def clear(self, key):
+        r.delete(f"tw-login:{key}")
+
+auth = Auth(User, throttle=RedisThrottle())
+```
 
 > [!NOTE]
 > The attempt counter is kept in memory, per server process. With several workers, each one counts on its own, and a restart resets it. See [Security](security#login-protection).

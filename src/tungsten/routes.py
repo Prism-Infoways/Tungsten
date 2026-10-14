@@ -830,7 +830,7 @@ class Routes:
                     panel.auth.login(ctx, user)
                     panel.log_auth_event(ctx, "login", user, two_factor=True)
                     return RedirectResponse(pending.get("next") or panel.url(), status_code=303)
-                panel.auth._attempts[key].append(time.monotonic())
+                panel.auth.failed_attempt(key)
                 panel.log_auth_event(ctx, "two_factor_failed", user)
                 form.add_error("code", "That code is not valid.")
             except ValidationError:
@@ -896,7 +896,7 @@ class Routes:
                     email_step = "enabled"
                     Notification("Email codes are on").success().send(ctx)
                 else:
-                    auth._attempts[key].append(time.monotonic())
+                    auth.failed_attempt(key)
                     email_step, error = "confirm", "That code is not valid."
             elif do == "email_disable" and tf.email_enabled:
                 if not auth.verify(fd.get("password") or "", getattr(ctx.user, auth.password_field, None)):

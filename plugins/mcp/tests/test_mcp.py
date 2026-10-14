@@ -204,7 +204,7 @@ def test_token_screen(admin, panel):
 class ShopTools(Tools):
     """Tools of the app's own, beside the record ones."""
 
-    READ = Tools.READ + ("shop_hours",)
+    READ = Tools.READ + ("shop_hours", "buggy")
     WRITE = Tools.WRITE + ("restock",)
 
     def definitions(self, ctx, can_write):
@@ -224,6 +224,9 @@ class ShopTools(Tools):
     def restock(self, ctx, sku):
         return {"restocked": sku}
 
+    def buggy(self, ctx, n):
+        return None + n  # a bug inside the tool: TypeError
+
 
 @pytest.mark.parametrize("options", [{"tools": ShopTools}])
 def test_custom_tools(admin_mcp, panel, http):
@@ -237,6 +240,18 @@ def test_custom_tools(admin_mcp, panel, http):
     assert {t["name"] for t in reader.rpc("tools/list")["result"]["tools"]} == set(Tools.READ) | {"shop_hours"}
     assert reader.call("shop_hours")["structuredContent"] == {"open": "9 to 5"}
     assert "can only read" in reader.call("restock", sku="RS-1")["content"][0]["text"]
+
+
+@pytest.mark.parametrize("options", [{"tools": ShopTools}])
+def test_type_error_inside_a_tool_is_a_server_error(admin_mcp, caplog):
+    out = admin_mcp.call("buggy", n=1)
+    assert out["isError"] and "failed on the server" in out["content"][0]["text"]
+    assert "MCP tool buggy failed" in caplog.text  # logged with its traceback
+    # wrong or missing arguments are still the client's
+    for args in ({}, {"n": 1, "extra": 2}):
+        out = admin_mcp.call("buggy", **args)
+        assert out["isError"] and "Wrong arguments for buggy" in out["content"][0]["text"]
+    assert "Wrong arguments for restock" in admin_mcp.call("restock")["content"][0]["text"]
 
 
 def test_other_plugins_add_notes_to_instructions(panel, admin_mcp):

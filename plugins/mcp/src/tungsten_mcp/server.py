@@ -7,6 +7,7 @@ No server-sent events, so no long-lived connections on shared hosting.
 from __future__ import annotations
 
 import datetime as dt
+import inspect
 import json
 import logging
 from typing import Any
@@ -154,14 +155,19 @@ class McpServer:
             return _error(id_, INVALID_PARAMS, f"Unknown tool: {name}")
         if not isinstance(args, dict):
             return _error(id_, INVALID_PARAMS, "arguments must be an object")
+        # check the arguments against the tool's signature first: a TypeError raised inside the tool is a bug
+        # in the tool (logged below), not the client's wrong arguments
+        fn = getattr(self.tools, name, None)
+        if callable(fn):
+            try:
+                inspect.signature(fn).bind(ctx, **args)
+            except TypeError as exc:
+                return _result(id_, _tool_error(f"Wrong arguments for {name}: {exc}"))
         try:
             result = self.tools.call(ctx, name, args)
         except ToolError as exc:
             ctx.db.rollback()
             return _result(id_, _tool_error(str(exc), exc.details))
-        except TypeError as exc:  # wrong or missing arguments
-            ctx.db.rollback()
-            return _result(id_, _tool_error(f"Wrong arguments for {name}: {exc}"))
         except PermissionError as exc:
             ctx.db.rollback()
             return _result(id_, _tool_error(str(exc) or "Not allowed."))
