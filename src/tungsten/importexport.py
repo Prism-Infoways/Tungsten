@@ -17,6 +17,13 @@ An export action can list its own :class:`ExportColumn` s instead of using the
 table's columns::
 
     ExportAction(columns=[ExportColumn("sku"), ExportColumn("price", format=lambda state: f"{state:.2f}")])
+
+Big exports can run in the background. The user gets a "ready to download"
+notification, and every export is kept in their export history
+(``<panel>/_tw/exports``)::
+
+    ExportAction().background()                # always
+    ExportAction().background(min_rows=5000)   # only when 5,000 rows or more match
 """
 
 from __future__ import annotations
@@ -24,6 +31,8 @@ from __future__ import annotations
 import csv
 import datetime as dt
 import io
+import re
+import tempfile
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any, Callable, ClassVar
 from urllib.parse import parse_qsl, urlencode
@@ -150,6 +159,141 @@ def write_xlsx(rows) -> bytes:
     return out.getvalue()
 
 
+def write_file(rows, fmt: str, out: Any) -> int:
+    """Write ``rows`` (header first) to the binary file ``out`` as csv or xlsx. Returns the data row count."""
+    count = -1
+    if fmt == "xlsx":
+        try:
+            from openpyxl import Workbook
+            from openpyxl.cell import WriteOnlyCell
+            from openpyxl.styles import Font
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError("Excel export needs openpyxl: pip install 'tungsten-admin[excel]'") from exc
+        wb = Workbook(write_only=True)
+        ws = wb.create_sheet()
+        for row in rows:
+            count += 1
+            if count == 0:
+                header = []
+                for v in row:
+                    cell = WriteOnlyCell(ws, value=_csv_safe(v))
+                    cell.font = Font(bold=True)
+                    header.append(cell)
+                ws.append(header)
+            else:
+                ws.append([_csv_safe(v) for v in row])
+        wb.save(out)
+        return max(count, 0)
+    text = io.TextIOWrapper(out, encoding="utf-8", newline="", write_through=True)
+    text.write("\ufeff")
+    writer = csv.writer(text)
+    for row in rows:
+        count += 1
+        writer.writerow([_csv_safe(v) for v in row])
+    text.flush()
+    text.detach()
+    return max(count, 0)
+
+
+def export_name(host: "Host") -> str:
+    return re.sub(r"[^a-z0-9-]+", "-", (host.title() or "export").lower()).strip("-") or "export"
+
+
+def record_export(ctx: "Context", host: "Host", fmt: str, rows: int, url: str) -> None:
+    """Add a finished export to the user's export history (``url`` downloads it again with fresh data)."""
+    from .models import Job
+
+    if ctx.user is None:
+        return
+    panel = ctx.panel
+    ctx.db.add(Job(
+        kind="export", name=str(host.title() or "Export")[:255], status="done", processed=rows, total=rows,
+        user_id=panel.auth.user_id(ctx.user),
+        tenant_key=panel.tenancy.key_of(ctx.tenant) if ctx.tenant is not None and panel.tenancy.enabled else None,
+        payload={"host": host.key, "format": fmt, "rerun": url},
+        started_at=dt.datetime.now(), finished_at=dt.datetime.now(),
+    ))
+    ctx.db.commit()
+
+
+#: background export files are deleted after this many days (their history entry stays)
+EXPORT_FILE_DAYS = 7
+
+
+def prune_exports(db: Any, storage: Any, days: int | None = None) -> None:
+    """Delete background export files older than ``days`` (``EXPORT_FILE_DAYS``)."""
+    from sqlalchemy import select
+
+    from .models import Job
+
+    cutoff = dt.datetime.now() - dt.timedelta(days=EXPORT_FILE_DAYS if days is None else days)
+    old = db.scalars(select(Job).where(Job.kind == "export", Job.status == "done", Job.finished_at < cutoff)).all()
+    for job in old:
+        path = (job.result or {}).get("file")
+        if not path:
+            continue
+        storage.delete(path)
+        job.result = {**job.result, "file": None}
+        job.status = "expired"
+    if old:
+        db.commit()
+
+
+def run_export_job(job: Any):
+    """Job handler: write the export file, save it to storage and notify the user."""
+    from starlette.datastructures import QueryParams
+
+    from .notifications import Notification
+    from .routes import Forbidden, Routes
+
+    ctx = job.ctx
+    p = job.payload
+    if ctx.user is None and ctx.panel.auth.enabled:
+        raise PermissionError("The user who started this export no longer exists.")
+    host = Routes(ctx.panel).resolve_host(ctx, p.get("host"))
+    params = QueryParams(p.get("query", ""))
+    keys = p.get("keys") or None
+    action = find_offered_action(ctx, host, ExportBulkAction if keys else ExportAction, p.get("action"),
+                                 bulk=bool(keys))
+    if action is None:
+        raise Forbidden()
+    fmt = "xlsx" if p.get("format") == "xlsx" else "csv"
+    total = len(keys) if keys else None
+    if total is None:
+        try:
+            from sqlalchemy import func, select
+
+            table = host.get_table(ctx)
+            table.bind(ctx, host, params=params)
+            total = ctx.db.scalar(select(func.count()).select_from(table.filtered_query().subquery()))
+        except Exception:  # noqa: BLE001 - the count only feeds the progress bar
+            total = None
+    job.progress(0, total=total)
+
+    def counted(rows):
+        for i, row in enumerate(rows):
+            yield row
+            if i and i % 1000 == 0:
+                job.progress(i)
+
+    rows = export_rows(ctx, host, params, keys, p.get("columns") or None, action.export_columns)
+    filename = f"{export_name(host)}-{dt.datetime.now():%Y%m%d-%H%M}.{fmt}"
+    with tempfile.TemporaryFile() as tmp:
+        count = write_file(counted(rows), fmt, tmp)
+        yield
+        tmp.seek(0)
+        stored = ctx.panel.storage.save(tmp, filename, "exports")
+    job.job.result = {"file": stored, "filename": filename, "format": fmt}
+    job.progress(count, total=count)
+    url = ctx.panel.url("_tw", "exports", job.id, "download")
+    if ctx.panel.database_notifications and job.job.user_id is not None:
+        Notification("Your export is ready").body(
+            f"{job.job.name}: {count} rows ({fmt.upper()})").success().icon("download").action(
+            "Download", url).send_to_database(job.job.user_id, job.db)
+    prune_exports(job.db, ctx.panel.storage)
+    return {"file": stored, "filename": filename, "format": fmt, "rows": count}
+
+
 def find_offered_action(ctx: "Context", host: "Host", kind: type, name: str | None = None, bulk: bool = False):
     """The first ``kind`` action that the host's table (bulk or header actions) or page header offers
     and the user may run, or None. Endpoints use it so they only do what the UI offers."""
@@ -187,9 +331,21 @@ class ExportAction(Action):
         self._modal_width = "md"
         self._form = True
         self._style = "button"
+        self._background: Any = False
+        self._min_rows: int | None = None
+
+    def background(self, condition: Any = True, min_rows: int | None = None) -> "ExportAction":
+        """Build the file in the background and notify the user when it is ready to download.
+
+        ``min_rows`` only does so when at least that many rows match (smaller exports download at once)."""
+        self._background = condition
+        self._min_rows = min_rows
+        return self
 
     def build_form(self, ctx, host, record=None, records=None):  # type: ignore[override]
-        from .forms import CheckboxList, Hidden, Radio
+        from markupsafe import Markup
+
+        from .forms import CheckboxList, Hidden, Placeholder, Radio
         from .forms.form import Form
         from .tables.columns import ImageColumn
 
@@ -204,6 +360,9 @@ class ExportAction(Action):
             .inline().required(),
             CheckboxList("columns").options(cols).default(list(cols)).columns(2).bulk_toggleable().required(),
             Hidden("state"),
+            Placeholder("history").hidden_label().content(Markup(
+                '<a href="{}" class="text-sm font-medium text-primary-600 hover:text-primary-500">{}</a>').format(
+                ctx.url("_tw", "exports"), __("Export history"))),
         ])
 
     def fill(self, form, ctx, record=None, records=None):  # type: ignore[override]
@@ -214,10 +373,43 @@ class ExportAction(Action):
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
         data = data or {}
         state = parse_qsl(data.get("state") or "")
-        query = [(k, v) for k, v in state if k not in ("host", "action")]
-        query += [("host", host.key), ("action", self.name), ("format", data.get("format", "csv"))]
+        query = [(k, v) for k, v in state if k not in ("host", "action", "format", "columns", "keys")]
+        fmt = data.get("format", "csv")
+        if self._in_background(ctx, host, query):
+            start_export(ctx, host, self.name, fmt, query, data.get("columns") or [], None)
+            return None
+        query += [("host", host.key), ("action", self.name), ("format", fmt)]
         query += [("columns", c) for c in data.get("columns") or []]
         ctx.redirect(ctx.url("_tw", "export") + "?" + urlencode(query))
+
+    def _in_background(self, ctx, host, query) -> bool:
+        from .support.evaluate import evaluate
+
+        if not evaluate(self._background, **self.ev(ctx, host=host)):
+            return False
+        if not self._min_rows:
+            return True
+        from starlette.datastructures import QueryParams
+
+        table = host.get_table(ctx)
+        table.bind(ctx, host, params=QueryParams(urlencode(query)))
+        from sqlalchemy import func, select
+
+        count = ctx.db.scalar(select(func.count()).select_from(table.filtered_query().subquery())) or 0
+        return count >= self._min_rows
+
+
+def start_export(ctx: "Context", host: "Host", action_name: str, fmt: str, query: list, columns: list,
+                 keys: list | None) -> None:
+    """Queue a background export and tell the user it has started."""
+    from .notifications import Notification
+
+    payload = {"host": host.key, "action": action_name, "format": fmt, "query": urlencode(query),
+               "columns": list(columns), "keys": list(keys) if keys else None}
+    ctx.panel.jobs.dispatch(ctx, "export", payload, name=str(host.title() or "Export"),
+                            total=len(keys) if keys else None)
+    Notification("Export started").body("You will get a notification when the file is ready to download.").info(
+    ).action("Export history", ctx.url("_tw", "exports"), "gray").send(ctx)
 
 
 class ExportBulkAction(BulkAction):
@@ -231,7 +423,19 @@ class ExportBulkAction(BulkAction):
         self.export_columns = list(columns) if columns else None
         self._deselect_after = False
 
+    def background(self, condition: Any = True, chunk_size: int | None = None) -> "ExportBulkAction":
+        """Build the file in the background and notify the user when it is ready to download.
+        ``condition`` may be a closure, e.g. ``lambda keys: len(keys) > 1000``."""
+        self._export_background = condition
+        return self
+
     def run(self, ctx, host, record=None, records=None, data=None, form=None):  # type: ignore[override]
+        from .support.evaluate import evaluate
+
+        keys = [host.record_key(r) for r in records or []]
+        if evaluate(getattr(self, "_export_background", False), **{**self.ev(ctx), "keys": keys}):
+            start_export(ctx, host, self.name, self._format, [], [], keys)
+            return None
         query = [("host", host.key), ("action", self.name), ("format", self._format)]
         query += [("keys", host.record_key(r)) for r in records or []]
         ctx.redirect(ctx.url("_tw", "export") + "?" + urlencode(query))

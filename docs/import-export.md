@@ -116,6 +116,22 @@ ExportBulkAction(format="xlsx")
 > [!TIP]
 > Export actions work on any table: resource lists, [relation managers](relation-managers) and [table widgets](widgets#table-widgets).
 
+## Big exports in the background
+
+A big export can be built in the background. The user sees "Export started", keeps working, and gets a "Your export is ready" notification with a Download button.
+
+```python
+ExportAction().background()                    # always
+ExportAction().background(min_rows=5000)       # only when 5,000 or more rows match
+ExportBulkAction().background()                # selected rows
+```
+
+The file is saved in the panel's storage, in a private `exports` folder that only the user who made it can download. Files are removed after 7 days (`tungsten.importexport.EXPORT_FILE_DAYS`).
+
+## Export history
+
+Every export is kept in the user's export history at `/admin/_tw/exports` (the export popup links to it). It lists the table, format, rows, status and date. Background exports download their file while it is kept; other exports have a "Download again" link that exports the same table, filters and columns with fresh data.
+
 ## Importing records
 
 Importing has two parts: an `Importer` class that describes the file, and an `ImportAction` that shows the upload popup.

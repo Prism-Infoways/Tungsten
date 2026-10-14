@@ -707,6 +707,16 @@ class Panel:
 
         return asyncio.run(go())
 
+    @property
+    def jobs(self) -> Any:
+        """The panel's :class:`~tungsten.jobs.JobRunner` (background bulk actions, exports, your own jobs)."""
+        runner = self.__dict__.get("_jobs")
+        if runner is None:
+            from .jobs import JobRunner
+
+            runner = self.__dict__["_jobs"] = JobRunner(self)
+        return runner
+
     @staticmethod
     def of(db: Any) -> "Panel | None":
         """The panel a DB session belongs to, inside a panel request or :meth:`with_session` (plugins use this)."""
