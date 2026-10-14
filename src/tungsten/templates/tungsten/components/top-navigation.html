@@ -1,0 +1,45 @@
+{# The menu as a bar along the top (Panel(top_navigation=True)). Groups and items with children open a dropdown. #}
+{% import "tungsten/components/ui.html" as ui %}
+<nav class="hidden min-w-0 items-center gap-1 lg:flex" aria-label="{{ __('Main') }}" data-tw-top-navigation>
+  {% macro top_link(item) %}
+  <a href="{{ item.url }}" {% if item.new_tab %}target="_blank"{% endif %} class="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition {{ 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400' if item.active or item.expanded else 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white' }}" {% if item.active %}aria-current="page"{% endif %}>
+    {{ icon(item.current_icon, 'h-4 w-4') }}<span class="truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
+  </a>
+  {% endmacro %}
+  {% macro menu_link(item, indent=false) %}
+  <a href="{{ item.url }}" {% if item.new_tab %}target="_blank"{% endif %} class="{{ ui.button_classes('gray', 'dropdown') }} {{ 'ps-8' if indent }} {{ '!text-primary-600 dark:!text-primary-400' if item.active }}" {% if item.active %}aria-current="page"{% endif %}>
+    {{ icon(item.current_icon, 'h-4 w-4') }}<span class="flex-1 truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
+  </a>
+  {% endmacro %}
+  {{ panel.hooks('topbar.nav.start', ctx) }}
+  {% for group in navigation %}
+    {% if group.label %}
+    {% set group_active = group.items | selectattr('expanded') | list | length > 0 %}
+    {% call(part) ui.dropdown(align='start', width='w-60', classes='shrink-0') %}
+      {% if part == 'trigger' %}
+      <button type="button" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition {{ 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400' if group_active else 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white' }}">
+        {{ icon(group.icon, 'h-4 w-4') }}{{ __(group.label) }}{{ icon('chevron-down', 'h-3.5 w-3.5 opacity-60') }}
+      </button>
+      {% else %}
+        {% for item in group['items'] %}
+        {{ menu_link(item) }}
+        {% for child in item.children %}{{ menu_link(child, true) }}{% endfor %}
+        {% endfor %}
+      {% endif %}
+    {% endcall %}
+    {% else %}
+      {% for item in group['items'] %}
+        {% if item.children %}
+        {% call(part) ui.dropdown(align='start', width='w-60', classes='shrink-0') %}
+          {% if part == 'trigger' %}
+          <button type="button" class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition {{ 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400' if item.expanded else 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white' }}">
+            {{ icon(item.current_icon, 'h-4 w-4') }}{{ __(item.label) }}{{ icon('chevron-down', 'h-3.5 w-3.5 opacity-60') }}
+          </button>
+          {% else %}{{ menu_link(item) }}{% for child in item.children %}{{ menu_link(child, true) }}{% endfor %}{% endif %}
+        {% endcall %}
+        {% else %}{{ top_link(item) }}{% endif %}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+  {{ panel.hooks('topbar.nav.end', ctx) }}
+</nav>

@@ -266,19 +266,33 @@ class Auth:
         return "*" in self.permissions(ctx)
 
     def roles(self, ctx: "Context") -> list:
-        from ..models import Role, RoleAssignment
+        """The user's roles: those for the whole panel plus those given inside the current tenant."""
+        from ..models import Role, RoleAssignment, TenantRoleAssignment
 
         if ctx.user is None:
             return []
         uid = self.user_id(ctx.user)
+        tenant_key = self._tenant_key(ctx.tenant)
         cached = getattr(ctx, "_roles", None)  # asked for by permission checks and the user menu alike
-        if cached is not None and cached[0] == uid:
+        if cached is not None and cached[0] == (uid, tenant_key):
             return list(cached[1])
         roles = list(ctx.db.scalars(
             select(Role).join(RoleAssignment).where(RoleAssignment.user_id == uid)
         ).all())
-        ctx._roles = (uid, roles)
+        if tenant_key is not None:
+            seen = {r.id for r in roles}
+            roles += [r for r in ctx.db.scalars(
+                select(Role).join(TenantRoleAssignment, TenantRoleAssignment.role_id == Role.id)
+                .where(TenantRoleAssignment.user_id == uid, TenantRoleAssignment.tenant_id == tenant_key)
+            ).all() if r.id not in seen]
+        ctx._roles = ((uid, tenant_key), roles)
         return list(roles)
+
+    def _tenant_key(self, tenant: Any) -> str | None:
+        if tenant is None:
+            return None
+        tenancy = self.panel.tenancy if self.panel is not None else None
+        return tenancy.key_of(tenant) if tenancy is not None and tenancy.enabled else None
 
     def permissions(self, ctx: "Context") -> set[str]:
         if ctx._permissions is None:
@@ -317,28 +331,42 @@ class Auth:
             return True
         return False
 
-    def sync_roles(self, db: Any, user: Any, role_ids: list) -> None:
-        from ..models import RoleAssignment
+    def sync_roles(self, db: Any, user: Any, role_ids: list, tenant: Any = None) -> None:
+        """Set a user's roles: for the whole panel, or (with ``tenant``) inside that tenant only."""
+        from ..models import RoleAssignment, TenantRoleAssignment
 
         uid = self.user_id(user)
-        existing = {a.role_id: a for a in db.scalars(select(RoleAssignment).where(RoleAssignment.user_id == uid))}
+        if tenant is not None:
+            tid = self._tenant_key(tenant) or str(tenant)
+            query = select(TenantRoleAssignment).where(TenantRoleAssignment.user_id == uid,
+                                                       TenantRoleAssignment.tenant_id == tid)
+            existing = {a.role_id: a for a in db.scalars(query)}
+        else:
+            existing = {a.role_id: a for a in db.scalars(select(RoleAssignment).where(RoleAssignment.user_id == uid))}
         wanted = {int(r) for r in role_ids}
         for rid, assignment in existing.items():
             if rid not in wanted:
                 db.delete(assignment)
         for rid in wanted - set(existing):
-            db.add(RoleAssignment(role_id=rid, user_id=uid))
+            db.add(TenantRoleAssignment(role_id=rid, user_id=uid, tenant_id=tid) if tenant is not None
+                   else RoleAssignment(role_id=rid, user_id=uid))
 
-    def assign_role(self, db: Any, user: Any, role_name: str) -> None:
-        """Give a user a role by name (creates nothing; the role must exist)."""
-        from ..models import Role, RoleAssignment
+    def assign_role(self, db: Any, user: Any, role_name: str, tenant: Any = None) -> None:
+        """Give a user a role by name (creates nothing; the role must exist), optionally inside one tenant."""
+        from ..models import Role, RoleAssignment, TenantRoleAssignment
 
         role = db.scalars(select(Role).where(Role.name == role_name)).first()
         if role is None:
             raise ValueError(f"Role {role_name!r} does not exist")
         uid = self.user_id(user)
-        if not db.scalars(select(RoleAssignment).where(RoleAssignment.user_id == uid,
-                                                       RoleAssignment.role_id == role.id)).first():
+        if tenant is not None:
+            tid = self._tenant_key(tenant) or str(tenant)
+            if not db.scalars(select(TenantRoleAssignment).where(
+                    TenantRoleAssignment.user_id == uid, TenantRoleAssignment.role_id == role.id,
+                    TenantRoleAssignment.tenant_id == tid)).first():
+                db.add(TenantRoleAssignment(role_id=role.id, user_id=uid, tenant_id=tid))
+        elif not db.scalars(select(RoleAssignment).where(RoleAssignment.user_id == uid,
+                                                         RoleAssignment.role_id == role.id)).first():
             db.add(RoleAssignment(role_id=role.id, user_id=uid))
         db.commit()
 

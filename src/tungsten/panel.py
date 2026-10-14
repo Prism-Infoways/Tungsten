@@ -10,14 +10,14 @@ from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Iterable
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from markupsafe import Markup
 
 from .auth import Auth
 from .i18n import LANGUAGE_NAMES, Translator
 from .i18n import translate as __
-from .navigation import NavigationGroup, NavigationItem
+from .navigation import Cluster, NavigationGroup, NavigationItem
 from .notifications import with_icon_svg
 from .pages import Dashboard, Page
 from .rendering import Renderer
@@ -26,7 +26,7 @@ from .storage import LocalStorage, Storage
 from .support import colors as color_tools
 from .support.aio import is_async_engine
 from .support.evaluate import call, evaluate
-from .tenancy import NoTenancy, Tenancy
+from .tenancy import NoTenancy, Tenancy, current_url_slug
 from .widgets import Widget
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -46,6 +46,10 @@ def asset_version(name: str) -> str:
     except OSError:
         return VERSION
 
+
+#: paths that never carry the tenant in the URL (signing in happens before a tenant is known)
+UNTENANTED_PATHS = ("assets", "plugins", "storage", "login", "logout", "register", "forgot-password",
+                    "reset-password", "two-factor", "email-verification", "tenant/new")
 
 VERSION = "0.1.8"
 VENDOR_FILES = ("chart.umd.min.js", "trix.umd.min.js", "trix.css", "tom-select.complete.min.js", "tom-select.css",
@@ -90,6 +94,7 @@ class Panel:
         dark_mode: bool = True,
         default_theme: str = "system",
         sidebar_collapsible: bool = True,
+        top_navigation: bool = False,
         spa: bool = False,
         unsaved_changes_alerts: bool = True,
         tenancy: Tenancy | None = None,
@@ -143,6 +148,8 @@ class Panel:
         self.dark_mode = dark_mode
         self.default_theme = default_theme
         self.sidebar_collapsible = sidebar_collapsible
+        #: menu in a bar along the top instead of the sidebar (the sidebar stays as the phone menu)
+        self.top_navigation = top_navigation
         self.spa = spa
         self.unsaved_changes_alerts = unsaved_changes_alerts
         self.tenancy = tenancy or NoTenancy()
@@ -383,6 +390,61 @@ class Panel:
             return self.dashboard
         return next((p for p in self._pages if p.get_slug() == slug), None)
 
+    def get_clusters(self) -> list[type[Cluster]]:
+        """Clusters used by the panel's resources and pages, in registration order."""
+        out: list[type[Cluster]] = []
+        for member in [*self._resources, *self._pages]:
+            cluster = getattr(member, "cluster", None)
+            if cluster is not None and cluster not in out:
+                out.append(cluster)
+        return out
+
+    def cluster(self, slug: str) -> type[Cluster] | None:
+        return next((c for c in self.get_clusters() if c.get_slug() == slug), None)
+
+    def cluster_navigation(self, ctx: "Context", cluster: type[Cluster]) -> list[NavigationItem]:
+        """The cluster's sub-menu: its resources and pages the user may open, sorted."""
+        current = ctx.request.url.path
+        items = []
+        for r in self._resources:
+            if r.cluster is cluster and r.show_in_navigation and r.can(ctx, "view_any"):
+                url = r.get_url(ctx)
+                items.append(NavigationItem(r.get_navigation_label(), url, r.icon, sort=r.navigation_sort,
+                                            group=r.navigation_group,
+                                            badge=call(r.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user),
+                                            badge_color=r.navigation_badge_color, active_icon=r.active_icon,
+                                            active=current == url or current.startswith(url + "/")))
+        for p in self._pages:
+            if p.cluster is cluster and p.show_in_navigation and p.can_access(ctx):
+                url = p.get_url(ctx)
+                items.append(NavigationItem(p.get_navigation_label(), url, p.icon, sort=p.navigation_sort,
+                                            group=p.navigation_group,
+                                            badge=call(p.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user),
+                                            badge_color=p.navigation_badge_color,
+                                            active=current == url or current.startswith(url + "/")))
+        return sorted(items, key=lambda i: (i.sort, i.label))
+
+    def sub_navigation(self, ctx: "Context", resource: Any = None, record: Any = None,
+                       page: Any = None) -> dict | None:
+        """The sub-menu for the current page: the record's own, else its cluster's. None when there is none."""
+        current = ctx.request.url.path
+        if resource is not None and record is not None:
+            items = list(resource.get_record_sub_navigation(ctx, record) or [])
+            if items:
+                for item in items:
+                    item.active = item.url == current
+                return {"items": items, "position": resource.sub_navigation_position,
+                        "heading": resource.get_record_title(record), "description": None}
+        owner = resource if resource is not None else page
+        cluster = getattr(owner, "cluster", None)
+        if cluster is None:
+            return None
+        items = self.cluster_navigation(ctx, cluster)
+        if not items:
+            return None
+        return {"items": items, "position": cluster.sub_navigation_position, "heading": cluster.get_label(),
+                "description": cluster.description}
+
     def resource_for_model(self, model: Any) -> type[Resource] | None:
         return next((r for r in self._resources if r.model is model), None)
 
@@ -405,6 +467,9 @@ class Panel:
     # ------------------------------------------------------------------ urls
     def url(self, *parts: Any, **query: Any) -> str:
         path = "/".join(str(p).strip("/") for p in parts if p not in (None, ""))
+        slug = current_url_slug()
+        if slug and not any(path == p or path.startswith(p + "/") for p in UNTENANTED_PATHS):
+            path = f"{quote(slug, safe='')}/{path}"
         url = f"{self.path}/{path}" if path else f"{self.path}/"
         query = {k: v for k, v in query.items() if v is not None}
         if query:
@@ -512,9 +577,10 @@ class Panel:
         if self.dashboard is not None and self.dashboard.show_in_navigation and self.dashboard.can_access(ctx):
             items.append(NavigationItem(self.dashboard.get_navigation_label(), self.dashboard.get_url(ctx),
                                         self.dashboard.icon, self.dashboard.navigation_group,
-                                        self.dashboard.navigation_sort, active=current.rstrip("/") == (self.path or "")))
+                                        self.dashboard.navigation_sort, active=current.rstrip("/") == self.url().rstrip("/")))
         for r in self._resources:
-            if not r.show_in_navigation or r.parent_resource is not None or not r.can(ctx, "view_any"):
+            if r.cluster is not None or not r.show_in_navigation or r.parent_resource is not None \
+                    or not r.can(ctx, "view_any"):
                 continue
             url = r.get_url(ctx)
             badge = call(r.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user)
@@ -523,7 +589,7 @@ class Panel:
                                         active=current == url or current.startswith(url + "/"),
                                         active_icon=r.active_icon))
         for p in self._pages:
-            if not p.show_in_navigation or not p.can_access(ctx):
+            if p.cluster is not None or not p.show_in_navigation or not p.can_access(ctx):
                 continue
             url = p.get_url(ctx)
             badge = call(p.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user)
@@ -531,6 +597,12 @@ class Panel:
                                         badge=badge, badge_color=p.navigation_badge_color, parent=p.navigation_parent,
                                         active=current == url or current.startswith(url + "/"),
                                         active_icon=getattr(p, "active_icon", None)))
+        for cluster in self.get_clusters():
+            members = self.cluster_navigation(ctx, cluster)
+            if members:
+                items.append(NavigationItem(cluster.get_navigation_label(), self.url(cluster.get_slug()), cluster.icon,
+                                            cluster.navigation_group, cluster.navigation_sort,
+                                            active=any(m.active for m in members), active_icon=cluster.active_icon))
         for item in self._nav_items:
             if evaluate(item.visible, ctx=ctx, user=ctx.user):
                 items.append(self._custom_nav_item(ctx, item, current))
@@ -600,9 +672,26 @@ class Panel:
             "tenant": ctx.tenant,
             "tenants": tenants,
             "tenant_label": self.tenancy.label(ctx.tenant) if self.tenancy.enabled else "",
+            "tenant_menu": self._tenant_menu(ctx),
+            "tenant_register_url": self.url("tenant", "new")
+            if self.tenancy.enabled and self.tenancy.registration is not None and ctx.user is not None else None,
             "user_menu_items": self._user_menu_items,
             "version": VERSION,
         }
+
+    def _tenant_menu(self, ctx: "Context") -> list[dict]:
+        """Links at the top of the tenant switcher: settings and billing of the current tenant."""
+        tenancy = self.tenancy
+        if not tenancy.enabled or ctx.tenant is None or ctx.user is None:
+            return []
+        out = []
+        if tenancy.can_profile(ctx):
+            out.append({"label": __(":label settings", label=tenancy.get_label()), "icon": "settings",
+                        "url": self.url("tenant", "profile")})
+        if tenancy.can_billing(ctx):
+            out.append({"label": __(tenancy.billing.label), "icon": tenancy.billing.icon,
+                        "url": self.url("tenant", "billing")})
+        return out
 
     def _user_role_label(self, ctx: "Context") -> str:
         if ctx.user is None:

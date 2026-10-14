@@ -1,9 +1,10 @@
-"""Sidebar navigation: items, groups and badges."""
+"""Sidebar navigation: items, groups, badges and clusters."""
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, ClassVar
 
 
 @dataclass
@@ -49,3 +50,49 @@ class NavigationGroup:
         if not (self.collapsible and self.collapsed):
             return True
         return any(i.expanded for i in self.items)
+
+
+class Cluster:
+    """A group of resources and pages behind one menu item, with their own sub-menu::
+
+        class Settings(Cluster):
+            icon = "settings"
+            navigation_group = "Admin"
+
+        class TaxResource(Resource):
+            model = Tax
+            cluster = Settings
+
+    The menu shows one "Settings" item. It opens the first page of the cluster, and every page
+    of the cluster shows the cluster's sub-menu (on the side, or as tabs with
+    ``sub_navigation_position = "top"``). ``/admin/settings`` also opens the first page.
+    """
+
+    slug: ClassVar[str | None] = None
+    label: ClassVar[str | None] = None
+    icon: ClassVar[str | None] = "squares-2x2"
+    active_icon: ClassVar[str | None] = None
+    navigation_group: ClassVar[str | None] = None
+    navigation_label: ClassVar[str | None] = None
+    navigation_sort: ClassVar[int] = 0
+    #: ``"start"`` (beside the page), ``"end"`` or ``"top"`` (tabs above it)
+    sub_navigation_position: ClassVar[str] = "start"
+    #: a short line under the cluster's name in the sub-menu
+    description: ClassVar[str | None] = None
+
+    @classmethod
+    def get_slug(cls) -> str:
+        return cls.slug or re.sub(r"(?<!^)(?=[A-Z])", "-", cls.__name__).lower()
+
+    @classmethod
+    def get_label(cls) -> str:
+        from .i18n import translate as __
+        from .support.component import headline
+
+        return __(cls.label or headline(cls.get_slug().replace("-", "_")))
+
+    @classmethod
+    def get_navigation_label(cls) -> str:
+        from .i18n import translate as __
+
+        return __(cls.navigation_label) if cls.navigation_label else cls.get_label()

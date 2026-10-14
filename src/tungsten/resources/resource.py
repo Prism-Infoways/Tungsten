@@ -81,6 +81,12 @@ class Resource:
     navigation_sort: ClassVar[int] = 0
     navigation_parent: ClassVar[str | None] = None
     show_in_navigation: ClassVar[bool] = True
+    #: a :class:`~tungsten.navigation.Cluster`: the resource then sits in that cluster's sub-menu
+    cluster: ClassVar[Any] = None
+    #: sub-menu on a record's pages: page names (``"view"``, ``"edit"``) and/or ``NavigationItem``s
+    record_sub_navigation: ClassVar[tuple] = ()
+    #: where that sub-menu goes: ``"start"``, ``"end"`` or ``"top"`` (tabs)
+    sub_navigation_position: ClassVar[str] = "start"
 
     # records
     record_title_attribute: ClassVar[str | None] = None
@@ -239,6 +245,29 @@ class Resource:
         if page == "view":
             return ctx.url(slug, key, **query)
         return ctx.url(slug, page, **query)
+
+    @classmethod
+    def get_record_sub_navigation(cls, ctx: "Context", record: Any) -> list:
+        """The sub-menu on ``record``'s pages. Override to add links that depend on the record::
+
+            @classmethod
+            def get_record_sub_navigation(cls, ctx, record):
+                return super().get_record_sub_navigation(ctx, record) + [
+                    NavigationItem("Invoices", InvoiceResource.get_url(ctx, customer=record.id), icon="receipt"),
+                ]
+        """
+        from ..navigation import NavigationItem
+
+        names = {"view": ("View", "eye"), "edit": ("Edit", "pencil")}
+        ability = {"view": "view", "edit": "update"}
+        out = []
+        for entry in cls.record_sub_navigation:
+            if isinstance(entry, NavigationItem):
+                out.append(entry)
+            elif entry in names and cls.has_page(entry) and cls.can(ctx, ability[entry], record):
+                label, icon = names[entry]
+                out.append(NavigationItem(__(label), cls.get_url(ctx, entry, record), icon=icon))
+        return out
 
     @classmethod
     def host(cls):

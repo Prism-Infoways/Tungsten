@@ -1,0 +1,12 @@
+{% extends "tungsten/layout/app.html" %}
+{% import "tungsten/components/ui.html" as ui %}
+{% block content %}
+{% set breadcrumbs = [(title, None)] %}
+{% include "tungsten/components/page-header.html" %}
+<form data-tw-unsaved hx-post="{{ action_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" class="grid gap-6">
+  {{ form.render() }}
+  <div class="flex justify-end">
+    <button type="submit" class="{{ ui.button_classes('primary') }}">{{ icon(submit_icon, 'h-4 w-4') }}<span>{{ submit_label }}</span></button>
+  </div>
+</form>
+{% endblock %}

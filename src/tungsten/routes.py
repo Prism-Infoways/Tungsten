@@ -30,6 +30,7 @@ from .panel import STATIC_DIR
 from .support.aio import blocking
 from .support.evaluate import call, evaluate
 from .tables.columns import EditableColumn
+from .tenancy import reset_url_slug, set_url_slug
 
 if TYPE_CHECKING:  # pragma: no cover
     from .panel import Panel
@@ -53,6 +54,32 @@ class CachedStaticFiles(StaticFiles):
 
 
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+
+
+class TenantPathMiddleware:
+    """For ``Tenancy(url=True)``: ``/admin/{tenant}/products`` routes like ``/admin/products``.
+
+    The tenant's part moves into ``root_path`` (so ``request.url`` keeps it) and into
+    ``scope["tw_tenant"]``. Paths whose first part is one of the panel's own routes
+    (``login``, ``assets``, ``_tw``...) have no tenant part.
+    """
+
+    def __init__(self, app: Any, reserved: Callable[[], set[str]]) -> None:
+        self.app = app
+        self._reserved = reserved
+        self._cache: set[str] | None = None
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        if scope["type"] in ("http", "websocket"):
+            root = scope.get("root_path", "")
+            path = scope["path"]
+            rest = path[len(root):] if root and path.startswith(root) else path
+            first = rest.lstrip("/").split("/", 1)[0]
+            if self._cache is None:
+                self._cache = self._reserved()
+            if first and first not in self._cache:
+                scope = dict(scope, root_path=f"{root}/{first}", tw_tenant=first)
+        await self.app(scope, receive, send)
 
 
 def build_app(panel: "Panel") -> FastAPI:
@@ -85,6 +112,16 @@ def build_app(panel: "Panel") -> FastAPI:
     for plugin in panel._plugins:
         if plugin.static:
             app.mount(f"/plugins/{plugin.id}", StaticFiles(directory=str(plugin.static)), name=f"plugin-{plugin.id}")
+    if panel.tenancy.in_url:
+        def reserved() -> set[str]:
+            out = set()
+            for route in app.routes:
+                first = str(getattr(route, "path", "")).strip("/").split("/", 1)[0]
+                if first and not first.startswith("{"):
+                    out.add(first)
+            return out
+
+        app.add_middleware(TenantPathMiddleware, reserved=reserved)
     routes = Routes(panel)
     routes.register(app)
     return app
@@ -125,9 +162,11 @@ class Routes:
         db.info["tungsten_panel"] = panel
         ctx = Context(panel, request, db)
         tokens = set_locale(panel.resolve_locale(ctx), panel.translator)
+        slug_token = set_url_slug(None)  # _dispatch sets it once the tenant is known
         try:
             return self._dispatch(ctx, db, handler, public, formdata, kwargs)
         finally:
+            reset_url_slug(slug_token)
             reset_locale(tokens)
 
     def _dispatch(self, ctx: Context, db: Any, handler: Callable, public: bool, formdata: Any,
@@ -143,6 +182,10 @@ class Routes:
                 if blocked is not None:
                     return blocked
         ctx.tenant = panel.tenancy.resolve(ctx)
+        if panel.tenancy.enabled:
+            blocked = self._tenant_gate(ctx, handler, public)
+            if blocked is not None:
+                return blocked
         if request.method == "POST" and not self._csrf_ok(ctx, formdata):
             return HTMLResponse(__("Page expired. Please refresh and try again."), status_code=419)
         try:
@@ -180,6 +223,51 @@ class Routes:
                     "Please set up two-factor authentication to continue.").warning().send(ctx)
                 return ctx.go(panel.url("two-factor"))
         return None
+
+    def _tenant_gate(self, ctx: Context, handler: Callable, public: bool) -> Response | None:
+        """Tenant in the URL: check it, or send the user to a URL that has one; then the subscription check."""
+        panel = self.panel
+        tenancy = panel.tenancy
+        request = ctx.request
+        page_handlers = (self.home, self.index, self.create, self.record_page)
+        if tenancy.in_url:
+            slug = request.scope.get("tw_tenant")
+            if slug is not None and ctx.tenant is None:
+                if ctx.user is None:
+                    return None if public else self.error(ctx, 404, "Page not found",
+                                                          "We couldn't find what you were looking for.")
+                # an old link without the tenant (``/admin/products``): add the last-used tenant to it
+                fallback = None
+                if panel.resource(slug) is not None or panel.page(slug) is not None or panel.cluster(slug) is not None:
+                    request.scope.pop("tw_tenant", None)
+                    fallback = tenancy.resolve(ctx)
+                if fallback is None or request.method != "GET":
+                    return self.error(ctx, 404, "Page not found", "We couldn't find what you were looking for.")
+                return ctx.go(self._in_tenant(ctx, fallback))
+            if ctx.tenant is not None:
+                set_url_slug(tenancy.slug_of(ctx.tenant))
+            if slug is None and not public and ctx.user is not None \
+                    and getattr(handler, "__func__", None) in [h.__func__ for h in page_handlers]:
+                if ctx.tenant is not None and request.method == "GET":
+                    return ctx.go(self._in_tenant(ctx, ctx.tenant))
+                if ctx.tenant is None and tenancy.registration is not None:
+                    return ctx.go(panel.url("tenant", "new"))
+        billing = tenancy.billing
+        if (billing is not None and tenancy.require_subscription and not public and ctx.tenant is not None
+                and getattr(handler, "__func__", None) not in
+                (Routes.tenant_billing, Routes.tenant_profile, Routes.tenant_register, Routes.logout,
+                 Routes.profile, Routes.switch_tenant)
+                and not billing.is_subscribed(ctx, ctx.tenant)):
+            return ctx.go(panel.url("tenant", "billing"))
+        return None
+
+    def _in_tenant(self, ctx: Context, tenant: Any) -> str:
+        """The current URL, moved inside ``tenant``."""
+        panel = self.panel
+        rest = ctx.request.url.path[len(panel.path):].lstrip("/")
+        url = panel.tenancy.url(ctx, tenant) + rest
+        query = ctx.request.url.query
+        return f"{url}?{query}" if query else url
 
     def _csrf_ok(self, ctx: Context, formdata: Any) -> bool:
         expected = ctx.session.get("tw_csrf")
@@ -240,6 +328,13 @@ class Routes:
             if not page.can_access(ctx):
                 raise Forbidden()
             return page.host()
+        if kind in ("tenant-register", "tenant-profile") and panel.tenancy.enabled:
+            from .tenancy import TenantHost
+
+            tenant_host = TenantHost(panel.tenancy, kind.split("-", 1)[1])
+            if not tenant_host.can(ctx, "update"):
+                raise Forbidden()
+            return tenant_host  # type: ignore[return-value]
         if kind == "profile" and panel.auth.enabled:
             from .auth.profile import ProfileHost
 
@@ -416,6 +511,27 @@ class Routes:
         @p("/profile")
         async def profile_post(request: Request):
             return await r.run(request, r.profile, read_form=True)
+
+        # tenants
+        @g("/tenant/new")
+        async def tenant_register(request: Request):
+            return await r.run(request, r.tenant_register)
+
+        @p("/tenant/new")
+        async def tenant_register_post(request: Request):
+            return await r.run(request, r.tenant_register, read_form=True)
+
+        @g("/tenant/profile")
+        async def tenant_profile(request: Request):
+            return await r.run(request, r.tenant_profile)
+
+        @p("/tenant/profile")
+        async def tenant_profile_post(request: Request):
+            return await r.run(request, r.tenant_profile, read_form=True)
+
+        @g("/tenant/billing")
+        async def tenant_billing(request: Request):
+            return await r.run(request, r.tenant_billing)
 
         # internal endpoints
         @g("/_tw/table")
@@ -1129,7 +1245,13 @@ class Routes:
         if resource is None:
             page = self.panel.page(slug)
             if page is None:
-                raise NotFound()
+                cluster = self.panel.cluster(slug)
+                if cluster is None or fd is not None:
+                    raise NotFound()
+                members = self.panel.cluster_navigation(ctx, cluster)
+                if not members:
+                    raise Forbidden()
+                return ctx.go(members[0].url)
             return self.custom_page(ctx, fd, page)
         if fd is not None:
             raise NotFound()
@@ -2198,7 +2320,75 @@ class Routes:
         return ctx.refresh()
 
     def switch_tenant(self, ctx: Context, fd: Any) -> Response:
-        if not self.panel.tenancy.enabled or not self.panel.tenancy.switch(ctx, fd.get("tenant") or ""):
+        tenancy = self.panel.tenancy
+        tenant = tenancy.switch(ctx, fd.get("tenant") or "") if tenancy.enabled else None
+        if tenant is None:
             raise NotFound()
-        return ctx.go(self.panel.url())
+        return ctx.go(tenancy.url(ctx, tenant))
+
+    # ------------------------------------------------------------------ tenant pages
+    def tenant_register(self, ctx: Context, fd: Any) -> Response:
+        tenancy = self.panel.tenancy
+        if not tenancy.enabled or tenancy.registration is None or ctx.user is None:
+            raise NotFound()
+        form = tenancy.build_form(ctx, "register")
+        form.id = "tw-tenant-form"
+        if fd is None:
+            form.fill()
+            return ctx.render("tungsten/pages/tenant-form.html", form=form, action_url=self.panel.url("tenant", "new"),
+                              title=__("Register :label", label=tenancy.get_label().lower()),
+                              subheading=__("Create a new :label to work in.", label=tenancy.get_label().lower()),
+                              submit_label=__("Register"), submit_icon="plus")
+        form.load(fd)
+        try:
+            data = form.validate()
+        except ValidationError:
+            return ctx.html(form.render())
+        tenant = tenancy.register(ctx, data, form)
+        Notification("Created").body(__(":label was created.", label=tenancy.label(tenant))).success().send(ctx)
+        return ctx.go(tenancy.url(ctx, tenant))
+
+    def tenant_profile(self, ctx: Context, fd: Any) -> Response:
+        tenancy = self.panel.tenancy
+        if not tenancy.enabled or tenancy.profile is None or ctx.tenant is None:
+            raise NotFound()
+        if not tenancy.can_profile(ctx):
+            raise Forbidden()
+        form = tenancy.build_form(ctx, "profile", ctx.tenant)
+        form.id = "tw-tenant-form"
+        if fd is None:
+            form.fill(ctx.tenant)
+            return ctx.render("tungsten/pages/tenant-form.html", form=form,
+                              action_url=self.panel.url("tenant", "profile"),
+                              title=__(":label settings", label=tenancy.get_label()),
+                              subheading=tenancy.label(ctx.tenant), submit_label=__("Save changes"),
+                              submit_icon="save")
+        form.load(fd)
+        try:
+            data = form.validate()
+        except ValidationError:
+            return ctx.html(form.render())
+        old_slug = tenancy.slug_of(ctx.tenant)
+        tenancy.update_profile(ctx, data, form)
+        Notification("Saved").body("Your changes were saved.").success().send(ctx)
+        if tenancy.in_url and tenancy.slug_of(ctx.tenant) != old_slug:
+            return ctx.go(tenancy.url(ctx, ctx.tenant, "tenant", "profile"))
+        form = tenancy.build_form(ctx, "profile", ctx.tenant)
+        form.id = "tw-tenant-form"
+        form.fill(ctx.tenant)
+        return ctx.html(form.render())
+
+    def tenant_billing(self, ctx: Context, fd: Any) -> Response:
+        tenancy = self.panel.tenancy
+        if not tenancy.enabled or tenancy.billing is None or ctx.tenant is None:
+            raise NotFound()
+        if not tenancy.can_billing(ctx):
+            raise Forbidden()
+        target = tenancy.billing.billing_url(ctx, ctx.tenant)
+        if target:
+            return ctx.finalize(RedirectResponse(target, status_code=303))
+        return ctx.render("tungsten/pages/tenant-billing.html", title=__(tenancy.billing.label),
+                          subheading=tenancy.label(ctx.tenant),
+                          content=tenancy.billing.content(ctx, ctx.tenant),
+                          subscribed=tenancy.billing.is_subscribed(ctx, ctx.tenant))
 
