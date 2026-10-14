@@ -78,7 +78,15 @@ class Auth:
         on_register: Callable | None = None,
         two_factor: bool = False,
         two_factor_required: bool = False,
+        two_factor_app: bool = True,
+        two_factor_email: bool = False,
+        two_factor_email_minutes: int = 10,
         email_verification: bool = False,
+        email_change_verification: bool | None = None,
+        idle_timeout: int | None = None,
+        api_tokens: bool = False,
+        api_abilities: Any = None,
+        api_token_days: int | None = None,
         verified_field: str = "email_verified_at",
         verification_minutes: int = 60,
         reset_token_minutes: int = 60,
@@ -100,9 +108,24 @@ class Auth:
         self.profile = profile
         self.registration = registration
         self.on_register = on_register
-        self.two_factor = two_factor or two_factor_required
+        self.two_factor = two_factor or two_factor_required or two_factor_email
         self.two_factor_required = two_factor_required
+        #: which second steps users may turn on: a code from an authenticator app, and/or a code sent by email
+        self.two_factor_app = two_factor_app
+        self.two_factor_email = two_factor_email
+        self.two_factor_email_minutes = two_factor_email_minutes
         self.email_verification = email_verification
+        #: a new email typed on the profile page only takes effect after its owner clicks the link sent to it
+        #: (follows ``email_verification`` unless set)
+        self.email_change_verification = (email_verification if email_change_verification is None
+                                          else email_change_verification)
+        #: sign users out after this many minutes without activity (``None`` keeps them signed in)
+        self.idle_timeout = idle_timeout
+        #: personal API tokens (like Laravel Sanctum); ``api_abilities`` lists what a token may be allowed to do,
+        #: as names or ``{name: label}``
+        self.api_tokens = api_tokens
+        self.api_abilities = api_abilities
+        self.api_token_days = api_token_days
         self.verified_field = verified_field
         self.verification_minutes = verification_minutes
         self.reset_token_minutes = reset_token_minutes
@@ -155,6 +178,15 @@ class Auth:
         user_id = ctx.session.get(self.session_key())
         if user_id is None:
             return None
+        if self.idle_timeout:
+            now = time.time()
+            seen = ctx.session.get("tw_seen", now)
+            if now - seen > self.idle_timeout * 60:
+                self.logout(ctx)
+                ctx.session["tw_idle_out"] = True
+                return None
+            if not getattr(ctx.request.state, "tw_background", False) and now - seen >= 30:
+                ctx.session["tw_seen"] = now  # written at most every 30s so the cookie isn't re-sent on every click
         user = self.find_by_id(ctx.db, user_id)
         if user is None or not self.is_active(user):
             return None
@@ -192,11 +224,14 @@ class Auth:
 
     def login(self, ctx: "Context", user: Any) -> None:
         ctx.session[self.session_key()] = self.user_id(user)
+        ctx.session["tw_seen"] = time.time()
+        ctx.session.pop("tw_idle_out", None)
         ctx.user = user
 
     def logout(self, ctx: "Context") -> None:
         ctx.session.pop(self.session_key(), None)
         ctx.session.pop("tw_tenant", None)
+        ctx.session.pop("tw_seen", None)
         tenancy = self.panel.tenancy if self.panel else None
         if tenancy is not None and tenancy.enabled:
             ctx.session.pop(tenancy.session_key, None)  # a custom ``Tenancy(session_key=...)``

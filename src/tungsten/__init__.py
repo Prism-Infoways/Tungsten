@@ -32,6 +32,7 @@ from .panel import Panel
 from .plugins import Plugin
 from .resources.relation_manager import RelationManager
 from .resources.resource import Resource
+from .security import SecurityHeadersMiddleware
 from .storage import LocalStorage, Storage
 from .tenancy import Tenancy
 from .widgets import (
@@ -48,6 +49,6 @@ from .widgets import (
 __all__ = [
     "AccountWidget", "Auth", "ChartWidget", "Context", "Dashboard", "LocalStorage", "NavigationGroup",
     "NavigationItem", "Notification", "Page", "Panel", "Plugin", "ProgressItem", "ProgressListWidget",
-    "RelationManager", "Resource", "Stat", "StatsOverviewWidget", "Storage", "TableWidget", "Tenancy", "Widget",
+    "RelationManager", "Resource", "SecurityHeadersMiddleware", "Stat", "StatsOverviewWidget", "Storage", "TableWidget", "Tenancy", "Widget",
     "__", "__version__", "hash_password", "translate", "verify_password",
 ]

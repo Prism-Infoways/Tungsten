@@ -14,6 +14,29 @@
   <a href="{{ panel.url('two-factor') }}" class="{{ ui.button_classes('gray') }}">{{ __('Manage') if two_factor else __('Set up') }}</a>
 </div>
 {% endif %}
+{% if pending_email %}
+<div class="tw-card mb-6 flex flex-wrap items-center gap-4 p-5">
+  <span class="flex h-11 w-11 items-center justify-center rounded-xl {{ colors.SOFT_ICON.warning }}">{{ icon('mail', 'h-5 w-5') }}</span>
+  <div class="flex-1">
+    <p class="font-semibold text-gray-950 dark:text-white">{{ __('Confirm your new email') }}</p>
+    <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('We sent a link to :email. Your email changes once you open it.', email=pending_email) }}</p>
+  </div>
+  <form method="post" action="{{ panel.url('email-change', 'cancel') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token }}">
+    <button class="{{ ui.button_classes('gray') }}">{{ __('Cancel change') }}</button>
+  </form>
+</div>
+{% endif %}
+{% if api_tokens %}
+<div class="tw-card mb-6 flex flex-wrap items-center gap-4 p-5">
+  <span class="flex h-11 w-11 items-center justify-center rounded-xl {{ colors.SOFT_ICON.primary }}">{{ icon('key-round', 'h-5 w-5') }}</span>
+  <div class="flex-1">
+    <p class="font-semibold text-gray-950 dark:text-white">{{ __('API tokens') }}</p>
+    <p class="text-sm text-gray-500 dark:text-gray-400">{{ __('Let other apps and scripts use the API as you.') }}</p>
+  </div>
+  <a href="{{ panel.url('api-tokens') }}" class="{{ ui.button_classes('gray') }}">{{ __('Manage') }}</a>
+</div>
+{% endif %}
 <form hx-post="{{ panel.url('profile') }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" class="grid gap-6">
   {{ form.render() }}
   <div class="flex justify-end">

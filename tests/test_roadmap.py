@@ -134,6 +134,7 @@ def test_registration_sends_verification_link(client, panel):
 
 
 def test_changing_email_in_profile_needs_verification(admin, panel):
+    panel.auth.email_change_verification = False  # the older flow: change now, verify after
     r = admin.post("/admin/profile", {"name": "Kuldeep Gothwal", "email": "kd@example.com"})
     assert r.headers.get("HX-Redirect") == "/admin/email-verification/prompt"
     assert panel.test_mails[-1]["to"] == "kd@example.com"
