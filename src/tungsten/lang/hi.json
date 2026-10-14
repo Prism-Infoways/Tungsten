@@ -368,5 +368,11 @@
   "Enter your password": "अपना पासवर्ड डालें",
   "Save": "सेव करें",
   "Element 74 • Built for FastAPI": "एलिमेंट 74 • FastAPI के लिए बना",
-  "The metal that glows in a bulb, now lighting up your data.": "बल्ब में चमकने वाली धातु, अब आपके डेटा को रोशन करती है।"
+  "The metal that glows in a bulb, now lighting up your data.": "बल्ब में चमकने वाली धातु, अब आपके डेटा को रोशन करती है।",
+  "Associate": "संबद्ध करें",
+  "Associated": "संबद्ध कर दिया गया",
+  "Dissociate": "संबंध हटाएँ",
+  "Dissociated": "संबंध हटा दिया गया",
+  "Details": "विवरण",
+  "Record pages": "रिकॉर्ड के पेज"
 }

@@ -244,6 +244,13 @@ class Routes:
                     a.scope = "page"
                     return a
             raise NotFound()
+        if scope == "infolist":  # a button on an infolist entry
+            infolist = host.infolist(ctx, record) if record is not None else None
+            for a in (infolist.entry_actions() if infolist is not None else []):
+                if a.name == name:
+                    a.scope = "infolist"
+                    return a
+            raise NotFound()
         table = host.get_table(ctx)
         if table is None:
             raise NotFound()
@@ -461,6 +468,34 @@ class Routes:
         @p("/{slug}/{key}/edit")
         async def edit_post(request: Request, slug: str, key: str):
             return await r.run(request, r.record_page, read_form=True, slug=slug, key=key, operation="edit")
+
+        # a record's related records on their own page, and nested resources under it
+        @g("/{slug}/{key}/{relation}")
+        async def relation_page(request: Request, slug: str, key: str, relation: str):
+            return await r.run(request, r.relation_page, slug=slug, key=key, relation=relation)
+
+        @g("/{slug}/{key}/{relation}/create")
+        async def nested_create(request: Request, slug: str, key: str, relation: str):
+            return await r.run(request, r.nested_create, slug=slug, key=key, relation=relation)
+
+        @p("/{slug}/{key}/{relation}/create")
+        async def nested_create_post(request: Request, slug: str, key: str, relation: str):
+            return await r.run(request, r.nested_create, read_form=True, slug=slug, key=key, relation=relation)
+
+        @g("/{slug}/{key}/{relation}/{child}")
+        async def nested_view(request: Request, slug: str, key: str, relation: str, child: str):
+            return await r.run(request, r.nested_record, slug=slug, key=key, relation=relation, child=child,
+                               operation="view")
+
+        @g("/{slug}/{key}/{relation}/{child}/edit")
+        async def nested_edit(request: Request, slug: str, key: str, relation: str, child: str):
+            return await r.run(request, r.nested_record, slug=slug, key=key, relation=relation, child=child,
+                               operation="edit")
+
+        @p("/{slug}/{key}/{relation}/{child}/edit")
+        async def nested_edit_post(request: Request, slug: str, key: str, relation: str, child: str):
+            return await r.run(request, r.nested_record, read_form=True, slug=slug, key=key, relation=relation,
+                               child=child, operation="edit")
 
     def storage_file(self, ctx: Context, fd: Any, path: str) -> Response:
         storage = self.panel.storage
@@ -849,6 +884,8 @@ class Routes:
             return self.custom_page(ctx, fd, page)
         if fd is not None:
             raise NotFound()
+        if resource.parent_resource is not None:  # nested: its records are listed under each parent record
+            return ctx.go(resource.parent_resource.get_url(ctx))
         if not resource.can(ctx, "view_any"):
             raise Forbidden()
         host = resource.host()
@@ -922,6 +959,10 @@ class Routes:
         record = host.find_record(ctx, key)
         if record is None:
             raise NotFound()
+        if fd is None and resource.parent_resource is not None:  # a nested resource lives under its parent
+            nested = resource.get_url(ctx, operation, record)
+            if nested and nested != ctx.request.url.path:
+                return ctx.go(nested)
         ability = "update" if operation == "edit" else "view"
         if not resource.can(ctx, ability, record):
             raise Forbidden()
@@ -952,6 +993,8 @@ class Routes:
         for manager in resource.get_relations():
             if operation == "view" and not manager.show_on_view:
                 continue
+            if manager.separate_page:
+                continue
             rhost = RelationHost(resource, record, manager)
             if not rhost.can(ctx, "view_any"):
                 continue
@@ -969,9 +1012,206 @@ class Routes:
             operation=operation,
             header_actions=actions,
             relations=relations,
+            record_tabs=self.record_tabs(ctx, resource, record, operation),
             trashed=host.is_trashed(record),
             title=(__("Edit :label", label=resource.get_label().lower()) if operation == "edit" else title_record),
             breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)),
+                         (title_record, None) if operation == "view" else (__("Edit"), None)],
+        )
+
+    # ------------------------------------------------------------------ related records
+    def record_url(self, ctx: Context, resource: Any, record: Any) -> str | None:
+        """The page a record opens on: edit when allowed, else view."""
+        host = resource.host()
+        if resource.has_page("edit") and resource.can(ctx, "update", record) and not host.is_trashed(record):
+            return host.edit_url(ctx, record)
+        if resource.has_page("view"):
+            return host.view_url(ctx, record)
+        return host.edit_url(ctx, record)
+
+    def record_tabs(self, ctx: Context, resource: Any, record: Any, active: str) -> list[dict]:
+        """Links to the record's own page and to each relation shown on a separate page."""
+        pages = [m for m in resource.get_relations() if m.separate_page]
+        if not pages:
+            return []
+        operation = "edit" if active == "edit" else "view"
+        if not resource.has_page(operation):
+            operation = "edit" if resource.has_page("edit") else "view"
+        main_url = self.record_url(ctx, resource, record)
+        tabs = [{"label": __("Edit") if "/edit" in (main_url or "") else __("Details"), "icon": "file-text",
+                 "url": main_url, "active": active in ("edit", "view"), "badge": None}]
+        for manager in pages:
+            rhost = RelationHost(resource, record, manager)
+            if not rhost.can(ctx, "view_any"):
+                continue
+            tabs.append({"label": manager.get_title(), "icon": manager.icon,
+                         "url": manager.get_url(ctx, resource, record), "active": active == manager.get_slug(),
+                         "badge": call(manager.badge, ctx=ctx, owner=record)})
+        return tabs
+
+    def _relation_host(self, ctx: Context, slug: str, key: str, relation: str) -> RelationHost:
+        resource = self.panel.resource(slug)
+        if resource is None:
+            raise NotFound()
+        owner = resource.host().find_record(ctx, key)
+        if owner is None:
+            raise NotFound()
+        if not resource.can(ctx, "view", owner):
+            raise Forbidden()
+        manager = next((m for m in resource.get_relations() if m.get_slug() == relation), None)
+        if manager is None:
+            raise NotFound()
+        host = RelationHost(resource, owner, manager)
+        if not host.can(ctx, "view_any"):
+            raise Forbidden()
+        return host
+
+    def _owner_crumbs(self, ctx: Context, host: RelationHost) -> list:
+        resource, owner = host.resource, host.owner
+        return [(resource.get_plural_label(), resource.get_url(ctx)),
+                (resource.get_record_title(owner), self.record_url(ctx, resource, owner))]
+
+    def relation_page(self, ctx: Context, fd: Any, slug: str, key: str, relation: str) -> Response:
+        """A record's related records on their own page (``/customers/1/orders``)."""
+        if fd is not None:
+            raise NotFound()
+        host = self._relation_host(ctx, slug, key, relation)
+        table = host.get_table(ctx).bind(ctx, host)
+        manager, resource, owner = host.manager, host.resource, host.owner
+        title = manager.get_title()
+        return ctx.render(
+            "tungsten/resources/relation.html",
+            resource=resource,
+            host=host,
+            table=table,
+            record=owner,
+            manager=manager,
+            header_actions=[],
+            record_tabs=self.record_tabs(ctx, resource, owner, manager.get_slug()),
+            title=title,
+            subheading=resource.get_record_title(owner),
+            breadcrumbs=[*self._owner_crumbs(ctx, host), (title, None)],
+        )
+
+    def _nested_host(self, ctx: Context, slug: str, key: str, relation: str) -> RelationHost:
+        host = self._relation_host(ctx, slug, key, relation)
+        if host.related_resource is None:
+            raise NotFound()
+        return host
+
+    def nested_create(self, ctx: Context, fd: Any, slug: str, key: str, relation: str) -> Response:
+        """Create a nested record (``/courses/1/lessons/create``): it is linked to the owner."""
+        host = self._nested_host(ctx, slug, key, relation)
+        child = host.related_resource
+        if not child.has_page("create"):
+            raise NotFound()
+        if not host.can(ctx, "create"):
+            raise Forbidden()
+        form = self.host_form(ctx, host, "create", None)
+        form.id = "tw-record-form"
+        back = host.manager.get_url(ctx, host.resource, host.owner) if host.manager.separate_page \
+            else self.record_url(ctx, host.resource, host.owner)
+        if fd is None:
+            form.fill()
+        else:
+            form.load(fd)
+            try:
+                data = form.validate()
+            except ValidationError:
+                return ctx.html(form.render())
+            record = host.create(ctx, data, form)
+            self.panel.log_activity(ctx, "created", record)
+            ctx.db.commit()
+            Notification("Created").body(__(":label was created.", label=host.model_label())).success().send(ctx)
+            if fd.get("_another"):
+                return ctx.go(host.create_url(ctx))
+            target = host.edit_url(ctx, record) if host.can(ctx, "update", record) else None
+            return ctx.go(target or host.view_url(ctx, record) or back)
+        actions = host.page_actions(ctx, None, "create")
+        for a in flatten_actions(actions):
+            a.scope = "page"
+        return ctx.render(
+            "tungsten/resources/record.html",
+            resource=child,
+            host=host,
+            form=form,
+            record=None,
+            operation="create",
+            header_actions=actions,
+            relations=[],
+            cancel_url=back,
+            title=__("Create :label", label=host.model_label().lower()),
+            breadcrumbs=[*self._owner_crumbs(ctx, host), (host.manager.get_title(), back), (__("Create"), None)],
+        )
+
+    def nested_record(self, ctx: Context, fd: Any, slug: str, key: str, relation: str, child: str,
+                      operation: str) -> Response:
+        """View or edit a nested record (``/courses/1/lessons/5/edit``)."""
+        host = self._nested_host(ctx, slug, key, relation)
+        resource = host.related_resource
+        if operation == "view" and not resource.has_page("view"):
+            if resource.has_page("edit"):
+                return ctx.go(host.edit_url(ctx, child))
+            raise NotFound()
+        if operation == "edit" and not resource.has_page("edit"):
+            raise NotFound()
+        record = host.find_record(ctx, child)  # only records of this owner
+        if record is None:
+            raise NotFound()
+        if not host.can(ctx, "update" if operation == "edit" else "view", record):
+            raise Forbidden()
+        if operation == "edit" and host.is_trashed(record) and fd is not None:
+            raise Forbidden()
+        form = (host.infolist(ctx, record) if operation == "view" else None) or self.host_form(ctx, host, operation,
+                                                                                            record)
+        form.id = form.id if form.id == "tw-infolist" else "tw-record-form"
+        if fd is not None:
+            form.load(fd)
+            try:
+                data = form.validate()
+            except ValidationError:
+                return ctx.html(form.render())
+            host.update(ctx, record, data, form)
+            self.panel.log_activity(ctx, "updated", record)
+            ctx.db.commit()
+            Notification("Saved").body("Your changes were saved.").success().send(ctx)
+            ctx.db.refresh(record)
+            form = self.host_form(ctx, host, operation, record)
+            form.id = "tw-record-form"
+            form.fill(record)
+            return ctx.html(form.render())
+        form.fill(record)
+        actions = host.page_actions(ctx, record, operation)
+        for a in flatten_actions(actions):
+            a.scope = "page"
+        relations = []
+        if self.panel.resource(resource.get_slug()) is resource:  # its own relation managers need it registered
+            for manager in resource.get_relations():
+                if (operation == "view" and not manager.show_on_view) or manager.separate_page:
+                    continue
+                rhost = RelationHost(resource, record, manager)
+                if not rhost.can(ctx, "view_any"):
+                    continue
+                relations.append({"manager": manager, "host": rhost,
+                                  "table": rhost.get_table(ctx).bind(ctx, rhost, params=QueryParams("")),
+                                  "badge": call(manager.badge, ctx=ctx, owner=record)})
+        back = host.manager.get_url(ctx, host.resource, host.owner) if host.manager.separate_page \
+            else self.record_url(ctx, host.resource, host.owner)
+        title_record = host.record_title(record)
+        return ctx.render(
+            "tungsten/resources/record.html",
+            resource=resource,
+            host=host,
+            form=form,
+            record=record,
+            record_title=title_record,
+            operation=operation,
+            header_actions=actions,
+            relations=relations,
+            cancel_url=back,
+            trashed=host.is_trashed(record),
+            title=(__("Edit :label", label=host.model_label().lower()) if operation == "edit" else title_record),
+            breadcrumbs=[*self._owner_crumbs(ctx, host), (host.manager.get_title(), back),
                          (title_record, None) if operation == "view" else (__("Edit"), None)],
         )
 
@@ -1167,7 +1407,7 @@ class Routes:
         redirect = ctx.redirect_to or evaluate(action._success_redirect, **action.ev(ctx, record, records, result=result))
         if redirect:
             return ctx.go(redirect)
-        if scope == "page":
+        if scope in ("page", "infolist"):
             return ctx.refresh()
         ctx.dispatch("tw-refresh")
         ctx.dispatch("tw-close-modal")
