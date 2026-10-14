@@ -148,6 +148,21 @@ All tabs are part of one form and are saved together. When a field has an error,
 | `contained(False)` | Show the tabs without a card around them. Useful when each tab holds its own sections. |
 | `key(name)` | A fixed name used to remember the open tab. Set it if you have several tab groups and want a stable name. |
 
+Keep the open tab in the URL, so a reload or a shared link opens the same tab:
+
+```python
+Tabs().persist_tab_in_query_string().tabs([...])        # /products/5/edit?tab=pricing
+Tabs().persist_tab_in_query_string("section").tabs([...])
+Tabs().persist_tab().tabs([...])                          # remember it in the browser instead
+Tabs().active_tab(2).tabs([...])                          # open the second tab first (or a tab id)
+```
+
+| Method | What it does |
+| --- | --- |
+| `persist_tab_in_query_string(key="tab")` | Put the open tab in the URL. The tab's name in the URL is its label in slug form, or `Tab(...).id("pricing")`. |
+| `persist_tab()` | Remember the open tab in the browser. |
+| `active_tab(n)` | The tab open at first: its number (from 1) or its id. |
+
 `Tab` options:
 
 | Method | What it does |
@@ -157,6 +172,7 @@ All tabs are part of one form and are saved together. When a field has an error,
 | `badge(value)` | A small count or text after the title. Can be a closure. |
 | `columns(n)` | Grid columns inside the tab (default `2`). |
 | `schema([...])` | The tab's fields. |
+| `id(value)` | The tab's name in the URL. |
 
 ```python
 Tabs().contained(False).tabs([
@@ -166,6 +182,47 @@ Tabs().contained(False).tabs([
     Tab("Orders").badge(lambda record: len(record.orders) if record else None).schema([...]),
 ])
 ```
+
+## Flex
+
+Put components side by side in a row that sizes itself, like Filament's `Flex` (`Split` in Filament 3, also available as `Split`). Each child takes the free space unless you mark it `.grow(False)`; then it takes only what it needs (at most half the row). Below the breakpoint the children stack.
+
+```python
+from tungsten.forms import Flex
+
+Flex([
+    Section("Post").schema([TextInput("title"), RichEditor("body")]),
+    Section("Publishing").schema([Toggle("published"), DateTimePicker("published_at")]).grow(False),
+]).from_breakpoint("lg")
+```
+
+| Method | What it does |
+| --- | --- |
+| `from_breakpoint(size)` | `sm`, `md` (default), `lg` or `xl`: the screen size from which the children are in a row. |
+| `vertical_alignment(value)` | `start` (default), `center` or `end`. |
+| `.grow(False)` on a child | The child takes only the width it needs. |
+
+## Text, Html and Callout
+
+Content inside a form that is not a field. These hold no value and are never saved.
+
+```python
+from tungsten.forms import Callout, Html, Text
+
+Text("Prices include GST.").color("gray").size("sm")
+Text("Beta").badge().color("warning")
+Html(Markup("<p>Need help? <a href='/docs'>Read the guide</a>.</p>"))
+Callout("Stock is low").description(lambda record: f"Only {record.stock} left.").color("warning")
+    .visible(lambda record: record and record.stock < 5)
+```
+
+| Component | Options |
+| --- | --- |
+| `Text(content)` | `color()`, `size("xs"/"sm"/"md"/"lg")`, `weight("medium"/"semibold"/"bold")`, `icon()`, `badge()`, `tooltip()`. |
+| `Html(content)` | A `Markup` value (or a closure returning one) is shown as is. A plain string is cleaned first, so user data can't add scripts. |
+| `Callout(heading)` | `description()`, `icon()` (a fitting icon by default), `color("primary"/"success"/"danger"/"warning"/"info"/"gray")`, `actions([...])`. |
+
+`content`, `heading` and `description` can be closures (`lambda get, record: ...`). For your own template, use `View("myapp/notice.html", {"extra": "data"})`.
 
 ## Wizard
 

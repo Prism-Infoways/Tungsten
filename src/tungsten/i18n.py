@@ -144,6 +144,8 @@ JS_STRINGS = (
     "Page expired", "Not allowed", "Something went wrong", "Please refresh the page and try again.",
     "The server could not complete the request (:status).", "Connection lost", "Check your internet connection.",
     "You have unsaved changes. Leave this page?", "Copied",
+    "This file type is not allowed.", "The file is too large.", "The file could not be uploaded.",
+    "Click a block in the editor first.",
 )
 
 

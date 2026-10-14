@@ -1,0 +1,7 @@
+{% if v.badge %}
+<span class="inline-flex items-center gap-x-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset {{ colors.pick(colors.BADGE, v.color or 'gray') }}"
+      {% if v.tooltip %}title="{{ v.tooltip }}"{% endif %}>{{ icon(v.icon, 'h-3.5 w-3.5') }}{{ v.content }}</span>
+{% else %}
+<p class="flex items-center gap-x-1.5 {{ v.size }} {{ v.weight }} {{ colors.pick(colors.TEXT, v.color) if v.color else 'text-gray-700 dark:text-gray-300' }}"
+   {% if v.tooltip %}title="{{ v.tooltip }}"{% endif %}>{{ icon(v.icon, 'h-4 w-4 shrink-0') }}<span>{{ v.content }}</span></p>
+{% endif %}

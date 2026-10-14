@@ -1,6 +1,6 @@
-{% from "tungsten/forms/macros.html" import wrapper, mirror, ring %}
+{% from "tungsten/forms/macros.html" import wrapper, mirror, ring, affixes %}
 {% call wrapper(field, v) %}
-{% set grouped = v.prefix or v.suffix or v.prefix_icon or v.suffix_icon or v.revealable %}
+{% call affixes(v) %}
 <div class="flex rounded-lg shadow-sm ring-1 transition duration-75 focus-within:ring-2 focus-within:ring-primary-500 {{ ring(v) }}
             {{ 'bg-gray-50 dark:bg-transparent' if v.disabled else 'bg-white dark:bg-white/5' }}"
      {% if v.revealable %}x-data="{ show: false }"{% endif %}>
@@ -16,6 +16,7 @@
          {% if v.placeholder %}placeholder="{{ v.placeholder }}"{% endif %}
          {% if v.disabled %}disabled{% endif %} {% if v.autofocus %}autofocus{% endif %}
          {% if v.datalist %}list="{{ v.id }}-list"{% endif %}
+         {% if v.mask %}data-tw-mask="{{ v.mask }}"{% endif %}
          {{ v.live }} {{ v.extra }}>
   {% if v.revealable %}
   <button type="button" class="px-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" @click="show = !show" tabindex="-1">
@@ -28,6 +29,7 @@
   </div>
   {% endif %}
 </div>
+{% endcall %}
 {% if v.datalist %}<datalist id="{{ v.id }}-list">{% for value, label in v.datalist %}<option value="{{ value }}">{% endfor %}</datalist>{% endif %}
 {{ mirror(v) }}
 {% endcall %}

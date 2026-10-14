@@ -74,6 +74,28 @@
   .ts-dropdown { @apply mt-1 rounded-lg border-0 bg-white text-sm shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:text-white dark:ring-white/10 !important; }
   .ts-dropdown .active { @apply bg-gray-50 text-gray-950 dark:bg-white/5 dark:text-white !important; }
   .ts-dropdown .option { @apply px-3 py-2; }
+
+  /* RichEditor extras: text buttons (U, H2, H3, blocks), mentions and custom blocks. */
+  trix-toolbar .trix-button-row { flex-wrap: wrap !important; column-gap: 0.5rem; overflow-x: visible !important; }
+  trix-toolbar .trix-button-group { margin-bottom: 0.5rem !important; }
+  trix-toolbar .trix-button.tw-trix-text-button { @apply inline-flex min-w-[2.2em] items-center justify-center px-2 text-xs font-bold text-gray-700 !important; }
+  trix-editor .attachment--content[data-trix-content-type="application/vnd.tungsten.mention"] { display: inline; margin: 0; padding: 0; }
+  .tw-mention { @apply rounded bg-primary-50 px-1 font-medium text-primary-700 no-underline dark:bg-primary-400/10 dark:text-primary-300; }
+  .tw-block { @apply flex flex-col gap-0.5 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-white/20 dark:bg-white/5 dark:text-gray-200; }
+
+  /* Slider: a thin track with a round thumb; .tw-range-dual stacks two of them. */
+  .tw-range { @apply appearance-none bg-transparent accent-primary-600; }
+  .tw-range::-webkit-slider-runnable-track { @apply h-1.5 rounded-full bg-gray-200 dark:bg-white/10; }
+  .tw-range::-moz-range-track { @apply h-1.5 rounded-full bg-gray-200 dark:bg-white/10; }
+  .tw-range::-webkit-slider-thumb { @apply -mt-[5px] h-4 w-4 cursor-pointer appearance-none rounded-full bg-primary-600 shadow ring-2 ring-white dark:ring-gray-900; }
+  .tw-range::-moz-range-thumb { @apply h-4 w-4 cursor-pointer rounded-full border-0 bg-primary-600 shadow ring-2 ring-white dark:ring-gray-900; }
+  .tw-range:focus-visible { @apply outline-none; }
+  .tw-range:focus-visible::-webkit-slider-thumb { @apply ring-4 ring-primary-500/40; }
+  .tw-range-dual .tw-range { pointer-events: none; }
+  .tw-range-dual .tw-range + .tw-range::-webkit-slider-runnable-track { background: transparent; }
+  .tw-range-dual .tw-range + .tw-range::-moz-range-track { background: transparent; }
+  .tw-range-dual .tw-range::-webkit-slider-thumb { pointer-events: auto; }
+  .tw-range-dual .tw-range::-moz-range-thumb { pointer-events: auto; }
 }
 
 /* Desktop sidebar collapsed to icons (toggled with twToggleSidebar()). */

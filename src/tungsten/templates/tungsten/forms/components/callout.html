@@ -1,0 +1,8 @@
+<div class="flex gap-x-3 rounded-xl p-4 ring-1 {{ v.box }}" role="note">
+  {% if v.icon %}<span class="mt-0.5 shrink-0 {{ colors.pick(colors.TEXT, v.color) }}">{{ icon(v.icon, 'h-5 w-5') }}</span>{% endif %}
+  <div class="min-w-0 flex-1">
+    {% if v.heading %}<p class="text-sm font-semibold">{{ v.heading }}</p>{% endif %}
+    {% if v.description %}<p class="{{ 'mt-1' if v.heading }} text-sm opacity-80">{{ v.description }}</p>{% endif %}
+    {% if v.buttons %}<div class="mt-3 flex flex-wrap items-center gap-2">{{ v.buttons }}</div>{% endif %}
+  </div>
+</div>

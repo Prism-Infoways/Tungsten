@@ -1,5 +1,6 @@
-{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% from "tungsten/forms/macros.html" import wrapper, mirror, affixes %}
 {% call wrapper(field, v) %}
+{% call affixes(v) %}
 {% if v.native %}
 <select id="{{ v.id }}" name="{{ v.path }}" class="tw-input pe-9 {{ 'tw-input-error' if v.errors }}"
         {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>
@@ -22,5 +23,6 @@
 </select>
 </div>
 {% endif %}
+{% endcall %}
 {{ mirror(v) }}
 {% endcall %}

@@ -8,10 +8,12 @@ This page lists every field in `tungsten.forms`. All fields also have the common
 ```python
 from tungsten.forms import (
     Block, Builder, Checkbox, CheckboxList, ColorPicker, DatePicker, DateTimePicker, FileUpload,
-    Hidden, KeyValue, Placeholder, Radio, Repeater, RichEditor, Select, TagsInput, Textarea,
-    TextInput, TimePicker, Toggle, ToggleButtons,
+    Hidden, KeyValue, MentionProvider, ModalTableSelect, Placeholder, Radio, Repeater, RichEditor,
+    Select, Slider, TagsInput, Textarea, TextInput, TimePicker, Toggle, ToggleButtons, ViewField,
 )
 ```
+
+Want a field that is not here? See [Custom fields](#custom-fields) at the end of this page.
 
 ## TextInput
 
@@ -50,6 +52,24 @@ TextInput("phone").tel().prefix("+91").placeholder("98765 43210")
 TextInput("weight").numeric().suffix("kg").step(0.5)
 TextInput("country").datalist(["India", "Nepal", "Sri Lanka"])
 ```
+
+### Input masks
+
+A mask formats the value while the user types. `9` is a digit, `a` a letter and `*` either; every other character is added for the user.
+
+```python
+TextInput("phone").mask("99999-99999").strip_characters("-")   # 98765-43210, saved as 9876543210
+TextInput("vehicle").mask("aa-99-aa-9999")                       # MH-12-AB-1234
+TextInput("pin").mask(["999 999", "9999 9999"])                  # the first pattern that fits the length
+TextInput("price").money_mask(prefix="₹", indian=True)           # ₹12,34,567.50, saved as Decimal("1234567.50")
+TextInput("betrag").money_mask(thousands=".", decimal=",")       # 1.234,50
+```
+
+| Method | What it does |
+| --- | --- |
+| `mask(pattern)` | A pattern, a list of patterns, or a closure returning one. |
+| `money_mask(prefix="", thousands=",", decimal=".", precision=2, indian=False)` | Groups digits while typing. The saved value is a number, with the prefix and separators removed. `indian=True` groups as 12,34,567. |
+| `strip_characters(chars)` | Characters removed before saving, e.g. the dashes a mask adds. |
 
 ## Textarea
 
@@ -110,6 +130,27 @@ Select("author_id").relationship("author", title=lambda record: f"{record.name} 
 
 Options are sorted by the title attribute. For a many-to-many select, Tungsten replaces the related records after the main record is saved.
 
+### Create or edit an option in a modal
+
+A `+` button next to the select opens a small form to add a new option. With a relationship the new record is saved for you (in the current tenant) and selected. A pencil button can open the selected record to change it.
+
+```python
+Select("brand_id").relationship("brand", "name")
+    .create_option_form([TextInput("name").required().unique(), TextInput("website").url()])
+    .edit_option_form([TextInput("name").required().unique(), TextInput("website").url()])
+```
+
+| Method | What it does |
+| --- | --- |
+| `create_option_form(schema, columns=1)` | The fields of the "create" modal. |
+| `create_option_using(fn)` | Save the new option yourself: `fn(data)` returns its key. Needed when the select has no relationship. |
+| `create_option_action(fn)` | Change the button: `lambda action: action.label("New brand").modal_width("2xl")`. |
+| `edit_option_form(schema, columns=1)` | The fields of the "edit" modal, filled from the selected record. Shown when one option is selected. |
+| `update_option_using(fn)` | Save the changes yourself: `fn(record, data)`. |
+| `edit_option_action(fn)` | Change the edit button. |
+
+When the related model has a resource, the buttons follow its `create` and `update` permissions.
+
 ### Dependent options
 
 ```python
@@ -117,6 +158,48 @@ Select("city").options(lambda get: CITIES.get(get("state"), []))
 ```
 
 Add `.live()` to the `state` field so the city options update. See [Dependent fields](forms#dependent-fields).
+
+## ModalTableSelect
+
+Like a `Select`, but the user picks from a searchable, paged table in a modal. Good for long lists where a name alone is not enough to choose.
+
+```python
+ModalTableSelect("customer_id").relationship("customer", "name")
+    .table_columns(["name", "email", ("city", "Town")])
+    .searchable_columns(["name", "email"])
+
+ModalTableSelect("tags").relationship("tags", "name").multiple()   # many-to-many: pick several
+```
+
+| Method | What it does |
+| --- | --- |
+| `relationship(name, title_attribute)` | Where the records come from (same as `Select`, including `modify_query`). |
+| `table_columns([...])` | The table's columns: attribute names (`"company.name"` works) or `(attribute, label)` pairs. |
+| `searchable_columns([...])` | Columns the search box looks in (default: the table's own columns). |
+| `per_page(n)` | Rows per page (default 10). |
+| `multiple()` | Pick several records. Picks on other pages are kept. |
+| `select_action_label(text)`, `modal_heading(text)`, `modal_width(size)` | Change the button and the modal. |
+
+It also takes `create_option_form()` and `edit_option_form()` like a `Select`. When the form is saved, the picked keys are checked against the same query, so a made-up key is refused.
+
+## Slider
+
+Pick a number by dragging.
+
+```python
+Slider("discount").range(0, 50).step(5).suffix("%").pips(10)
+Slider("price_range").range(0, 10000).step(500).dual()   # two handles: saved as [low, high]
+```
+
+| Method | What it does |
+| --- | --- |
+| `range(min, max)` | The lowest and highest values (also `min_value()` / `max_value()`; closures work). |
+| `step(n)` | The step between values. Values off the step are refused. |
+| `dual()` | Two handles. The value is a `[low, high]` list. |
+| `pips(every=None)` | Numbers under the track, every `every` units (default: 4 equal parts). |
+| `prefix(text)`, `suffix(text)` | Shown around the value. |
+| `decimal_places(n)` | Round to `n` places. |
+| `show_value(False)` | Hide the value box. |
 
 ## CheckboxList
 
@@ -246,6 +329,18 @@ DateTimePicker("published_at").seconds()
 | --- | --- |
 | `seconds()` | Also pick seconds. |
 
+### Timezones
+
+By default the time is shown and saved as it is. With `timezone()` the user types it in their own timezone, and it is saved in UTC (the class setting `DatePicker.storage_timezone`, like Laravel's `app.timezone`). The timezone is shown under the input.
+
+```python
+DateTimePicker("starts_at").timezone("Asia/Kolkata")
+DateTimePicker("starts_at").timezone(lambda user: user.timezone)   # each user's own zone
+DateTimePicker("starts_at").timezone("Asia/Kolkata", show=False)   # don't show the zone name
+```
+
+A plain `DatePicker` has no time, so it ignores the timezone.
+
 ## TimePicker
 
 A time input, saved as a `datetime.time`.
@@ -289,6 +384,80 @@ RichEditor("summary").max_length(500)
 | Method | What it does |
 | --- | --- |
 | `max_length(n)` | Most characters allowed. Only the text counts, not the HTML tags. A counter under the editor shows how many are used. |
+| `toolbar_buttons([...])` | Exactly which buttons to show, in order. |
+| `enable_toolbar_buttons([...])` | Add buttons to the default toolbar, e.g. `["underline", "h2", "h3"]`. |
+| `disable_toolbar_buttons([...])` | Remove buttons from it. |
+| `disable_all_toolbar_buttons()` | No toolbar (keyboard shortcuts still work). |
+| `file_attachments()` | Users can drop or attach files. Images only by default. |
+| `file_attachments_directory(path)` | Folder in the panel storage (default `attachments`). Also turns attachments on. |
+| `file_attachments_accepted_types([...])` | MIME types, e.g. `["image/*", "application/pdf"]`. |
+| `file_attachments_max_size(kb)` | Largest file (default 5 MB). |
+| `mentions(...)` | `@mentions` (see below). |
+| `blocks([...])` | Custom blocks (see below). |
+
+Toolbar buttons: `bold`, `italic`, `underline`, `strike`, `link`, `h1`, `h2`, `h3`, `blockquote`, `codeBlock`, `bulletList`, `orderedList`, `outdent`, `indent`, `attachFiles`, `blocks`, `undo`, `redo`. The default is the first row of Trix: bold, italic, strike, link, h1, quote, code, lists, indent, attach (when attachments are on), undo and redo.
+
+```python
+RichEditor("body")
+    .toolbar_buttons(["bold", "italic", "underline", "link", "h2", "h3", "bulletList", "orderedList", "attachFiles"])
+    .file_attachments_directory("posts")
+```
+
+Attached files are stored in the panel storage. The panel only serves them to signed-in users, unless the storage is public (`LocalStorage(public=True)`), so use a public storage when the HTML is shown on your website.
+
+### Mentions
+
+Type `@` (or another trigger) to pick a person or thing from a list. The mention is kept in the HTML with its id.
+
+```python
+RichEditor("comment").mentions({1: "Asha", 2: "Ravi"})               # a short, fixed list
+
+RichEditor("comment").mentions([
+    MentionProvider("@").search_using(lambda search, db: {               # a long list: search on the server
+        u.id: u.name for u in db.scalars(select(User).where(User.name.ilike(f"%{search}%")).limit(20))
+    }).url(lambda id: f"/team/{id}"),
+    MentionProvider("#").items(lambda db: {t.id: t.name for t in db.scalars(select(Topic))}),
+])
+```
+
+To notify the people mentioned, read them from the saved HTML:
+
+```python
+from tungsten.forms import mentions_in
+
+for m in mentions_in(record.comment, trigger="@"):
+    notify(user_id=m["id"])          # each item: {"trigger", "id", "label"}
+```
+
+### Custom blocks
+
+Blocks are ready-made pieces of content, like a call to action or a product card. Users insert them from the block button on the toolbar; a block with fields opens a form first. To change a block, click it in the editor and press the pencil.
+
+```python
+RichEditor("body").blocks([
+    Block("cta").label("Call to action").icon("megaphone").schema([
+        TextInput("text").required(),
+        TextInput("url").url().required(),
+    ]).render_using(lambda config: Markup('<a class="btn" href="{}">{}</a>').format(config["url"], config["text"])),
+])
+```
+
+| Block method | What it does |
+| --- | --- |
+| `schema([...])`, `columns(n)` | The block's form. Without one the block is inserted at once. |
+| `preview(fn)` | How the block looks inside the editor: `fn(config)` returns HTML (cleaned before use). Default: its label and settings. |
+| `render_using(fn)` | The block's HTML on your site: `fn(config)` returns HTML. |
+
+### Showing the HTML
+
+Use `render_rich_content()` to show a saved value on a page. It cleans the HTML, draws each block with its `render_using`, and turns mentions into links (`MentionProvider.url`) or `<span class="tw-mention">`.
+
+```python
+from tungsten.forms import render_rich_content
+
+html = render_rich_content(post.body, editor=RichEditor("body").blocks([...]).mentions([...]))
+# or: render_rich_content(post.body, blocks=[...], mentions=[...])
+```
 
 ## ColorPicker
 
@@ -424,3 +593,62 @@ Placeholder("order_total").content(lambda get: f"₹{items_total(get):,.2f}")
 ```
 
 When `content` is empty, the field shows "—". If it reads other fields with `get`, add `.live()` to those fields so the text updates.
+
+## Custom fields
+
+There are two ways to make your own field.
+
+**A template.** `ViewField` draws the field with your own Jinja template. The value is saved like a text input (use `rule()`, `dehydrate_state_using()` and friends to check or change it).
+
+```python
+ViewField("rating").view("myapp/star-rating.html", {"max": 5}).default(3).required()
+```
+
+```html
+{# templates/myapp/star-rating.html #}
+{% from "tungsten/forms/macros.html" import wrapper %}
+{% call wrapper(field, v) %}
+<div x-data="{ value: {{ v.state or 0 }} }" class="flex gap-1">
+  <input type="hidden" name="{{ v.path }}" :value="value" {{ v.live }}>
+  {% for i in range(1, v.max + 1) %}
+  <button type="button" @click="value = {{ i }}" :class="value >= {{ i }} ? 'text-warning-500' : 'text-gray-300'">★</button>
+  {% endfor %}
+</div>
+{% endcall %}
+```
+
+The template gets `form`, `field` and `v`: `v.path` (the input name), `v.id`, `v.state` (the value), `v.label`, `v.errors`, `v.disabled`, `v.live` (attributes for [live fields](forms#dependent-fields)) and anything you pass to `view()` or `view_data_using()`. The `wrapper` macro draws the label, hint, errors and helper text. Add the template folder with `Panel(..., template_dirs=[...])` (see [Panel configuration](panel-configuration)).
+
+**A class.** For a field you use often, subclass `Field`. Override only what you need:
+
+```python
+from tungsten.forms import Field
+
+class PercentInput(Field):
+    template = "myapp/percent.html"           # drawn like ViewField's template
+
+    def cast(self, state):                    # form state (text) -> Python value; raise ValueError on bad input
+        value = super().cast(state)
+        if value is None:
+            return None
+        try:
+            return float(value.rstrip("%")) / 100
+        except ValueError:
+            raise ValueError("The :attribute must be a percentage.") from None
+
+    def to_state(self, value):                # Python value -> form state
+        return "" if value is None else f"{value * 100:g}%"
+
+    def validate_value(self, form, base, value):   # extra checks, return a list of messages
+        return [] if 0 <= value <= 1 else ["The :attribute must be between 0% and 100%."]
+
+    def view_data(self, form, base):          # extra template variables
+        v = super().view_data(form, base)
+        v["step"] = 5
+        return v
+```
+
+Other hooks: `blank_state()` (empty value), `extract(formdata, path)` (read a submitted value, e.g. `getlist` for several), `hydrate(form, record)` (read from the record) and `fill_record(form, record, data)` (write to it). A custom field gets every common option (label, required, live, hint actions...) for free.
+
+To show something that is not a value at all, use `View("myapp/notice.html")`, or the [content blocks](form-layouts#text-html-and-callout).
+

@@ -16,6 +16,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
 _ids = itertools.count(1)
 
+MODAL_BASE = "__modal"
+
 
 class ValidationError(Exception):
     """Raised by :meth:`Form.validate`; ``errors`` maps state paths to messages."""
@@ -50,6 +52,13 @@ class Form(Component):
         self.id: str = f"tw-form-{next(_ids)}"
         self.source: dict[str, Any] = {}
         self.refresh_url: str | None = None
+        #: state path all fields live under ("" normally; "__modal" for a modal form inside a form)
+        self.base: str = ""
+        #: the submitted form data from the last :meth:`load`
+        self.formdata: Any = None
+        #: the outer form, when this form is shown in a modal of a form component action
+        self.parent: "Form | None" = None
+        self._modal: Any = None
 
     # ------------------------------------------------------------------ config
     def schema(self, components: list) -> "Form":
@@ -99,6 +108,12 @@ class Form(Component):
             refresh_url = ctx.panel.url("_tw", "form")
         self.refresh_url = refresh_url
         counters: dict[str, int] = {}
+        for comp in self._walk_all(self._schema):
+            if getattr(comp, "_auto_name", False) is True:  # Text, Callout, Actions ... get stable names
+                kind = "_" + comp.__class__.__name__.lower()
+                n = counters.get(kind, 0)
+                counters[kind] = n + 1
+                comp.name = f"{kind}{n}"
         for comp in self._walk_components(self._schema):
             key_attr = getattr(comp, "_ui_key", None)
             if key_attr is not None and getattr(comp, "_ui_key_auto", False):
@@ -107,6 +122,16 @@ class Form(Component):
                 counters[kind] = n + 1
                 comp._ui_key = f"{kind}{n}"
         return self
+
+    def _walk_all(self, components: Iterable[Component]) -> Iterator[Component]:
+        """Every component, including the row schemas of repeaters and builder blocks."""
+        for comp in components:
+            yield comp
+            children = list(getattr(comp, "child_components", lambda: [])())
+            children += list(getattr(comp, "_schema", []) if not children and hasattr(comp, "_rel") else [])
+            for block in getattr(comp, "_blocks", []) if hasattr(comp, "_rel") else []:
+                children += list(getattr(block, "_schema", []))
+            yield from self._walk_all(children)
 
     def _walk_components(self, components: Iterable[Component]) -> Iterator[Component]:
         for comp in components:
@@ -121,8 +146,10 @@ class Form(Component):
 
         return bool(evaluate(self._disabled, **self.ev())) or self.operation == "view"
 
-    def ev(self, base: str = "", **extra: Any) -> dict[str, Any]:
+    def ev(self, base: str | None = None, **extra: Any) -> dict[str, Any]:
         """Arguments available to closures (``get``, ``set``, ``record`` ...)."""
+        if base is None:
+            base = self.base
         ctx = self.ctx
         data = {
             "get": Getter(self.state, base),
@@ -155,10 +182,10 @@ class Form(Component):
             self.record = record
         self.state = {}
         for comp in self._schema:
-            comp.fill_state(self, "", self.record if self.operation != "create" else None)
+            comp.fill_state(self, self.base, self.record if self.operation != "create" else None)
         if data:
             for key, value in data.items():
-                set_path(self.state, key, value)
+                set_path(self.state, join(self.base, key), value)
         return self
 
     def fill_from(self, data: Any) -> "Form":
@@ -168,14 +195,15 @@ class Form(Component):
         source = DataRecord(data) if isinstance(data, dict) else data
         self.state = {}
         for comp in self._schema:
-            comp.fill_state(self, "", source)
+            comp.fill_state(self, self.base, source)
         return self
 
     def load(self, formdata: Any) -> "Form":
         """Read state from submitted form data (a Starlette ``FormData``/MultiDict)."""
         self.state = {}
+        self.formdata = formdata
         for comp in self._schema:
-            comp.load_state(self, formdata, "")
+            comp.load_state(self, formdata, self.base)
         for key in formdata.keys():
             if key.startswith("_tw_ui."):
                 self.ui[key[len("_tw_ui."):]] = formdata.get(key)
@@ -191,7 +219,7 @@ class Form(Component):
     def walk_fields(self) -> Iterator[tuple["Field", str, str]]:
         """Yield ``(field, path, base)`` for every field, including repeater rows."""
         for comp in self._schema:
-            yield from comp.walk(self, "")
+            yield from comp.walk(self, self.base)
 
     def find(self, path: str) -> tuple["Field", str, str] | None:
         for field, fpath, base in self.walk_fields():
@@ -205,7 +233,7 @@ class Form(Component):
         data: dict[str, Any] = {}
         errors: dict[str, list[str]] = {}
         for comp in components if components is not None else self._schema:
-            comp.process(self, "", data, errors)
+            comp.process(self, self.base, data, errors)
         self.errors = errors
         if errors:
             self._focus_errors()
@@ -238,7 +266,16 @@ class Form(Component):
         if not action:
             return
         kind, _, rest = action.partition(":")
-        target, _, arg = rest.partition(":")
+        target, _, arg = rest.rpartition(":") if kind.startswith("faction.") else rest.partition(":")
+        if kind.startswith("faction."):
+            from . import actions
+
+            actions.handle(self, kind.split(".", 1)[1], target, arg)
+            return
+        owner = self.form_for(target)
+        if owner is not self:
+            owner.handle_ui_action(action)
+            return
         if kind.startswith("wizard."):
             for comp in self._walk_components(self._schema):
                 if getattr(comp, "_ui_key", None) == target and hasattr(comp, "handle_ui_action"):
@@ -254,10 +291,37 @@ class Form(Component):
 
     def state_updated(self, path: str) -> None:
         """Run ``after_state_updated`` hooks for the field that changed."""
+        owner = self.form_for(path)
+        if owner is not self:
+            owner.state_updated(path)
+            return
         found = self.find(path)
         if found:
             field, fpath, base = found
             field.call_after_state_updated(self, fpath, base)
+
+    def form_for(self, path: str) -> "Form":
+        """The form that owns ``path``: this one, or the form in its open modal."""
+        if self.parent is None and path.startswith(MODAL_BASE + "."):
+            modal = self.modal
+            if modal is not None and modal.sub is not None:
+                return modal.sub
+        return self
+
+    @property
+    def modal(self):
+        """The open modal of a form component action (see :mod:`tungsten.forms.actions`), or None."""
+        if self.parent is not None:
+            return None
+        from .actions import open_modal
+
+        return open_modal(self)
+
+    def render_modal(self) -> Markup:
+        modal = self.modal
+        if modal is None:
+            return Markup("")
+        return self.renderer.render("tungsten/forms/modal.html", form=self, modal=modal, m=modal.view_data())
 
     # ------------------------------------------------------------------ render
     def render_schema(self, components: list[Component], base: str, columns: int | dict | None = None) -> Markup:

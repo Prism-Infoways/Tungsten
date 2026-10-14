@@ -1,0 +1,47 @@
+{#
+  Modal of a form component action, drawn inside the form so it works in any form
+  (also one that is itself in a modal). vars: form, modal, m
+#}
+{% import "tungsten/components/ui.html" as ui %}
+{% from "tungsten/forms/macros.html" import ui_action %}
+{% set widths = {'sm': 'max-w-sm', 'md': 'max-w-md', 'lg': 'max-w-lg', 'xl': 'max-w-xl', '2xl': 'max-w-2xl', '3xl': 'max-w-3xl', '4xl': 'max-w-4xl', '5xl': 'max-w-5xl'} %}
+<div class="fixed inset-0 z-[60] flex {{ 'justify-end' if m.slide_over else 'items-end justify-center p-4 sm:items-center' }}"
+     role="dialog" aria-modal="true" data-tw-form-modal
+     x-data x-init="$nextTick(() => { const f = $el.querySelector('[data-tw-modal-body] input:not([type=hidden]),[data-tw-modal-body] select,[data-tw-modal-body] textarea'); f && f.focus(); })"
+     @keydown.escape.stop="$refs.cancel.click()"
+     @keydown.enter="if ($event.target.tagName !== 'TEXTAREA' && $event.target.type !== 'search' && $event.target.tagName !== 'BUTTON' && !$event.target.closest('trix-editor')) { $event.preventDefault(); $refs.submit && $refs.submit.click(); }">
+  <input type="hidden" name="_tw_ui._modal" value="{{ m.key }}">
+  <div class="fixed inset-0 bg-gray-950/50 backdrop-blur-[1px] dark:bg-gray-950/75" @click="$refs.cancel.click()"></div>
+  <div class="relative flex max-h-full w-full {{ widths.get(m.width, 'max-w-lg') }} flex-col {{ 'h-full rounded-none' if m.slide_over else 'rounded-2xl' }} bg-white shadow-xl ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+    {% if m.confirm_only %}
+    <div class="flex flex-col items-center px-6 pb-2 pt-8 text-center">
+      {% if m.icon %}<span class="mb-4 flex h-12 w-12 items-center justify-center rounded-full {{ colors.pick(colors.SOFT_ICON, m.icon_color) }}">{{ icon(m.icon, 'h-6 w-6') }}</span>{% endif %}
+      <h2 class="text-lg font-semibold text-gray-950 dark:text-white">{{ m.heading }}</h2>
+      {% if m.description %}<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ m.description }}</p>{% endif %}
+      {% if m.content %}<div class="mt-3 w-full text-start">{{ m.content }}</div>{% endif %}
+    </div>
+    {% else %}
+    <div class="flex items-start gap-x-4 border-b border-gray-100 px-6 py-4 dark:border-white/10">
+      {% if m.icon %}<span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full {{ colors.pick(colors.SOFT_ICON, m.icon_color) }}">{{ icon(m.icon, 'h-5 w-5') }}</span>{% endif %}
+      <div>
+        <h2 class="text-lg font-semibold text-gray-950 dark:text-white">{{ m.heading }}</h2>
+        {% if m.description %}<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ m.description }}</p>{% endif %}
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto px-6 py-5" data-tw-modal-body>
+      {% if m.content %}<div class="mb-4">{{ m.content }}</div>{% endif %}
+      {% if modal.sub %}{{ modal.sub.render_schema(modal.sub.get_schema(), modal.sub.base) }}{% endif %}
+    </div>
+    {% endif %}
+    <div class="flex flex-row-reverse {{ 'justify-center' if m.confirm_only else 'justify-start border-t border-gray-100 dark:border-white/10' }} gap-3 px-6 py-4">
+      {% if m.submit_label %}
+      <button type="button" x-ref="submit" class="{{ ui.button_classes(m.color) }} {{ 'flex-1' if m.confirm_only }}"
+              hx-post="{{ form.refresh_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form"
+              hx-sync="closest form:replace" hx-vals='{"_tw_ui_action": "faction.submit::"}'>{{ m.submit_label }}</button>
+      {% endif %}
+      <button type="button" x-ref="cancel" class="{{ ui.button_classes('gray') }} {{ 'flex-1' if m.confirm_only }}"
+              hx-post="{{ form.refresh_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form"
+              hx-sync="closest form:replace" hx-vals='{"_tw_ui_action": "faction.close::"}'>{{ m.cancel_label }}</button>
+    </div>
+  </div>
+</div>

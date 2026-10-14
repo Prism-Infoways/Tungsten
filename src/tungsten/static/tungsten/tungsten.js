@@ -394,6 +394,7 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
     withLib(root, "select[data-tw-select]", "select", initSelect);
     withLib(root, "trix-editor", "trix", function () {});
     root.querySelectorAll("trix-editor[data-tw-live]").forEach(initRichEditor);
+    initMasks(root);
   }
 
   function boot() {
@@ -486,6 +487,280 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
     if (e.detail.boosted) dirty = false;
   });
 
-  // Trix: block file attachments (uploads go through FileUpload fields)
-  document.addEventListener("trix-file-accept", function (e) { e.preventDefault(); });
+  // ------------------------------------------------------------------ input masks (TextInput.mask)
+  function maskSlots(p) { return (p.match(/[9a*]/g) || []).length; }
+  function applyPattern(value, patterns) {
+    var chars = String(value).replace(/[^0-9a-zA-Z]/g, "");
+    var list = Array.isArray(patterns) ? patterns : [patterns];
+    var pattern = list.find(function (p) { return maskSlots(p) >= chars.length; }) || list[list.length - 1];
+    var out = "", ci = 0;
+    for (var i = 0; i < pattern.length && ci < chars.length; i++) {
+      var p = pattern[i], c = chars[ci];
+      if (p === "9" || p === "a" || p === "*") {
+        var ok = p === "*" || (p === "9" ? /\d/.test(c) : /[a-zA-Z]/.test(c));
+        ci++;
+        if (ok) out += c; else i--;
+      } else {
+        out += p;
+        if (c === p) ci++;
+      }
+    }
+    return out;
+  }
+  function applyMoney(value, o) {
+    var v = String(value), neg = /^\s*-/.test(v);
+    var parts = v.split(o.decimal);
+    var whole = parts[0].replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+    var frac = parts.length > 1 ? parts.slice(1).join("").replace(/\D/g, "").slice(0, o.precision) : null;
+    var grouped;
+    if (o.indian && whole.length > 3) {
+      var head = whole.slice(0, -3), tail = whole.slice(-3);
+      grouped = head.replace(/\B(?=(\d{2})+(?!\d))/g, o.thousands) + o.thousands + tail;
+    } else {
+      grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, o.thousands);
+    }
+    if (!whole && frac === null) return neg ? "-" : "";
+    return (neg ? "-" : "") + o.prefix + (grouped || "0") + (frac !== null && o.precision > 0 ? o.decimal + frac : "");
+  }
+  function maskValue(el, value) {
+    var m;
+    try { m = JSON.parse(el.getAttribute("data-tw-mask")); } catch (e) { return value; }
+    if (m && m.money) return applyMoney(value, m);
+    return applyPattern(value, m);
+  }
+  function remask(el) {
+    var m;
+    try { m = JSON.parse(el.getAttribute("data-tw-mask")); } catch (e) { return; }
+    // characters the user typed (the mask adds the rest)
+    var typed = m && m.money
+      ? function (c) { return /[0-9]/.test(c) || c === m.decimal; }
+      : function (c) { return /[0-9a-zA-Z]/.test(c); };
+    var before = el.value, caret = el.selectionStart == null ? before.length : el.selectionStart;
+    var significant = before.slice(0, caret).split("").filter(typed).length;
+    var after = maskValue(el, before);
+    if (after === before) return;
+    el.value = after;
+    // keep the caret after the same number of typed characters
+    var pos = 0, seen = 0;
+    while (pos < after.length && seen < significant) { if (typed(after[pos])) seen++; pos++; }
+    try { el.setSelectionRange(pos, pos); } catch (e) {}
+  }
+  document.addEventListener("input", function (e) {
+    if (e.target.matches && e.target.matches("input[data-tw-mask]")) remask(e.target);
+  });
+  function initMasks(root) {
+    root.querySelectorAll("input[data-tw-mask]").forEach(function (el) {
+      var m;
+      try { m = JSON.parse(el.getAttribute("data-tw-mask")); } catch (e) { return; }
+      if (m && m.money && m.decimal !== "." && /^-?\d+(\.\d+)?$/.test(el.value)) el.value = el.value.replace(".", m.decimal);
+      if (el.value) el.value = maskValue(el, el.value);
+    });
+  }
+  window.twMask = maskValue;
+
+  // ------------------------------------------------------------------ rich editor (Trix) extras
+  function csrfToken() {
+    try { return JSON.parse(document.body.getAttribute("hx-headers") || "{}")["X-CSRF-Token"]; } catch (e) { return ""; }
+  }
+  // extra formats used by RichEditor.toolbar_buttons (underline, h2, h3)
+  document.addEventListener("trix-before-initialize", function () {
+    var T = window.Trix;
+    if (!T || T._twConfigured) return;
+    T._twConfigured = true;
+    T.config.textAttributes.underline = {
+      tagName: "u", inheritable: true,
+      parser: function (el) { return el.tagName === "U"; },
+    };
+    T.config.blockAttributes.heading2 = { tagName: "h2", terminal: true, breakOnReturn: true, group: false };
+    T.config.blockAttributes.heading3 = { tagName: "h3", terminal: true, breakOnReturn: true, group: false };
+  });
+
+  function typeAllowed(type, list) {
+    if (!list) return true;
+    return list.split(",").some(function (t) {
+      t = t.trim();
+      return t === type || (t.slice(-2) === "/*" && type.indexOf(t.slice(0, -1)) === 0);
+    });
+  }
+  // Files: only editors with RichEditor.file_attachments() take them (FileUpload fields handle the rest)
+  document.addEventListener("trix-file-accept", function (e) {
+    var ed = e.target, url = ed.getAttribute("data-tw-attach-url");
+    if (!url) { e.preventDefault(); return; }
+    var file = e.file, max = parseInt(ed.getAttribute("data-tw-attach-max"), 10);
+    if (!typeAllowed(file.type, ed.getAttribute("data-tw-attach-types"))) {
+      e.preventDefault(); window.twToast({ title: twT("This file type is not allowed."), status: "danger" });
+    } else if (max && file.size > max * 1024) {
+      e.preventDefault(); window.twToast({ title: twT("The file is too large."), status: "danger" });
+    }
+  });
+  document.addEventListener("trix-attachment-add", function (e) {
+    var ed = e.target, url = ed.getAttribute("data-tw-attach-url"), att = e.attachment;
+    if (!url || !att.file) return;
+    var form = ed.closest("form");
+    var data = form ? new FormData(form) : new FormData();
+    data.set("_tw_field", ed.getAttribute("data-tw-field"));
+    data.set("file", att.file);
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("X-CSRF-Token", csrfToken());
+    xhr.setRequestHeader("HX-Request", "true");
+    xhr.upload.addEventListener("progress", function (ev) {
+      if (ev.lengthComputable) att.setUploadProgress(ev.loaded / ev.total * 100);
+    });
+    xhr.addEventListener("load", function () {
+      var body = {};
+      try { body = JSON.parse(xhr.responseText); } catch (err) {}
+      if (xhr.status === 200 && body.url) {
+        att.setAttributes({ url: body.url, href: body.href || body.url });
+      } else {
+        att.remove();
+        window.twToast({ title: body.error || twT("The file could not be uploaded."), status: "danger" });
+      }
+    });
+    xhr.addEventListener("error", function () { att.remove(); window.twToast({ title: twT("The file could not be uploaded."), status: "danger" }); });
+    xhr.send(data);
+  });
+
+  // remember the caret, so a block from the toolbar lands where the user was typing
+  document.addEventListener("trix-selection-change", function (e) {
+    var wrap = e.target.closest("[data-tw-form]") && e.target.parentElement;
+    var input = wrap && wrap.querySelector("input[data-tw-rich-cursor]");
+    if (input && e.target.editor) input.value = e.target.editor.getSelectedRange()[0];
+  });
+
+  // a block inserted or changed through its modal (the server sends it back with the form)
+  document.addEventListener("trix-initialize", function (e) {
+    var ed = e.target, raw = ed.getAttribute("data-tw-insert");
+    if (!raw || !window.Trix) return;
+    ed.removeAttribute("data-tw-insert");
+    var info;
+    try { info = JSON.parse(raw); } catch (err) { return; }
+    var editor = ed.editor, length = editor.getDocument().getLength();
+    var pos = typeof info.pos === "number" && info.pos >= 0 ? Math.min(info.pos, length - 1) : length - 1;
+    editor.setSelectedRange(info.replace ? [pos, pos + 1] : [pos, pos]);
+    editor.insertAttachment(new window.Trix.Attachment(info.attachment));
+    ed.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
+  // block menu: a plain click inserts a new block; the pencil edits the selected one
+  document.addEventListener("click", function (e) {
+    var menu = e.target.closest && e.target.closest("[data-tw-block-menu]");
+    if (!menu) return;
+    var wrap = menu.closest("trix-toolbar").parentElement;
+    var editInput = wrap.querySelector("input[data-tw-rich-edit]");
+    var ed = wrap.querySelector("trix-editor");
+    if (e.target.closest("[data-tw-block-edit]")) {
+      e.preventDefault();
+      var editor = ed && ed.editor;
+      if (!editor) return;
+      var range = editor.getSelectedRange(), doc = editor.getDocument();
+      var found = doc.getAttachments().find(function (a) {
+        var r = doc.getRangeOfAttachment(a);
+        return a.getContentType() === "application/vnd.tungsten.block" && r && r[0] <= range[0] && range[0] <= r[1] && (range[1] <= r[1]);
+      });
+      if (!found) { window.twToast({ title: twT("Click a block in the editor first."), status: "warning" }); return; }
+      var attrs = found.getAttributes();
+      var button = menu.querySelector('[data-tw-block="' + attrs.blockId + '"] [data-tw-form-action]');
+      if (!button) return;
+      editInput.value = JSON.stringify({ id: attrs.blockId, config: attrs.blockConfig || {}, pos: doc.getRangeOfAttachment(found)[0] });
+      button._twEditing = true;
+      button.click();
+      return;
+    }
+    var action = e.target.closest("[data-tw-form-action]");
+    if (action && !action._twEditing && editInput) editInput.value = "";
+    if (action) action._twEditing = false;
+  }, true);
+
+  // @mentions
+  var mention = null;
+  function mentionProviders(ed) {
+    if (!ed._twMentions) { try { ed._twMentions = JSON.parse(ed.getAttribute("data-tw-mentions")); } catch (e) { ed._twMentions = []; } }
+    return ed._twMentions;
+  }
+  function closeMention() { if (mention) { mention.box.remove(); mention = null; } }
+  function drawMention() {
+    var m = mention;
+    m.box.innerHTML = "";
+    if (!m.items.length) { m.box.style.display = "none"; return; }
+    m.box.style.display = "";
+    m.items.forEach(function (item, i) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "block w-full rounded-md px-3 py-1.5 text-start text-sm " + (i === m.index ? "bg-primary-50 text-primary-700 dark:bg-white/10 dark:text-white" : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5");
+      b.textContent = item.label;
+      b.addEventListener("mousedown", function (ev) { ev.preventDefault(); pickMention(i); });
+      m.box.appendChild(b);
+    });
+  }
+  function pickMention(i) {
+    var m = mention, item = m && m.items[i];
+    if (!item) return closeMention();
+    var editor = m.ed.editor;
+    editor.setSelectedRange([m.start, m.end]);
+    var label = document.createElement("span");
+    label.textContent = m.trigger + item.label;  // escaped: a label is text, never HTML
+    editor.insertAttachment(new window.Trix.Attachment({
+      content: '<span class="tw-mention">' + label.innerHTML + "</span>",
+      contentType: "application/vnd.tungsten.mention",
+      mentionId: String(item.id), mentionLabel: item.label, mentionTrigger: m.trigger,
+    }));
+    editor.insertString(" ");
+    closeMention();
+  }
+  function updateMention(ed) {
+    var providers = mentionProviders(ed);
+    if (!providers.length || !ed.editor) return;
+    var range = ed.editor.getSelectedRange();
+    if (range[0] !== range[1]) return closeMention();
+    var pos = range[0], text = ed.editor.getDocument().toString().slice(Math.max(0, pos - 40), pos);
+    var triggers = providers.map(function (p) { return p.trigger.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"); }).join("|");
+    var match = new RegExp("(^|\\s)(" + triggers + ")([^\\s]{0,30})$").exec(text);
+    if (!match) return closeMention();
+    var trigger = match[2], query = match[3];
+    var provider = providers.find(function (p) { return p.trigger === trigger; });
+    if (!mention || mention.ed !== ed) {
+      closeMention();
+      var box = document.createElement("div");
+      box.className = "fixed z-[70] max-h-60 w-56 overflow-y-auto rounded-lg bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10";
+      document.body.appendChild(box);
+      mention = { ed: ed, box: box, items: [], index: 0 };
+    }
+    mention.trigger = trigger;
+    mention.start = pos - query.length - trigger.length;
+    mention.end = pos;
+    var rect = ed.editor.getClientRectAtPosition(mention.start) || ed.getBoundingClientRect();
+    mention.box.style.left = rect.left + "px";
+    mention.box.style.top = (rect.top + (rect.height || 18) + 4) + "px";
+    var show = function (items) { if (!mention) return; mention.items = items.slice(0, 20); mention.index = 0; drawMention(); };
+    if (provider.items) {
+      var q = query.toLowerCase();
+      show(provider.items.filter(function (it) { return it.label.toLowerCase().indexOf(q) !== -1; }));
+    } else {
+      clearTimeout(mention.timer);
+      mention.timer = setTimeout(function () {
+        var form = ed.closest("form"), data = form ? new FormData(form) : new FormData();
+        data.set("_tw_field", ed.getAttribute("data-tw-field"));
+        data.set("q", trigger + query);
+        fetch(ed.getAttribute("data-tw-search-url"), { method: "POST", body: data, headers: { "X-CSRF-Token": csrfToken(), "HX-Request": "true" } })
+          .then(function (r) { return r.json(); })
+          .then(function (rows) { show(rows.map(function (r) { return { id: r.value, label: r.text }; })); })
+          .catch(function () {});
+      }, 250);
+    }
+  }
+  document.addEventListener("trix-change", function (e) { if (e.target.hasAttribute("data-tw-mentions")) updateMention(e.target); });
+  document.addEventListener("trix-blur", function () { setTimeout(closeMention, 150); });
+  document.addEventListener("keydown", function (e) {
+    if (!mention || !mention.items.length || e.target !== mention.ed) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      mention.index = (mention.index + (e.key === "ArrowDown" ? 1 : mention.items.length - 1)) % mention.items.length;
+      drawMention();
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault(); e.stopPropagation(); pickMention(mention.index);
+    } else if (e.key === "Escape") {
+      e.preventDefault(); e.stopPropagation(); closeMention();
+    }
+  }, true);
 })();

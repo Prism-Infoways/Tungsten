@@ -1,0 +1,5 @@
+<div class="flex flex-col {{ v.row }} {{ v.items }} {{ v.gap }}" {{ attrs(layout._extra_attributes) }}>
+  {% for c in v.children %}
+  <div class="{{ 'min-w-0 flex-1' if c.grow else 'min-w-0 shrink-0 md:max-w-[50%]' }}">{{ c.html }}</div>
+  {% endfor %}
+</div>

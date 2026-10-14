@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any, Iterator
 
 from markupsafe import Markup
@@ -179,6 +180,19 @@ class Tab(Layout):
         self._icon: str | None = None
         self._badge: Any = None
         self._columns = 2
+        self._id: str | None = None
+
+    def id(self, value: str) -> "Tab":
+        """The tab's name in the URL (``?tab=<id>``). Defaults to its label in slug form."""
+        self._id = value
+        return self
+
+    def get_id(self, index: int) -> str:
+        if self._id:
+            return self._id
+        label = self._label if isinstance(self._label, str) else ""
+        slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
+        return slug or f"tab-{index + 1}"
 
     def icon(self, icon: str) -> "Tab":
         self._icon = icon
@@ -201,6 +215,24 @@ class Tabs(Layout):
         self._ui_key: str = ""
         self._ui_key_auto = True
         self._contained = True
+        self._query_key: str | None = None
+        self._persist = False
+        self._active: Any = None
+
+    def persist_tab_in_query_string(self, key: str = "tab") -> "Tabs":
+        """Keep the open tab in the URL (``?tab=media``) so a reload or a shared link opens it."""
+        self._query_key = key
+        return self
+
+    def persist_tab(self, condition: bool = True) -> "Tabs":
+        """Remember the open tab in the browser, so it is open again next time."""
+        self._persist = condition
+        return self
+
+    def active_tab(self, index: Any) -> "Tabs":
+        """The tab open at first: its number (from 1, like Filament) or its id."""
+        self._active = index
+        return self
 
     def tabs(self, tabs: list[Tab]) -> "Tabs":
         self._schema = list(tabs)
@@ -217,7 +249,7 @@ class Tabs(Layout):
 
     def on_errors(self, form: "Form") -> None:
         for i, tab in enumerate(self._schema):
-            if any(p in form.errors for p in tab.field_paths(form, "")):
+            if any(p in form.errors for p in tab.field_paths(form, form.base)):
                 form.ui[self._ui_key] = str(i)
                 return
 
@@ -230,8 +262,23 @@ class Tabs(Layout):
             errors = sum(1 for p in tab.field_paths(form, base) if p in form.errors)
             tabs.append({"index": i, "tab": tab, "label": maybe(evaluate(tab._label, **ev)), "icon": tab._icon,
                          "badge": evaluate(tab._badge, **ev), "errors": errors})
-        active = form.ui.get(self._ui_key, str(tabs[0]["index"]) if tabs else "0")
-        return {"base": base, "tabs": tabs, "key": self._ui_key, "active": active, "contained": self._contained}
+        for t in tabs:
+            t["id"] = t["tab"].get_id(t["index"])
+        active = form.ui.get(self._ui_key)
+        if active is None:
+            wanted = None
+            if self._query_key and form.ctx is not None and form.ctx.request is not None:
+                wanted = form.ctx.request.query_params.get(self._query_key)
+            if wanted is None and self._active is not None:
+                wanted = evaluate(self._active, **form.ev(base))
+                if isinstance(wanted, int):
+                    wanted = tabs[wanted - 1]["id"] if 0 < wanted <= len(tabs) else None
+            match = next((t for t in tabs if t["id"] == str(wanted)), None) if wanted is not None else None
+            active = str(match["index"] if match else (tabs[0]["index"] if tabs else 0))
+        return {"base": base, "tabs": tabs, "key": self._ui_key, "active": active, "contained": self._contained,
+                "query_key": self._query_key, "persist": self._persist,
+                "ids": {str(t["index"]): t["id"] for t in tabs},
+                "has_errors": any(t["errors"] for t in tabs)}
 
 
 class Step(Layout):
@@ -312,7 +359,7 @@ class Wizard(Layout):
 
     def on_errors(self, form: "Form") -> None:
         for i, step in enumerate(self._schema):
-            if any(p in form.errors for p in step.field_paths(form, "")):
+            if any(p in form.errors for p in step.field_paths(form, form.base)):
                 form.ui[self._ui_key] = str(i)
                 return
 
