@@ -260,3 +260,14 @@ def test_tables_can_come_from_the_live_database(shop3, tmp_path):
     models_src = result.files["models.py"]
     assert "price = mapped_column(Numeric(10, 2), nullable=False" in models_src
     assert "category_id = mapped_column(Integer, ForeignKey('categories.id'), nullable=True)" in models_src
+
+
+def test_long_text_keeps_its_size_on_mysql(shop3):
+    from sqlalchemy.dialects import mysql, sqlite
+    from sqlalchemy.schema import CreateColumn
+
+    models = shop3.import_("models")
+    col = models.Product.__table__.columns["description"]  # $table->longText('description')
+    assert str(CreateColumn(col).compile(dialect=mysql.dialect())).startswith("description LONGTEXT")
+    assert str(CreateColumn(col).compile(dialect=sqlite.dialect())).startswith("description TEXT")
+    assert "description = mapped_column(LongText" in shop3.file("models.py")

@@ -90,8 +90,10 @@ def reflect_tables(url: str) -> dict[str, TableDef]:
                     kind = "binary"
                 elif isinstance(generic, types.String) and not isinstance(generic, types.Text):
                     kind, length = "string", getattr(generic, "length", None)
+                size = {"TINYTEXT": "tiny", "MEDIUMTEXT": "medium", "LONGTEXT": "long"}.get(type(t).__name__) \
+                    if kind == "text" else None
                 table.add(ColumnDef(
-                    name=col["name"], type=kind, length=length, precision=precision, scale=scale,
+                    name=col["name"], type=kind, length=length, precision=precision, scale=scale, text_size=size,
                     nullable=bool(col.get("nullable", True)), primary=col["name"] in pk,
                     autoincrement=col["name"] in pk and len(pk) == 1 and kind in ("int", "bigint", "smallint"),
                     fk=fks.get(col["name"]), unique=col["name"] in uniques,
@@ -142,6 +144,8 @@ def _sa_type(col: ColumnDef, cast: str | None) -> str:
     if col.type == "decimal":
         p, s = col.precision, col.scale
         return f"Numeric({p}, {s})" if p is not None and s is not None else "Numeric"
+    if col.type == "text" and col.text_size:
+        return {"tiny": "TinyText", "medium": "MediumText", "long": "LongText"}[col.text_size]
     return _SA_TYPE.get(col.type, "Text")
 
 
@@ -315,10 +319,15 @@ class ModelWriter:
                  "    JSON, BigInteger, Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, LargeBinary, Numeric,",
                  "    SmallInteger, String, Table, Text, Time,",
                  ")",
+                 "from sqlalchemy.dialects.mysql import LONGTEXT, MEDIUMTEXT, TINYTEXT",
                  "from sqlalchemy.orm import DeclarativeBase, mapped_column, relationship",
                  "",
                  "# BIGINT ids, as Laravel makes them (INTEGER on SQLite, so ids still count up there)",
                  'BigInt = BigInteger().with_variant(Integer, "sqlite")',
+                 "# mediumText() / longText() / tinyText() keep their size on MySQL and MariaDB",
+                 'TinyText = Text().with_variant(TINYTEXT(), "mysql", "mariadb")',
+                 'MediumText = Text().with_variant(MEDIUMTEXT(), "mysql", "mariadb")',
+                 'LongText = Text().with_variant(LONGTEXT(), "mysql", "mariadb")',
                  "",
                  "",
                  "def _now() -> dt.datetime:",
