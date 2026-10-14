@@ -49,7 +49,7 @@ def asset_version(name: str) -> str:
 
 #: paths that never carry the tenant in the URL (signing in happens before a tenant is known)
 UNTENANTED_PATHS = ("assets", "plugins", "storage", "login", "logout", "register", "forgot-password",
-                    "reset-password", "two-factor", "email-verification", "tenant/new")
+                    "reset-password", "two-factor", "email-verification", "email-change", "tenant/new")
 
 VERSION = "0.1.8"
 VENDOR_FILES = ("chart.umd.min.js", "trix.umd.min.js", "trix.css", "tom-select.complete.min.js", "tom-select.css",
