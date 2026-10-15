@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tungsten-security-audit"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tungsten plugin: a security audit with a score and fix tips, plus a login log with lockout."
 readme = "README.md"
 requires-python = ">=3.10"

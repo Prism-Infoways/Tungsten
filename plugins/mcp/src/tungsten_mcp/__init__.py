@@ -30,7 +30,7 @@ from .resources import McpTokenResource
 from .server import McpServer
 from .tools import SENSITIVE, ToolError, Tools
 
-__version__ = "0.1.1"
+__version__ = "0.1.3"
 
 DEFAULT_INSTRUCTIONS = (
     "These tools work with the records of a Tungsten admin panel. Start with list_resources, then "

@@ -34,7 +34,7 @@ from .resources import (
     run_audit,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 class SecurityAuditPlugin(Plugin):
