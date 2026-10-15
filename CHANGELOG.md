@@ -2,6 +2,11 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-15 · tungsten-mcp 0.1.3 and tungsten-security-audit 0.1.1
+
+- **`tungsten-mcp` 0.1.3** is on PyPI: `pip install -U tungsten-mcp`. It adds MCP resources and prompts (`McpPlugin(documents=..., prompts=...)`), and a `TypeError` inside a tool is now reported as a server error instead of "wrong arguments". See [MCP](/docs/mcp).
+- **`tungsten-security-audit` 0.1.1** is on PyPI: `pip install -U tungsten-security-audit`. "Unlock" on the login log works with the new login limit store in `tungsten-admin` 0.1.10.
+
 ## 2026-10-14 · tungsten-admin 0.1.10: background workers, scope every query, MCP resources
 
 - **`tungsten-admin` 0.1.10** is on PyPI: `pip install -U tungsten-admin`. **After upgrading, run `panel.create_tables(engine)` once**: it adds the new job columns (retries, heartbeats) to the existing jobs table.
@@ -9,7 +14,7 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 - **Jobs in their own worker process**: `Panel(jobs="worker")` plus `tungsten jobs:work --workers 4`. Jobs get retries with backoff (`max_attempts=3, backoff=[10, 60]`), heartbeats, and jobs from a stopped server are picked up again. See [Actions](/docs/actions).
 - **Scope every query to the tenant**: `Tenancy(..., scope_session=True)` filters every ORM query on the panel's sessions, like a Laravel global scope, with `panel.tenancy.unscoped()` to step outside it. See [Multi-tenancy](/docs/multi-tenancy).
 - **Login limit for several processes**: failed sign-ins can be counted in a shared store such as Redis (`Auth(throttle=...)`), and idle counts are dropped so memory stays small. See [Authentication](/docs/authentication).
-- **MCP resources and prompts**: `tungsten-mcp` can give the AI documents to read and ready-made prompts, and the docs show how to add your own tools. This is in the next `tungsten-mcp` release, not on PyPI yet. See [MCP](/docs/mcp).
+- **MCP resources and prompts**: `tungsten-mcp` can give the AI documents to read and ready-made prompts, and the docs show how to add your own tools. It is in `tungsten-mcp` 0.1.3. See [MCP](/docs/mcp).
 - **Filament migration**: `tungsten-filament` now converts relations defined in traits, keeps MySQL text sizes, and reports global scopes so you can turn on `scope_session`. See [Filament migration](/docs/filament-migration).
 
 ## 2026-10-14 · tungsten-admin 0.1.9 on PyPI
