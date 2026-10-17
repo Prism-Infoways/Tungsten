@@ -2,9 +2,9 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
-## 2026-10-17 · Advanced filters
+## 2026-10-17 · tungsten-admin 0.1.11: advanced filters
 
-_In the next `tungsten-admin` release (not on PyPI yet)._
+- **`tungsten-admin` 0.1.11** is on PyPI: `pip install -U tungsten-admin`. No database changes.
 
 - **Advanced filters**: pick an operator and type a value per column, like *Price is between 1000 and 5000* or *Created is this month*. `table.advanced_filters()` adds one for every column, typed from the database column; `AdvancedFilter.text/number/date/boolean/select/relationship(...)` adds them one by one. See [Advanced filters](/docs/advanced-filters).
 - **More date operators** in advanced filters and the query builder: today, yesterday, tomorrow, this/last/next week, month and year, in the last N days/weeks/months/years, in the next N days/weeks/months, in the past, in the future, is not on, is not between. Numbers get "is not between". "In the last N days" no longer matches future dates.
