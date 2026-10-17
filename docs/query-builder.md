@@ -30,7 +30,18 @@ table.filters([
 ])
 ```
 
-A **Custom filters** section appears in the filter panel. It works well next to normal [filters](table-filters).
+A **Custom filters** section appears in the filter panel. It works well next to normal [filters](table-filters) and [advanced filters](advanced-filters).
+
+## Constraints from the table columns
+
+`auto_constraints()` adds a constraint for every table column, guessed from the database column type (text, number, date, yes/no, Enum select, relationship). Constraints you list yourself win, and `exclude` skips columns.
+
+```python
+QueryBuilder().auto_constraints(exclude=["sku"])
+QueryBuilder().constraints([NumberConstraint("price").label("Cost")]).auto_constraints()
+```
+
+The same guess is available as `constraint_for(Model, "category.name")`.
 
 ## How rules combine
 
@@ -118,6 +129,7 @@ NumberConstraint("stock").integer()
 | Is less than | `< value` |
 | Is at most | `<= value` |
 | Is between | Between two values, both included. The order of the two values does not matter. |
+| Is not between | Outside the two values (`NULL` matches too). |
 | Is filled | Not `NULL`. |
 | Is blank | `NULL`. |
 
@@ -127,11 +139,15 @@ For date and datetime columns. Users pick dates; for datetime columns, a date co
 
 | Operator | Matches |
 | --- | --- |
-| Is on | That day. |
+| Is on / Is not on | That day / any other day (`NULL` matches "not on"). |
 | Is before | Before that day. |
 | Is after | After that day. |
-| Is between | From the first day to the end of the second day. |
-| Is in the last (days) | From N days ago until now. |
+| Is between / Is not between | From the first day to the end of the second day / outside it. |
+| Is today, yesterday, tomorrow | That day. |
+| Is this, last, next week / month / year | That calendar week (Monday to Sunday), month or year. |
+| Is in the last (days, weeks, months, years) | From N days/weeks/months/years ago up to the end of today. |
+| Is in the next (days, weeks, months) | From today for the next N days/weeks/months. |
+| Is in the past / in the future | Before today / after today. |
 | Is filled | Not `NULL`. |
 | Is blank | `NULL`. |
 

@@ -1,4 +1,5 @@
 {# Query builder filter. Rules in a group are ANDed; groups are ORed. Buttons re-render the table with a `_qb` action. #}
+{% from "tungsten/tables/constraint-value.html" import constraint_value with context %}
 {% macro qb(action) -%}
 hx-get="{{ ctx.url('_tw', 'table') }}" hx-include="closest form" hx-vals='{{ {"_qb": action} | tojson }}'
 hx-target="#{{ table.id }}" hx-swap="outerHTML"
@@ -40,31 +41,7 @@ hx-target="#{{ table.id }}" hx-swap="outerHTML"
       <select name="{{ r.prefix }}.op" class="tw-input pe-9" aria-label="{{ __('Operator') }}">
         {% for key, o in r.operators.items() %}<option value="{{ key }}" {% if key == r.op %}selected{% endif %}>{{ __(o[0]) }}</option>{% endfor %}
       </select>
-      {% set itype = r.constraint.input_type() %}
-      {% if r.needs in ('text', 'number', 'date') %}
-      <input type="{{ itype }}" name="{{ r.prefix }}.v" value="{{ r.v }}" class="tw-input" {% if itype == 'number' %}step="any"{% endif %}
-             aria-label="{{ __('Value') }}" placeholder="{{ __('Value') }}">
-      {% elif r.needs == 'count' %}
-      <input type="number" min="0" step="1" name="{{ r.prefix }}.v" value="{{ r.v }}" class="tw-input" aria-label="{{ __('Value') }}" placeholder="0">
-      {% elif r.needs == 'between' %}
-      <div class="grid grid-cols-2 gap-2">
-        <input type="{{ itype }}" name="{{ r.prefix }}.v" value="{{ r.v }}" class="tw-input" {% if itype == 'number' %}step="any"{% endif %} aria-label="{{ __('From') }}" placeholder="{{ __('From') }}">
-        <input type="{{ itype }}" name="{{ r.prefix }}.v2" value="{{ r.v2 }}" class="tw-input" {% if itype == 'number' %}step="any"{% endif %} aria-label="{{ __('To') }}" placeholder="{{ __('To') }}">
-      </div>
-      {% elif r.needs == 'select' %}
-      <select name="{{ r.prefix }}.v" class="tw-input pe-9" aria-label="{{ __('Value') }}">
-        <option value="">{{ __('Select an option') }}</option>
-        {% for value, label in r.options %}<option value="{{ value }}" {% if value == r.v %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-      {% elif r.needs == 'multi' %}
-      <div class="grid max-h-40 gap-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-white/10">
-        {% for value, label in r.options %}
-        <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-          <input type="checkbox" name="{{ r.prefix }}.vs" value="{{ value }}" class="tw-checkbox" {% if value in r.vs %}checked{% endif %}>{{ label }}
-        </label>
-        {% else %}<p class="text-sm text-gray-400">{{ __('No options') }}</p>{% endfor %}
-      </div>
-      {% endif %}
+      {{ constraint_value(r) }}
     </div>
     {% endfor %}
     {{ picker(__('Add rule'), g.index) }}

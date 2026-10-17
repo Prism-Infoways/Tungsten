@@ -129,7 +129,7 @@ class Constraint:
         label, needs = self.get_operators()[rule["op"]]
         text = f"{self.get_label()} {__(label).lower()}"
         if needs == "between":
-            return __(":text :from and :to", text=text, **{"from": self.describe_value(rule["v"], table),
+            return __(":rule :from and :to", rule=text, **{"from": self.describe_value(rule["v"], table),
                                                           "to": self.describe_value(rule["v2"], table)})
         if needs == "multi":
             return f"{text} " + ", ".join(self.describe_value(v, table) for v in rule["vs"])
@@ -188,6 +188,7 @@ class NumberConstraint(Constraint):
         "lt": ("Is less than", "number"),
         "lte": ("Is at most", "number"),
         "between": ("Is between", "between"),
+        "not_between": ("Is not between", "between"),
         "filled": ("Is filled", None),
         "blank": ("Is blank", None),
     }
@@ -220,12 +221,58 @@ class NumberConstraint(Constraint):
             return column < v
         if op == "lte":
             return column <= v
-        if op == "between":
+        if op in ("between", "not_between"):
             low, high = sorted([v, rule["v2"]])
-            return column.between(low, high)
+            inside = column.between(low, high)
+            return inside if op == "between" else or_(column.is_(None), not_(inside))
         if op == "filled":
             return column.is_not(None)
         return column.is_(None)
+
+
+def _add_months(day: dt.date, months: int) -> dt.date:
+    """``day`` moved by ``months`` calendar months (the 31st becomes the month's last day)."""
+    index = day.year * 12 + day.month - 1 + months
+    year, month = divmod(index, 12)
+    month += 1
+    last = (dt.date(year + month // 12, month % 12 + 1, 1) - dt.timedelta(days=1)).day
+    return dt.date(year, month, min(day.day, last))
+
+
+def date_range(op: str, n: int = 0, today: dt.date | None = None) -> tuple[dt.date | None, dt.date | None]:
+    """``(first day, day after the last)`` for a relative date operator. ``None`` means open-ended.
+
+    Weeks start on Monday. "In the last 7 days" runs from 7 days ago up to the end of today.
+    """
+    today = today or dt.date.today()
+    one = dt.timedelta(days=1)
+    week = today - dt.timedelta(days=today.weekday())
+    month = today.replace(day=1)
+    year = today.replace(month=1, day=1)
+    ranges = {
+        "today": lambda: (today, today + one),
+        "yesterday": lambda: (today - one, today),
+        "tomorrow": lambda: (today + one, today + 2 * one),
+        "this_week": lambda: (week, week + 7 * one),
+        "last_week": lambda: (week - 7 * one, week),
+        "next_week": lambda: (week + 7 * one, week + 14 * one),
+        "this_month": lambda: (month, _add_months(month, 1)),
+        "last_month": lambda: (_add_months(month, -1), month),
+        "next_month": lambda: (_add_months(month, 1), _add_months(month, 2)),
+        "this_year": lambda: (year, year.replace(year=year.year + 1)),
+        "last_year": lambda: (year.replace(year=year.year - 1), year),
+        "next_year": lambda: (year.replace(year=year.year + 1), year.replace(year=year.year + 2)),
+        "last_days": lambda: (today - n * one, today + one),
+        "last_weeks": lambda: (today - dt.timedelta(weeks=n), today + one),
+        "last_months": lambda: (_add_months(today, -n), today + one),
+        "last_years": lambda: (_add_months(today, -12 * n), today + one),
+        "next_days": lambda: (today, today + n * one),
+        "next_weeks": lambda: (today, today + dt.timedelta(weeks=n)),
+        "next_months": lambda: (today, _add_months(today, n)),
+        "past": lambda: (None, today),
+        "future": lambda: (today + one, None),
+    }
+    return ranges[op]()
 
 
 class DateConstraint(Constraint):
@@ -233,12 +280,44 @@ class DateConstraint(Constraint):
     icon = "calendar"
     operators = {
         "on": ("Is on", "date"),
+        "not_on": ("Is not on", "date"),
         "before": ("Is before", "date"),
         "after": ("Is after", "date"),
         "between": ("Is between", "between"),
+        "not_between": ("Is not between", "between"),
+        "today": ("Is today", None),
+        "yesterday": ("Is yesterday", None),
+        "tomorrow": ("Is tomorrow", None),
+        "this_week": ("Is this week", None),
+        "last_week": ("Is last week", None),
+        "next_week": ("Is next week", None),
+        "this_month": ("Is this month", None),
+        "last_month": ("Is last month", None),
+        "next_month": ("Is next month", None),
+        "this_year": ("Is this year", None),
+        "last_year": ("Is last year", None),
+        "next_year": ("Is next year", None),
         "last_days": ("Is in the last (days)", "count"),
+        "last_weeks": ("Is in the last (weeks)", "count"),
+        "last_months": ("Is in the last (months)", "count"),
+        "last_years": ("Is in the last (years)", "count"),
+        "next_days": ("Is in the next (days)", "count"),
+        "next_weeks": ("Is in the next (weeks)", "count"),
+        "next_months": ("Is in the next (months)", "count"),
+        "past": ("Is in the past", None),
+        "future": ("Is in the future", None),
         "filled": ("Is filled", None),
         "blank": ("Is blank", None),
+    }
+    #: count operators -> the sentence used for chips
+    count_phrases = {
+        "last_days": ":label is in the last :n days",
+        "last_weeks": ":label is in the last :n weeks",
+        "last_months": ":label is in the last :n months",
+        "last_years": ":label is in the last :n years",
+        "next_days": ":label is in the next :n days",
+        "next_weeks": ":label is in the next :n weeks",
+        "next_months": ":label is in the next :n months",
     }
 
     def parse_value(self, raw: Any) -> Any:
@@ -257,6 +336,8 @@ class DateConstraint(Constraint):
 
         if op == "on":
             return and_(column >= start(rule["v"]), column < next_day(rule["v"]))
+        if op == "not_on":
+            return or_(column.is_(None), column < start(rule["v"]), column >= next_day(rule["v"]))
         if op == "before":
             return column < start(rule["v"])
         if op == "after":
@@ -264,8 +345,21 @@ class DateConstraint(Constraint):
         if op == "between":
             low, high = sorted([rule["v"], rule["v2"]])
             return and_(column >= start(low), column < next_day(high))
-        if op == "last_days":
-            return column >= start(dt.date.today() - dt.timedelta(days=rule["v"]))
+        if op == "not_between":
+            low, high = sorted([rule["v"], rule["v2"]])
+            return or_(column.is_(None), column < start(low), column >= next_day(high))
+        if op not in ("filled", "blank"):
+            try:
+                low, high = date_range(op, int(rule.get("v") or 0))
+            except (OverflowError, ValueError):  # a huge N runs past year 1 or 9999: open-ended
+                today = dt.date.today()
+                low, high = (None, today + dt.timedelta(days=1)) if op.startswith("last") else (today, None)
+            parts = []
+            if low is not None:
+                parts.append(column >= start(low))
+            if high is not None:
+                parts.append(column < start(high))
+            return and_(*parts)
         if op == "filled":
             return column.is_not(None)
         return column.is_(None)
@@ -274,8 +368,9 @@ class DateConstraint(Constraint):
         return value.strftime("%d %b %Y") if isinstance(value, dt.date) else str(value)
 
     def describe(self, rule: dict, table: "Table") -> str:
-        if rule["op"] == "last_days":
-            return __(":label is in the last :days days", label=self.get_label(), days=rule["v"])
+        phrase = self.count_phrases.get(rule["op"])
+        if phrase:
+            return __(phrase, label=self.get_label(), n=rule["v"])
         return super().describe(rule, table)
 
 
@@ -440,6 +535,61 @@ class RelationshipConstraint(Constraint):
         return labels.get(str(value), str(value))
 
 
+# ---------------------------------------------------------------------- picking a constraint from the model
+TITLE_ATTRIBUTES = ("name", "title", "label", "email", "code")
+
+
+def constraint_for(model: Any, path: str) -> Constraint | None:
+    """Guess the constraint for ``path`` from the model's column type, or None when it can't be filtered.
+
+    ``String``/``Text`` → text, ``Integer`` → whole number, ``Numeric``/``Float`` → number,
+    ``Date``/``DateTime`` → date, ``Boolean`` → yes/no, ``Enum`` → select, a relationship → relationship.
+    Dotted paths (``category.name``) follow relationships.
+    """
+    from sqlalchemy import Boolean, Enum, Float, Integer, Numeric, Text
+
+    current = model
+    parts = path.split(".")
+    for i, part in enumerate(parts):
+        try:
+            mapper = sa_inspect(current)
+        except Exception:  # noqa: BLE001 - not a mapped class
+            return None
+        rel = mapper.relationships.get(part)
+        last = i == len(parts) - 1
+        if rel is not None:
+            if last:
+                if i:  # a relationship of a relationship: not supported
+                    return None
+                target = sa_inspect(rel.mapper.class_)
+                constraint = RelationshipConstraint(part)
+                title = next((t for t in TITLE_ATTRIBUTES if t in target.columns), None)
+                return constraint.selectable(title) if title else constraint
+            current = rel.mapper.class_
+            continue
+        if not last:
+            return None
+        column = mapper.columns.get(part)
+        if column is None:
+            return None
+        kind = column.type
+        if isinstance(kind, Enum):
+            options = kind.enum_class if kind.enum_class is not None else list(kind.enums)
+            return SelectConstraint(path).options(options)
+        if isinstance(kind, Boolean):
+            return BooleanConstraint(path)
+        if isinstance(kind, (Date, DateTime)):
+            return DateConstraint(path)
+        if isinstance(kind, Integer):
+            return NumberConstraint(path).integer()
+        if isinstance(kind, (Numeric, Float)):
+            return NumberConstraint(path)
+        if isinstance(kind, (String, Text)):
+            return TextConstraint(path)
+        return None
+    return None  # pragma: no cover - the loop always returns
+
+
 # ---------------------------------------------------------------------- the field + filter
 class QueryBuilderField(Field):
     """Holds the rule groups in form state and renders the builder UI."""
@@ -575,18 +725,49 @@ class QueryBuilder(Filter):
     def __init__(self, name: str = "query") -> None:
         super().__init__(name)
         self._constraints: list[Constraint] = []
+        self._auto: tuple[bool, set[str]] | None = None
+        self._auto_constraints: list[Constraint] = []
         self._label = "Custom filters"  # translated by get_label
 
     def constraints(self, constraints: list[Constraint]) -> "QueryBuilder":
         self._constraints = list(constraints)
         return self
 
+    def auto_constraints(self, condition: bool = True, exclude: list[str] | None = None) -> "QueryBuilder":
+        """Add a constraint for every table column, guessed from its database type.
+
+        Constraints you list with ``constraints()`` win over the guessed ones. Columns that
+        are not real model attributes (computed values, JSON) are skipped.
+        """
+        self._auto = (condition, set(exclude or ())) if condition else None
+        return self
+
+    def all_constraints(self) -> list[Constraint]:
+        return self._constraints + self._auto_constraints
+
     def by_name(self) -> dict[str, Constraint]:
-        return {c.name: c for c in self._constraints}
+        return {c.name: c for c in self.all_constraints()}
 
     def bind_options(self, table: "Table") -> None:
-        """Called when the table binds: tell relationship constraints the model."""
-        for c in self._constraints:
+        """Called when the table binds: tell relationship constraints the model, guess auto constraints."""
+        if self._auto is not None:
+            _, exclude = self._auto
+            taken = {c.name for c in self._constraints} | exclude
+            guessed = []
+            for column in table._columns:
+                name = getattr(column, "name", None)
+                if not name or name in taken:
+                    continue
+                c = constraint_for(table.model, name)
+                if c is None:
+                    continue
+                label = getattr(column, "_label", None)
+                if isinstance(label, str) and label:
+                    c.label(label)
+                taken.add(name)
+                guessed.append(c)
+            self._auto_constraints = guessed
+        for c in self.all_constraints():
             if isinstance(c, RelationshipConstraint):
                 c._model = table.model
 
@@ -636,7 +817,7 @@ class QueryBuilder(Filter):
             for rule in group:
                 try:
                     cond = constraints[rule["c"]].condition(table, rule)
-                except (KeyError, ValueError, AttributeError):
+                except (KeyError, ValueError, AttributeError, OverflowError):
                     cond = None
                 if cond is not None:
                     ands.append(cond)
@@ -655,4 +836,4 @@ class QueryBuilder(Filter):
 
 
 __all__ = ["BooleanConstraint", "Constraint", "DateConstraint", "NumberConstraint", "QueryBuilder",
-           "RelationshipConstraint", "SelectConstraint", "TextConstraint"]
+           "RelationshipConstraint", "SelectConstraint", "TextConstraint", "constraint_for", "date_range"]
