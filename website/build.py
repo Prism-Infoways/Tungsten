@@ -45,7 +45,7 @@ NAV = [
     ("Panel", ["panel-configuration", "navigation", "theming"]),
     ("Resources", ["resources", "relation-managers", "infolists", "custom-pages"]),
     ("Forms", ["forms", "form-fields", "form-layouts"]),
-    ("Tables", ["tables", "table-columns", "table-filters", "query-builder", "table-features"]),
+    ("Tables", ["tables", "table-columns", "table-filters", "advanced-filters", "query-builder", "table-features"]),
     ("Actions & notifications", ["actions", "notifications"]),
     ("Widgets", ["widgets"]),
     ("Users & security", ["authentication", "email-verification", "roles-and-permissions", "security", "activity-log"]),

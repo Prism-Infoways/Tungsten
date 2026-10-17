@@ -130,6 +130,7 @@ class Table(Component):
         super().__init__()
         self._columns: list[Column] = []
         self._filters: list[Filter] = []
+        self._advanced_filters: tuple[list[str] | None, list[str]] | None = None
         self._actions: list = []
         self._bulk_actions: list = []
         self._header_actions: list = []
@@ -205,6 +206,25 @@ class Table(Component):
         if layout:
             self.filters_layout(layout)
         return self
+
+    def advanced_filters(self, columns: list[str] | None = None, exclude: list[str] | None = None) -> "Table":
+        """Add an :class:`AdvancedFilter` (operator + value) for each column, typed from the model.
+
+        ``columns`` limits it to these names (they need not be table columns); ``exclude`` skips some.
+        Filters you add yourself with the same name win.
+        """
+        self._advanced_filters = (list(columns) if columns is not None else None, list(exclude or ()))
+        return self
+
+    def _expand_advanced_filters(self) -> None:
+        from .advanced_filters import advanced_filters_for
+
+        columns, exclude = self._advanced_filters  # type: ignore[misc]
+        self._advanced_filters = None
+        taken = {f.name for f in self._filters}
+        for f in advanced_filters_for(self, columns, exclude):
+            if f.name not in taken:
+                self._filters.append(f)
 
     def filters_layout(self, layout: str) -> "Table":
         if layout not in self.FILTER_LAYOUTS:
@@ -443,6 +463,8 @@ class Table(Component):
         self.model = host.model
         self.params = params if params is not None else ctx.request.query_params
         self.id = id or "tw-table-" + host.key.replace(":", "-").replace("_", "-")
+        if self._advanced_filters is not None:
+            self._expand_advanced_filters()
         for f in self._filters:
             if hasattr(f, "bind_options"):
                 f.bind_options(self)

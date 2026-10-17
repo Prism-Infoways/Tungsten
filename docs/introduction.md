@@ -82,6 +82,7 @@ If you have used Filament, Django admin or Laravel Nova, the ideas will feel fam
 | --- | --- | --- |
 | Columns | Text, badge, image, icon and color columns, plus inline-editable toggle, checkbox, text input and select columns. | [Table columns](table-columns) |
 | Filters | Select, true/false, date and custom filters. | [Table filters](table-filters) |
+| Advanced filters | Operator + value per column: contains, between, this month... | [Advanced filters](advanced-filters) |
 | Query builder | Users build their own AND/OR filter rules. | [Query builder](query-builder) |
 | More | List tabs with counts, grouping, totals, drag-to-reorder rows, show/hide columns. | [Table features](table-features) |
 

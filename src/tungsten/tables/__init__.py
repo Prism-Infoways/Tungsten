@@ -15,6 +15,7 @@ from .columns import (
     ToggleColumn,
     ViewColumn,
 )
+from .advanced_filters import AdvancedFilter
 from .filters import DateFilter, Filter, SelectFilter, TernaryFilter, TrashedFilter
 from .query_builder import (
     BooleanConstraint,
@@ -25,11 +26,13 @@ from .query_builder import (
     RelationshipConstraint,
     SelectConstraint,
     TextConstraint,
+    constraint_for,
 )
 from .summarizers import Average, Count, Max, Min, Range, Sum, Summarizer
 from .table import Group, ListTab, Table
 
 __all__ = [
+    "AdvancedFilter", "constraint_for",
     "BooleanConstraint", "Constraint", "DateConstraint", "NumberConstraint", "QueryBuilder",
     "RelationshipConstraint", "SelectConstraint", "TextConstraint",
     "CheckboxColumn", "EditableColumn", "SelectColumn", "TextInputColumn",

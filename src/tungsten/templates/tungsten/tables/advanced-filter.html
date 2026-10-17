@@ -1,0 +1,13 @@
+{# One advanced filter: operator select + value input(s). Changing the operator re-renders the table with the right inputs. #}
+{% from "tungsten/tables/constraint-value.html" import constraint_value with context %}
+<div class="grid gap-2" data-field data-tw-advanced-filter="{{ filter.name }}">
+  <span class="tw-label flex items-center gap-1.5">
+    {{ icon(r.constraint.get_icon(), 'h-4 w-4 shrink-0 text-gray-400') }}{{ filter.get_label() }}
+    {% if (r.op or r.v or r.vs) and not complete %}<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" title="{{ __('Not applied yet') }}"></span>{% endif %}
+  </span>
+  <select name="{{ r.prefix }}.op" class="tw-input pe-9" aria-label="{{ __(':label operator', label=filter.get_label()) }}">
+    <option value="" {% if not r.op %}selected{% endif %}>{{ __('Any') }}</option>
+    {% for key, o in operators.items() %}<option value="{{ key }}" {% if key == r.op %}selected{% endif %}>{{ __(o[0]) }}</option>{% endfor %}
+  </select>
+  {{ constraint_value(r) }}
+</div>

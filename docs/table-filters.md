@@ -183,6 +183,8 @@ Add it so users can find deleted records and restore them. See [Resources](resou
 
 The `QueryBuilder` filter lets users build their own rules, like *Price is greater than 3000 and Tags has at least 1*. It has its own page: [Query builder](query-builder).
 
+For a quick operator + value filter per column (*Price is between 1000 and 5000*, *Created is this month*), see [Advanced filters](advanced-filters). `table.advanced_filters()` adds one for every column.
+
 ## Where filters appear
 
 By default:
