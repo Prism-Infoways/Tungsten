@@ -4,7 +4,7 @@
 {% block auth %}
 <h1 class="text-3xl font-bold tracking-tight text-gray-950 dark:text-white">{{ __('Welcome back') }}</h1>
 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ __('Sign in to your :app account', app=panel.brand_name) }}</p>
-{% if error %}<div class="mt-6 rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger-700 ring-1 ring-danger-600/20 dark:bg-danger-500/10 dark:text-danger-300">{{ __(error) }}</div>{% endif %}
+{% if error %}<div class="mt-6 rounded-2xl bg-danger-50 px-4 py-3 text-sm text-danger-700 ring-1 ring-danger-600/20 dark:bg-danger-500/10 dark:text-danger-300">{{ __(error) }}</div>{% endif %}
 <form method="post" class="mt-8 grid gap-6" novalidate>
   <input type="hidden" name="_token" value="{{ csrf_token }}">
   <input type="hidden" name="next" value="{{ next }}">

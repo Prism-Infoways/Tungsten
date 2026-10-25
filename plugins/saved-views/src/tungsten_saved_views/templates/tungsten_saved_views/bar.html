@@ -4,8 +4,8 @@
         resource (slug), replace_url, redirect_url, csrf_token, action(*parts) -> url
 #}
 {% import "tungsten/components/ui.html" as ui %}
-{% set chip = 'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ring-1 transition' %}
-{% set chip_on = 'bg-white text-primary-600 ring-primary-500 dark:bg-white/5 dark:text-primary-400' %}
+{% set chip = 'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium ring-1 transition' %}
+{% set chip_on = 'bg-gray-950 text-white ring-gray-950 shadow-sm dark:bg-white dark:text-gray-950 dark:ring-white' %}
 {% set chip_off = 'bg-white text-gray-600 ring-gray-950/10 hover:text-gray-950 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10 dark:hover:text-white' %}
 {% if redirect_url %}<script>window.location.replace({{ redirect_url | tojson }});</script>{% endif %}
 <div class="mb-4 flex flex-wrap items-center gap-2" data-tw-views x-data="{ saving: false, query: '' }"

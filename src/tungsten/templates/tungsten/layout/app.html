@@ -10,7 +10,7 @@
     <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(ellipse_at_bottom_left,rgb(var(--tw-c-primary-600)/0.22),transparent_65%)]" aria-hidden="true"></div>
     <div class="relative flex h-20 shrink-0 items-center justify-between gap-2 px-5">
       <a href="{{ panel.url() }}" class="tw-sb-brand flex min-w-0 items-center gap-2.5">{% include "tungsten/components/brand.html" %}</a>
-      {% if not panel.brand_logo %}<span class="tw-sb-label me-auto rounded-md bg-white/5 px-1.5 py-0.5 text-[11px] font-medium text-sidebar-400 ring-1 ring-inset ring-white/10">v{{ version }}</span>{% endif %}
+      {% if not panel.brand_logo %}<span class="tw-sb-label me-auto rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-medium text-sidebar-400 ring-1 ring-inset ring-white/10">v{{ version }}</span>{% endif %}
       <button type="button" class="tw-icon-btn text-sidebar-400 hover:text-white lg:hidden" @click="sidebar = false" aria-label="{{ __('Close menu') }}">{{ icon('x', 'h-5 w-5') }}</button>
     </div>
     {% if tenants or tenant_menu %}

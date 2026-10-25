@@ -51,7 +51,7 @@
             <span class="pointer-events-none absolute start-2 text-gray-400">{{ icon('globe', 'h-4 w-4') }}</span>
             <span class="sr-only">{{ __('Language') }}</span>
             <select name="locale" onchange="this.form.requestSubmit()"
-                    class="cursor-pointer appearance-none rounded-lg border-0 bg-transparent py-1.5 pe-8 ps-8 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-primary-500 dark:text-gray-200 dark:hover:bg-white/5">
+                    class="cursor-pointer appearance-none rounded-full border-0 bg-transparent py-1.5 pe-8 ps-8 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-primary-500 dark:text-gray-200 dark:hover:bg-white/5">
               {% for lang in panel.language_options() %}
               <option value="{{ lang.code }}" lang="{{ lang.code }}" {% if lang.code == current_locale() %}selected{% endif %}>{{ lang.label }}</option>
               {% endfor %}

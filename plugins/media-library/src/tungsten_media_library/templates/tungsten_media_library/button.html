@@ -11,7 +11,7 @@
       <div class="flex items-center gap-x-3 border-b border-gray-100 px-5 py-3 dark:border-white/10">
         <h2 class="text-base font-semibold text-gray-950 dark:text-white">{{ __('Media library') }}</h2>
         <input type="search" x-ref="q" name="mq" form="tw-media-search" autocomplete="off" placeholder="{{ __('Search files') }}"
-               class="tw-input flex-1 rounded-lg px-3 py-1.5 text-sm ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10"
+               class="tw-input flex-1 rounded-xl px-3 py-1.5 text-sm ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10"
                hx-get="{{ url }}" hx-trigger="input changed delay:300ms, search" hx-target="next [data-media-grid]" hx-swap="innerHTML"
                @keydown.enter.prevent="">
         <button type="button" class="tw-icon-btn text-gray-400" @click="open = false" aria-label="{{ __('Close') }}">{{ icon('x', 'h-5 w-5') }}</button>

@@ -60,7 +60,7 @@ def _subscribe_content(ctx: Any) -> Markup:
         '<p>Paste this private link in your calendar app. It shows what you can see here, '
         'from a month back to a year ahead, and updates on its own.</p>'
         f'<input type="text" readonly value="{escape(url)}" onclick="this.select()" data-calendar-feed '
-        'class="w-full rounded-lg border-0 bg-gray-50 px-3 py-2 text-sm text-gray-950 ring-1 ring-gray-950/10 '
+        'class="w-full rounded-xl border-0 bg-gray-50 px-3 py-2 text-sm text-gray-950 ring-1 ring-gray-950/10 '
         'dark:bg-white/5 dark:text-white dark:ring-white/20" style="font-family:monospace">'
         f'<ul class="grid gap-1" style="list-style:disc;padding-left:20px">{rows}</ul>'
         '<p class="text-gray-500 dark:text-gray-400">Keep it secret: anyone with the link can read it. '

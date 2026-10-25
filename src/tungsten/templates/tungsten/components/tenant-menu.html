@@ -3,10 +3,10 @@
 <div data-tw-tenant-menu>
 {% call(part) ui.dropdown(align='start', width='w-full', classes='w-full') %}
   {% if part == 'trigger' %}
-  <button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start text-sm ring-1 {{ 'bg-white text-gray-950 ring-gray-200 hover:bg-gray-50 dark:bg-white/5 dark:text-white dark:ring-white/10' if on_light is defined and on_light else 'bg-white/5 text-white ring-white/10 hover:bg-white/10' }}">
+  <button type="button" class="flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-start text-sm ring-1 {{ 'bg-white text-gray-950 ring-gray-200 hover:bg-gray-50 dark:bg-white/5 dark:text-white dark:ring-white/10' if on_light is defined and on_light else 'bg-white/5 text-white ring-white/10 hover:bg-white/10' }}">
     {% set tenant_avatar = panel.tenancy.avatar(tenant) %}
-    {% if tenant_avatar %}<img src="{{ tenant_avatar }}" alt="" class="h-7 w-7 rounded-md object-cover">{% else %}
-    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary-500 text-xs font-bold text-white">{{ (tenant_label or '+')[:1] | upper }}</span>{% endif %}
+    {% if tenant_avatar %}<img src="{{ tenant_avatar }}" alt="" class="h-7 w-7 rounded-lg object-cover">{% else %}
+    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-500 text-xs font-bold text-white">{{ (tenant_label or '+')[:1] | upper }}</span>{% endif %}
     <span class="flex-1 truncate font-medium">{{ tenant_label or __('Choose :label', label=panel.tenancy.get_label().lower()) }}</span>{{ icon('chevrons-up-down', 'h-4 w-4 text-gray-400') }}
   </button>
   {% else %}

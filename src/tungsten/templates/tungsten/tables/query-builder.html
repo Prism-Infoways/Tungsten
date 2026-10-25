@@ -8,7 +8,7 @@ hx-target="#{{ table.id }}" hx-swap="outerHTML"
 <div x-data="{ open: false }" class="grid gap-1">
   <button type="button" class="inline-flex items-center gap-1.5 justify-self-start text-sm font-semibold text-primary-600 hover:text-primary-500 dark:text-primary-400"
           @click="open = !open" :aria-expanded="open">{{ icon(icon_name, 'h-4 w-4') }}{{ label }}</button>
-  <div x-show="open" x-cloak class="grid max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-sm dark:border-white/10 dark:bg-gray-900">
+  <div x-show="open" x-cloak class="grid max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-sm dark:border-white/10 dark:bg-gray-900">
     {% for c in constraints %}
     <button type="button" class="flex items-center gap-2 px-3 py-1.5 text-start text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
             {{ qb('add:' ~ builder.name ~ ':' ~ where ~ ':' ~ c.name) }}>
@@ -26,7 +26,7 @@ hx-target="#{{ table.id }}" hx-swap="outerHTML"
     <span class="h-px flex-1 bg-gray-200 dark:bg-white/10"></span>{{ __('or') }}<span class="h-px flex-1 bg-gray-200 dark:bg-white/10"></span>
   </div>
   {% endif %}
-  <div class="grid gap-3 rounded-lg border border-gray-200 p-3 dark:border-white/10" data-tw-qb-group="{{ g.index }}">
+  <div class="grid gap-3 rounded-xl border border-gray-200 p-3 dark:border-white/10" data-tw-qb-group="{{ g.index }}">
     {% for r in g.rules %}
     {% if not loop.first %}<p class="text-xs font-medium uppercase tracking-wide text-gray-400">{{ __('and') }}</p>{% endif %}
     <div class="grid gap-2" data-tw-qb-rule>

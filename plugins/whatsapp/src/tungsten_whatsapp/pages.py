@@ -288,7 +288,7 @@ def link_phone(ctx: Any, host: Any = None) -> Markup:
         qr = client.qr_data_uri()
     except WhatsAppError as exc:  # keeps asking, so a short hiccup fixes itself
         return box(note(f"The gateway said: {exc}", "text-danger-600 dark:text-danger-400"))
-    return box(Markup('<img src="{}" alt="QR code" class="mx-auto h-64 w-64 rounded-lg bg-white p-2">').format(qr))
+    return box(Markup('<img src="{}" alt="QR code" class="mx-auto h-64 w-64 rounded-xl bg-white p-2">').format(qr))
 
 
 def check_web(ctx: Any, db: Any) -> None:

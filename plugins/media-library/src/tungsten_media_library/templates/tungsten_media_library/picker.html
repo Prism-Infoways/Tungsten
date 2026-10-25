@@ -3,7 +3,7 @@
 <div {% if page > 1 %}class="mt-3" {% endif %}style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px">
   {% for f in items %}
   <button type="button" title="{{ f.name }}"
-          class="group flex flex-col overflow-hidden rounded-lg bg-white text-start ring-1 ring-gray-950/10 transition hover:ring-primary-500 dark:bg-white/5 dark:ring-white/10"
+          class="group flex flex-col overflow-hidden rounded-xl bg-white text-start ring-1 ring-gray-950/10 transition hover:ring-primary-500 dark:bg-white/5 dark:ring-white/10"
           hx-post="{{ refresh }}" hx-target="#{{ form_id }}" hx-swap="outerHTML" hx-include="closest form"
           hx-vals='{{ {"_tw_ui_action": "file.pick:" ~ field ~ ":" ~ f.path} | tojson }}'>
     <span class="flex w-full items-center justify-center bg-gray-100 text-gray-400 dark:bg-white/5" style="aspect-ratio:1/1">

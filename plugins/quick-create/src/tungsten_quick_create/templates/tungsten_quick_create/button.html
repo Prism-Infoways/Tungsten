@@ -16,7 +16,7 @@
       <input type="search" x-model="q" placeholder="{{ __('Search...') }}" aria-label="{{ __('Search') }}" autocomplete="off"
              @keydown.enter.prevent="const b = $el.closest('[role=menu]').querySelector('[data-tw-qc-item]:not([style*=\'display: none\'])'); b && b.click()"
              x-init="$watch('open', v => v ? $nextTick(() => $el.focus()) : (q = ''))"
-             class="w-full rounded-md border-0 bg-gray-50 px-3 py-2 text-sm ring-1 ring-inset ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
+             class="w-full rounded-lg border-0 bg-gray-50 px-3 py-2 text-sm ring-1 ring-inset ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
     </div>
     {% endif %}
     <div style="max-height: 24rem; overflow-y: auto;">
