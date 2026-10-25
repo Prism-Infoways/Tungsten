@@ -160,7 +160,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 /* ---------------------------------------------------------------- sections */
 .section { padding-block: clamp(64px, 9vw, 120px); }
 .section-head { max-width: 680px; margin-bottom: 40px; }
-.section-head h2, .split h2, .stack-row h2, .cta h2 { font-size: clamp(30px, 4vw, 48px); font-weight: 700; margin-top: 14px; }
+.section-head h2, .split h2, .split-copy h2, .stack-row h2, .cta h2 { font-size: clamp(30px, 4vw, 48px); font-weight: 700; margin-top: 14px; }
 .section-head p:not(.eyebrow) { margin-top: 16px; color: var(--ink-2); font-size: 18px; }
 .showcase { padding-top: clamp(80px, 10vw, 140px); }
 
@@ -186,6 +186,13 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .split-copy .codehilite { margin-top: 24px; }
 .text-link { display: inline-block; margin-top: 20px; color: var(--accent); font-weight: 600; text-decoration: none; }
 .text-link:hover { text-decoration: underline; }
+.split-flip { grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); }
+.ticks { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 12px; }
+.ticks li { position: relative; padding-left: 30px; color: var(--ink-2); font-size: 16px; }
+.ticks li::before { content: ""; position: absolute; left: 0; top: 3px; width: 20px; height: 20px; border-radius: 50%;
+  background: color-mix(in oklab, var(--accent) 16%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ec5b1d' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 12 4 4 8-8'/%3E%3C/svg%3E") center / 12px no-repeat; }
+.ticks b { color: var(--ink); }
+.links-row { display: flex; flex-wrap: wrap; gap: 0 24px; }
 .stack { position: relative; aspect-ratio: 1.25; }
 .stack img { position: absolute; width: 82%; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); }
 .stack img:first-child { left: 0; top: 0; }
@@ -443,7 +450,8 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
   .search-btn { min-width: 0; }
   .hero-grid { grid-template-columns: minmax(0, 1fr); }
   .element { display: none; }
-  .pair, .split-grid, .stack-row { grid-template-columns: minmax(0, 1fr); }
+  .pair, .split-grid, .split-flip, .stack-row { grid-template-columns: minmax(0, 1fr); }
+  .split-flip .window { order: 1; }
   .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .docs-layout { grid-template-columns: minmax(0, 1fr); }
   .menu-btn { display: inline-grid; }

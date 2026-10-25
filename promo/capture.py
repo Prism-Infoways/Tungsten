@@ -49,6 +49,13 @@ async def query_builder(page):
     await page.evaluate("window.scrollTo(0, 330)")
 
 
+async def settings(page):
+    await page.goto(BASE + "/system-settings")
+    await page.wait_for_load_state("networkidle")
+    await page.get_by_text("Welcome message").first.scroll_into_view_if_needed()
+    await page.evaluate("window.scrollBy(0, 120)")
+
+
 def set_verified(verified: bool):
     with sqlite3.connect(DB) as c:
         c.execute("update users set email_verified_at = " + ("datetime('now', '-400 days')" if verified else "NULL")
@@ -72,6 +79,10 @@ SHOTS = {
     "query_builder": (query_builder, "light", "en"),
     "login": ("/login", "light", "en"),
     "verify": ("/email-verification/prompt", "light", "en"),
+    "ui_kit": ("/ui-kit", "light", "en"),
+    "dark_ui_kit": ("/ui-kit", "dark", "en"),
+    "posts": ("/posts", "light", "en"),
+    "settings": (settings, "light", "en"),
 }
 
 

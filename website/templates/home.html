@@ -13,7 +13,7 @@
       <div class="hero-copy">
         <p class="eyebrow">Open source · MIT · Python 3.10+</p>
         <h1>Admin panels for FastAPI, <span class="lit">written in Python.</span></h1>
-        <p class="lede">Describe your forms and tables in a few Python classes. Tungsten gives you a complete, good-looking admin panel with search, filters, actions, charts, logins and roles. No HTML, no JavaScript, no build step.</p>
+        <p class="lede">Describe your forms and tables in a few Python classes. Tungsten gives you a complete, modern admin panel with search, filters, actions, dashboards, logins and roles. No HTML, no JavaScript, no build step.</p>
         <div class="hero-cta">
           <a class="btn btn-primary" href="docs/installation.html">Get started
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
@@ -24,9 +24,9 @@
           </button>
         </div>
         <ul class="hero-facts">
-          <li><b>20+</b> form fields</li>
-          <li><b>6</b> layout blocks</li>
-          <li><b>156</b> tests, sync &amp; async</li>
+          <li><b>30+</b> form fields</li>
+          <li><b>20+</b> dashboard widgets</li>
+          <li><b>Every</b> Filament component</li>
         </ul>
       </div>
 
@@ -42,7 +42,7 @@
       <figure class="window hero-shot">
         <div class="window-bar"><i></i><i></i><i></i><span>localhost:8000/admin</span></div>
         <picture>
-          <img class="only-light" src="static/img/dashboard.webp" alt="Tungsten dashboard with stats cards, a revenue chart and recent orders" width="1800" height="1125">
+          <img class="only-light" src="static/img/dashboard.webp" alt="Tungsten dashboard in the modern design: a dark sidebar, a big revenue card, a target gauge, stats cards, a sales chart and an order funnel" width="1800" height="1125">
           <img class="only-dark" src="static/img/dark_dashboard.webp" alt="" width="1800" height="1125">
         </picture>
       </figure>
@@ -93,7 +93,7 @@ def form(cls, form):
             </div>
             <figure class="window">
               <div class="window-bar"><i></i><i></i><i></i><span>/admin/products/1/edit</span></div>
-              <img src="static/img/form.webp" alt="Edit product form with tabs, rich text editor and a status section" loading="lazy" width="1800" height="1125">
+              <img src="static/img/form.webp" alt="Edit product form with pill tabs, a rich text editor and a status card" loading="lazy" width="1800" height="1125">
             </figure>
           </div>
         </div>
@@ -122,7 +122,7 @@ def table(cls, table):
             </div>
             <figure class="window">
               <div class="window-bar"><i></i><i></i><i></i><span>/admin/products</span></div>
-              <img src="static/img/products.webp" alt="Products table with stats, list tabs, filters and row actions" loading="lazy" width="1800" height="1125">
+              <img src="static/img/products.webp" alt="Products table with stats cards, pill list tabs, filters and row actions" loading="lazy" width="1800" height="1125">
             </figure>
           </div>
         </div>
@@ -148,7 +148,7 @@ table.filters([
             </div>
             <figure class="window">
               <div class="window-bar"><i></i><i></i><i></i><span>/admin/products</span></div>
-              <img src="static/img/query_builder.webp" alt="Query builder panel with two rules joined by AND" loading="lazy" width="1800" height="1125">
+              <img src="static/img/query_builder.webp" alt="Filters panel with query builder rules joined by AND" loading="lazy" width="1800" height="1125">
             </figure>
           </div>
         </div>
@@ -158,31 +158,82 @@ table.filters([
             <div class="code-card">
               <div class="code-title">app/widgets.py</div>
 {% filter code %}
+class Revenue(HeroStatWidget):
+    @classmethod
+    def stat(cls, db):
+        return Stat("Total revenue", "₹16,88,503")
+            .trend("69%", "up").chart([3, 5, 4, 8, 9])
+
+class MonthlyTarget(GaugeWidget):
+    heading = "Monthly target"
+
+    @classmethod
+    def value(cls, db):
+        return {"value": 134850, "max": 500000,
+                "display": "₹1,34,850"}
+
 class Stats(StatsOverviewWidget):
     @classmethod
     def stats(cls, db):
-        return [
-            Stat("Users", "1,248").icon("users")
-                .trend("12%", "up").chart([3, 5, 4, 8, 9]),
-        ]
-
-class Revenue(ChartWidget):
-    heading = "Revenue"
-    type = "bar"
-
-    @classmethod
-    def data(cls, db, filter):
-        return {"labels": months, "datasets": [
-            {"label": "Revenue", "data": totals, "color": "primary"},
-        ]}
+        return [Stat("Users", "49").trend("38%", "up")
+                    .chart([3, 5, 4, 8]).highlight()]
 {% endfilter %}
             </div>
             <figure class="window">
               <div class="window-bar"><i></i><i></i><i></i><span>/admin</span></div>
-              <img src="static/img/dashboard.webp" alt="Dashboard with stats cards and a revenue chart" loading="lazy" width="1800" height="1125">
+              <img src="static/img/dashboard.webp" alt="Dashboard with a big revenue card, a target gauge, shortcuts and a filled stats card" loading="lazy" width="1800" height="1125">
             </figure>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- modern design -->
+  <section class="section split" id="design">
+    <div class="wrap split-grid">
+      <div class="split-copy">
+        <p class="eyebrow">New in the next release</p>
+        <h2>A modern design, ready on day one</h2>
+        <p>Every page now has the look of today’s best dashboards: soft gray background, white cards with big rounded corners, a floating dark sidebar, pill tabs and buttons, and a full dark mode. Plugin pages follow the same design. You don’t change a line of code.</p>
+        <ul class="ticks">
+          <li><b>11 new widgets</b>: big number card, target gauge, columns, funnel, leaderboard, timeline, week schedule, team, quick actions, checklist and banner.</li>
+          <li><b>20 UI components</b> for your own pages: pill tabs, switches, chips, progress rings, meters, alerts and more.</li>
+          <li><b>A UI kit page</b> that shows every component, live in your panel.</li>
+        </ul>
+        <p class="links-row">
+          <a class="text-link" href="docs/modern-widgets.html">Modern widgets <span aria-hidden="true">→</span></a>
+          <a class="text-link" href="docs/ui-components.html">UI components <span aria-hidden="true">→</span></a>
+        </p>
+      </div>
+      <div class="stack">
+        <img src="static/img/ui_kit.webp" alt="Tungsten UI kit page with stat cards, pill navigation, chips, progress rings, a gauge and meters" loading="lazy" width="1800" height="1125">
+        <img src="static/img/dark_ui_kit.webp" alt="The same UI kit page in dark mode" loading="lazy" width="1800" height="1125">
+      </div>
+    </div>
+  </section>
+
+  <!-- filament components -->
+  <section class="section" id="filament">
+    <div class="wrap split-grid split-flip">
+      <figure class="window">
+        <div class="window-bar"><i></i><i></i><i></i><span>/admin/system-settings</span></div>
+        <img src="static/img/settings.webp" alt="Settings form with a Markdown editor with live preview and two code editors with line numbers" loading="lazy" width="1800" height="1125">
+      </figure>
+      <div class="split-copy">
+        <p class="eyebrow">Filament parity</p>
+        <h2>Every Filament component, now in Python</h2>
+        <p>Coming from Laravel Filament? Every component on Filament’s list has a Tungsten version. The last ones just landed:</p>
+        <ul class="ticks">
+          <li><b>MarkdownEditor</b> with a toolbar and live preview, and <b>CodeEditor</b> with line numbers and a JSON mode.</li>
+          <li><b>MorphToSelect</b> for polymorphic relations, <b>FusedGroup</b>, <b>Icon</b>, <b>Image</b> and <b>UnorderedList</b>.</li>
+          <li>Table layouts <b>Split</b>, <b>Stack</b>, <b>Panel</b> and <b>Grid</b> that show each row as a card.</li>
+        </ul>
+        <p class="links-row">
+          <a class="text-link" href="docs/form-fields.html#markdowneditor">Form fields <span aria-hidden="true">→</span></a>
+          <a class="text-link" href="docs/table-columns.html#layouts-split-stack-panel-and-grid">Table layouts <span aria-hidden="true">→</span></a>
+          <a class="text-link" href="docs/filament-migration.html">Move from Filament <span aria-hidden="true">→</span></a>
+        </p>
       </div>
     </div>
   </section>
@@ -197,10 +248,10 @@ class Revenue(ChartWidget):
       <div class="features">
         {% set features = [
           ("Resources", "List, create, edit and view pages for a model from one class. Soft deletes with restore.", "resources", '<path d="M4 6h16M4 12h16M4 18h10"/>'),
-          ("Forms", "Text, selects, uploads, rich text, repeaters, wizards and live fields that react to each other.", "forms", '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h5"/>'),
-          ("Tables", "Search, sort, filters, list tabs, grouping, totals, inline editing and drag to reorder.", "tables", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/>'),
+          ("Forms", "Text, selects, uploads, rich text, Markdown and code editors, repeaters, wizards and live fields.", "forms", '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h5"/>'),
+          ("Tables", "Search, sort, advanced filters, list tabs, grouping, totals, card layouts, inline editing and reorder.", "tables", '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/>'),
           ("Actions", "Buttons, confirm boxes and popup forms for single rows, bulk selections and page headers.", "actions", '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/>'),
-          ("Widgets", "Stat cards with trends, line, bar and pie charts, table widgets and dashboard filters.", "widgets", '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>'),
+          ("Widgets", "Stat cards, charts, gauges, funnels, leaderboards, timelines and schedules, with dashboard filters.", "widgets", '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>'),
           ("Auth & roles", "Login, sign-up, password reset, two-factor login, email verification and a roles screen.", "authentication", '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>'),
           ("Translations", "Every screen can be translated. Hindi ships built in, add more with a JSON file.", "translations", '<path d="M4 5h8M8 3v2c0 4-2 7-5 9M6 9c1 2 3 4 6 5"/><path d="m13 21 4-9 4 9M14.5 18h5"/>'),
           ("Async ready", "Works with normal or async SQLAlchemy engines. Hooks can be async def.", "async-database", '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>'),

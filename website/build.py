@@ -68,6 +68,14 @@ HOME_FAQS = [
      "Yes. The free tungsten-filament tool reads a Laravel Filament project and writes a Tungsten admin for FastAPI, "
      "with models, resources, forms, tables, filters and actions. It runs on the same database and people sign in "
      "with the same passwords."),
+    ("Does Tungsten have every Filament component?",
+     "Yes. Every form field, layout, table column, filter, action, widget and infolist entry on Filament's list has a "
+     "Tungsten version, including the Markdown editor, code editor, MorphToSelect, fused groups and Split, Stack, "
+     "Panel and Grid table layouts. Only Livewire is left out, because it is PHP only."),
+    ("Does the admin panel look modern?",
+     "Yes. The panel uses a modern dashboard design: a light gray page, white cards with big rounded corners, a "
+     "floating dark sidebar, pill tabs and buttons, and a full dark mode. It ships with 20+ dashboard widgets and a "
+     "UI kit of components you can use in your own pages."),
     ("How do I install Tungsten?",
      "Run pip install tungsten-admin, describe a resource for one of your SQLAlchemy models, mount the panel on your "
      "FastAPI app with panel.mount(app), and create a user with tungsten make:user. It needs Python 3.10 or newer."),
