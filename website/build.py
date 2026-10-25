@@ -47,7 +47,7 @@ NAV = [
     ("Forms", ["forms", "form-fields", "form-layouts"]),
     ("Tables", ["tables", "table-columns", "table-filters", "advanced-filters", "query-builder", "table-features"]),
     ("Actions & notifications", ["actions", "notifications"]),
-    ("Widgets", ["widgets"]),
+    ("Widgets", ["widgets", "modern-widgets", "ui-components"]),
     ("Users & security", ["authentication", "email-verification", "roles-and-permissions", "security", "activity-log"]),
     ("More", ["import-export", "multi-tenancy", "translations", "async-database", "plugins-and-hooks", "cli"]),
     ("Plugins", ["leads", "facebook-leads", "whatsapp", "mcp", "tickets", "hr", "finance", "tags", "blog", "seo-audit",

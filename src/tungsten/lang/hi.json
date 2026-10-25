@@ -540,5 +540,10 @@
   ":label is in the last :n years": ":label पिछले :n सालों में",
   ":label is in the next :n days": ":label अगले :n दिनों में",
   ":label is in the next :n weeks": ":label अगले :n हफ़्तों में",
-  ":label is in the next :n months": ":label अगले :n महीनों में"
+  ":label is in the next :n months": ":label अगले :n महीनों में",
+  "No one here yet.": "अभी यहाँ कोई नहीं है।",
+  "A well: a soft block inside a card.": "वेल: कार्ड के अंदर एक हल्का ब्लॉक।",
+  "Nothing planned.": "कुछ तय नहीं है।",
+  "6 members": "6 सदस्य",
+  "Glass: a frosted panel.": "ग्लास: धुंधला पैनल।"
 }

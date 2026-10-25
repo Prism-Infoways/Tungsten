@@ -48,17 +48,16 @@
 
     {% if tabs %}
     {# ------------------------------------------------------------ list tabs #}
-    <nav class="flex gap-2 overflow-x-auto border-b border-gray-100 px-4 dark:border-white/10" aria-label="{{ __('Tabs') }}">
+    <nav class="px-4 pt-4" aria-label="{{ __('Tabs') }}"><div class="tw-pill-nav tw-pill-nav-muted">
       {% for t in tabs %}
       <button type="button" hx-get="{{ t.url }}" hx-target="#{{ table.id }}" hx-swap="outerHTML"
-              class="-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition
-                     {{ 'border-primary-500 text-primary-600 dark:text-primary-400' if t.active else 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}"
+              class="tw-pill-nav-item py-1.5 {{ 'tw-pill-nav-item-active' if t.active }}"
               {% if t.active %}aria-current="page"{% endif %}>
         {{ icon(t.icon, 'h-4 w-4') }}{{ t.label }}
         {% if t.badge is not none %}<span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ colors.pick(colors.BADGE, 'primary' if t.active else t.color) }}">{{ t.badge }}</span>{% endif %}
       </button>
       {% endfor %}
-    </nav>
+    </div></nav>
     {% endif %}
 
     {% if table._toolbar %}
@@ -88,7 +87,7 @@
       <div class="relative" @click.outside="panel && !$event.target.closest('.ts-dropdown') && closeFilters()" @keydown.escape.window="panel && closeFilters()">
         {{ filters_button }}
         <div x-show="panel" x-cloak x-transition.opacity.duration.100ms data-tw-filters="dropdown"
-             class="absolute start-0 z-30 mt-2 {{ 'w-[28rem]' if panel_filters | selectattr('field', 'defined') | list else 'w-80' }} max-w-[calc(100vw-2rem)] rounded-xl bg-white p-4 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+             class="absolute start-0 z-30 mt-2 {{ 'w-[28rem]' if panel_filters | selectattr('field', 'defined') | list else 'w-80' }} max-w-[calc(100vw-2rem)] rounded-3xl bg-white p-5 shadow-xl ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
           <h4 class="mb-4 text-base font-semibold text-gray-950 dark:text-white">{{ __('Filters') }}</h4>
           {{ filter_fields(table, panel_filters, deferred, close_on_apply=true) }}
         </div>
@@ -140,7 +139,7 @@
     {# ------------------------------------------------------------ bulk bar #}
     {% if selectable %}
     <div x-show="selected.length" x-cloak class="flex flex-wrap items-center gap-2 border-t border-gray-100 bg-primary-50/40 px-4 py-2.5 dark:border-white/10 dark:bg-primary-500/5">
-      <span class="me-2 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-950/10 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10"><span x-text="selected.length"></span> {{ __('selected') }}</span>
+      <span class="me-2 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-gray-950/10 dark:bg-white/5 dark:text-gray-200 dark:ring-white/10"><span x-text="selected.length"></span> {{ __('selected') }}</span>
       {% for a in bulk_actions %}{{ a.render(ctx, host, None, style='soft', table_id=table.id) }}{% endfor %}
       <button type="button" class="ms-auto text-sm {{ colors.LINK.gray }}" @click="selected = []">{{ __('Clear selection') }}</button>
     </div>
@@ -163,7 +162,7 @@
         {% if row.group is defined %}
         <h4 class="col-span-full mt-2 text-sm font-semibold text-gray-950 first:mt-0 dark:text-white">{{ row.group }}</h4>
         {% else %}
-        <div class="relative flex flex-col gap-3 rounded-xl bg-white p-4 ring-1 ring-gray-950/5 transition hover:ring-gray-950/10 dark:bg-white/[0.03] dark:ring-white/10 {{ 'opacity-60' if row.trashed }} {{ row.classes }}"
+        <div class="relative flex flex-col gap-3 rounded-3xl bg-white p-5 ring-1 ring-gray-950/5 transition hover:ring-gray-950/10 dark:bg-white/[0.03] dark:ring-white/10 {{ 'opacity-60' if row.trashed }} {{ row.classes }}"
              :class="selected.includes('{{ row.key }}') && '!ring-2 !ring-primary-500'" data-key="{{ row.key }}">
           {% if selectable %}
           <input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox absolute end-4 top-4" data-tw-local x-model="selected" aria-label="{{ __('Select row') }}">
@@ -196,7 +195,7 @@
     {% elif rows %}
     <div class="{{ 'max-md:overflow-visible' if stacked }} overflow-x-auto border-t border-gray-100 dark:border-white/10">
       <table class="w-full table-auto divide-y divide-gray-100 text-start dark:divide-white/5 {{ 'max-md:block' if stacked }}" {% if stacked %}data-tw-stacked{% endif %}>
-        <thead class="bg-gray-50/70 dark:bg-white/[0.03] {{ 'max-md:hidden' if stacked }}">
+        <thead class="bg-gray-50 dark:bg-white/[0.03] {{ 'max-md:hidden' if stacked }}">
           {% if column_groups %}
           {# shared headings over grouped columns: ColumnGroup("Pricing", [...]) #}
           <tr>
@@ -216,13 +215,13 @@
             {% if selectable %}
             <th class="w-1 px-4 py-3"><input type="checkbox" class="tw-checkbox" data-tw-local :checked="allSelected" @click="toggleAll()" aria-label="{{ __('Select all') }}"></th>
             {% endif %}
-            {% if table._row_index %}<th class="w-1 px-3 py-3 text-start text-sm font-medium text-gray-500 dark:text-gray-400">#</th>{% endif %}
+            {% if table._row_index %}<th class="w-1 px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">#</th>{% endif %}
             {% for c in columns %}
-            <th class="px-3 py-3 text-sm font-medium text-gray-600 dark:text-gray-300 {{ 'text-end' if c._alignment == 'end' else ('text-center' if c._alignment == 'center' else 'text-start') }}"
+            <th class="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 {{ 'text-end' if c._alignment == 'end' else ('text-center' if c._alignment == 'center' else 'text-start') }}"
                 {% if c._width %}style="width: {{ c._width }}"{% endif %}>
               {% if c._sortable %}
               <button type="button" hx-get="{{ table.sort_url(c) }}" hx-target="#{{ table.id }}" hx-swap="outerHTML"
-                      class="group inline-flex items-center gap-x-1 whitespace-nowrap hover:text-gray-950 dark:hover:text-white">
+                      class="group inline-flex items-center gap-x-1 whitespace-nowrap uppercase tracking-wider hover:text-gray-950 dark:hover:text-white">
                 {{ c.get_label() }}
                 {% if sort_col == c.name %}
                   <span class="text-primary-600 dark:text-primary-400">{{ icon('arrow-up' if sort_dir == 'asc' else 'arrow-down', 'h-3.5 w-3.5') }}</span>
@@ -233,7 +232,7 @@
               {% else %}<span class="whitespace-nowrap">{{ c.get_label() }}</span>{% endif %}
             </th>
             {% endfor %}
-            {% if row_actions %}<th class="px-4 py-3 text-end text-sm font-medium text-gray-600 dark:text-gray-300">{{ __('Actions') }}</th>{% endif %}
+            {% if row_actions %}<th class="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ __('Actions') }}</th>{% endif %}
           </tr>
           {% if individual_search %}
           {# per-column search boxes: searchable(is_individual=True) #}

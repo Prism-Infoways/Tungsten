@@ -37,18 +37,32 @@ from .storage import LocalStorage, Storage
 from .tenancy import Tenancy
 from .widgets import (
     AccountWidget,
+    ActivityWidget,
+    BannerWidget,
     ChartWidget,
+    ChecklistWidget,
+    ColumnsWidget,
+    FunnelWidget,
+    GaugeWidget,
+    HeroStatWidget,
+    Item,
+    LeaderboardWidget,
     ProgressItem,
     ProgressListWidget,
+    QuickActionsWidget,
+    ScheduleWidget,
     Stat,
     StatsOverviewWidget,
     TableWidget,
+    TeamWidget,
     Widget,
 )
 
 __all__ = [
-    "AccountWidget", "Auth", "ChartWidget", "Context", "Dashboard", "LocalStorage", "NavigationGroup",
-    "NavigationItem", "Notification", "Page", "Panel", "Plugin", "ProgressItem", "ProgressListWidget",
-    "RelationManager", "Resource", "SecurityHeadersMiddleware", "Stat", "StatsOverviewWidget", "Storage", "TableWidget", "Tenancy", "Widget",
+    "AccountWidget", "ActivityWidget", "Auth", "BannerWidget", "ChartWidget", "ChecklistWidget", "ColumnsWidget",
+    "Context", "Dashboard", "FunnelWidget", "GaugeWidget", "HeroStatWidget", "Item", "LeaderboardWidget", "LocalStorage",
+    "NavigationGroup", "NavigationItem", "Notification", "Page", "Panel", "Plugin", "ProgressItem", "ProgressListWidget",
+    "QuickActionsWidget", "RelationManager", "Resource", "ScheduleWidget", "SecurityHeadersMiddleware", "Stat",
+    "StatsOverviewWidget", "Storage", "TableWidget", "TeamWidget", "Tenancy", "Widget",
     "__", "__version__", "hash_password", "translate", "verify_password",
 ]

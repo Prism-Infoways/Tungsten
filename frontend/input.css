@@ -9,7 +9,7 @@
 
 @layer components {
   .tw-input {
-    @apply block w-full rounded-lg border-0 bg-white py-2 px-3 text-sm text-gray-950 shadow-sm ring-1 ring-inset ring-gray-950/10
+    @apply block w-full rounded-xl border-0 bg-white py-2 px-3 text-sm text-gray-950 shadow-sm ring-1 ring-inset ring-gray-950/10
       placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-500
       disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500
       dark:bg-white/5 dark:text-white dark:ring-white/10 dark:placeholder:text-gray-500 dark:focus:ring-primary-500 dark:disabled:bg-transparent dark:disabled:text-gray-400;
@@ -25,35 +25,91 @@
       focus:ring-primary-600 focus:ring-offset-0 checked:ring-0 dark:bg-white/5 dark:ring-white/20 dark:checked:bg-primary-500;
   }
   .tw-label { @apply text-sm font-medium leading-6 text-gray-950 dark:text-white; }
+  /* White card with big soft corners on the light gray page (the modern dashboard look). */
   .tw-card {
-    @apply rounded-2xl bg-white shadow-[0_1px_2px_rgb(0_0_0/0.04),0_4px_16px_-8px_rgb(0_0_0/0.08)] ring-1 ring-gray-950/[0.06]
-      dark:bg-gray-900 dark:shadow-none dark:ring-white/10;
+    @apply rounded-[1.75rem] bg-white shadow-[0_1px_2px_rgb(0_0_0/0.03),0_10px_30px_-14px_rgb(0_0_0/0.10)] ring-1 ring-gray-950/[0.04]
+      dark:bg-gray-900 dark:shadow-none dark:ring-white/[0.08];
   }
+  /* Lifts a little on hover (clickable cards). */
+  .tw-card-hover { @apply transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-18px_rgb(0_0_0/0.18)]; }
+  /* Near-black card with white text ("Q4 revenue" style). */
+  .tw-card-dark {
+    @apply rounded-[1.75rem] bg-gray-950 text-white shadow-[0_18px_40px_-20px_rgb(0_0_0/0.45)] ring-1 ring-white/10 dark:bg-black;
+  }
+  /* Card filled with the brand color. */
+  .tw-card-brand {
+    @apply relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-primary-500 to-primary-600 text-white
+      shadow-[0_18px_40px_-18px_rgb(var(--tw-c-primary-600)/0.6)];
+  }
+  /* Frosted glass panel for use over images or colored backgrounds. */
+  .tw-glass { @apply rounded-[1.75rem] bg-white/60 ring-1 ring-white/70 backdrop-blur-xl dark:bg-white/5 dark:ring-white/10; }
+  /* Muted inner block inside a card (a card in a card). */
+  .tw-well { @apply rounded-2xl bg-gray-50 ring-1 ring-inset ring-gray-950/[0.04] dark:bg-white/[0.03] dark:ring-white/5; }
   /* Soft colored square holding an icon (stat cards, card headers, sections). */
-  .tw-icon-tile { @apply flex shrink-0 items-center justify-center rounded-xl; }
+  .tw-icon-tile { @apply flex shrink-0 items-center justify-center rounded-full; }
   /* Small rounded "↑ 12%" pill. */
   .tw-trend-pill { @apply inline-flex items-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-semibold; }
   /* Soft "View all →" link button in card headers. */
   .tw-card-link {
-    @apply inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-600 ring-1 ring-inset
-      ring-primary-600/10 transition hover:bg-primary-100 dark:bg-primary-500/10 dark:text-primary-400 dark:ring-primary-400/20 dark:hover:bg-primary-500/20;
+    @apply inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-3.5 py-1.5 text-sm font-medium text-gray-700
+      transition hover:bg-gray-950 hover:text-white dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white dark:hover:text-gray-950;
   }
   .tw-btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold outline-none transition
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold outline-none transition
       duration-75 focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-70;
   }
   .tw-btn-sm { @apply px-2.5 py-1.5 text-xs; }
   .tw-icon-btn {
-    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg outline-none transition hover:bg-gray-950/5 focus-visible:ring-2
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-full outline-none transition hover:bg-gray-950/5 focus-visible:ring-2
       dark:hover:bg-white/5;
   }
   .tw-nav-item {
-    @apply flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-300 transition hover:bg-white/5 hover:text-white;
+    @apply flex items-center gap-x-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-sidebar-400 transition hover:bg-white/[0.06] hover:text-white;
   }
+  /* The current page: a white pill on the dark sidebar. */
   .tw-nav-item-active {
-    @apply bg-gradient-to-r from-primary-500/25 to-primary-500/5 text-white ring-1 ring-inset ring-primary-500/50
-      hover:from-primary-500/30 hover:text-white [&>svg:first-child]:text-primary-400;
+    @apply bg-white font-semibold text-gray-950 shadow-[0_6px_20px_-8px_rgb(0_0_0/0.6)] hover:bg-white hover:text-gray-950
+      [&>svg:first-child]:text-primary-600;
   }
+
+  /* Pill navigation: a white rounded bar whose current item is a black pill (top menu, tabs, segmented). */
+  .tw-pill-nav {
+    @apply inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-white p-1 shadow-[0_1px_2px_rgb(0_0_0/0.04)]
+      ring-1 ring-gray-950/[0.05] dark:bg-white/5 dark:ring-white/10;
+  }
+  .tw-pill-nav-muted { @apply bg-gray-100 shadow-none ring-0 dark:bg-white/5; }
+  .tw-pill-nav-item {
+    @apply flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium text-gray-600 transition
+      hover:text-gray-950 dark:text-gray-300 dark:hover:text-white;
+  }
+  .tw-pill-nav-item-active {
+    @apply bg-gray-950 text-white shadow-sm hover:text-white dark:bg-white dark:text-gray-950 dark:hover:text-gray-950;
+  }
+  .tw-pill-nav-muted .tw-pill-nav-item-active { @apply bg-white text-gray-950 hover:text-gray-950 dark:bg-white/15 dark:text-white; }
+
+  /* Small rounded label ("June 2025 ▾", filters, tags). */
+  .tw-chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide
+      text-gray-600 ring-1 ring-inset ring-gray-950/10 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10;
+  }
+  /* Round white button for the top bar (bell, search, settings). */
+  .tw-round-btn {
+    @apply relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-gray-600 shadow-[0_1px_2px_rgb(0_0_0/0.04)]
+      ring-1 ring-gray-950/[0.05] transition hover:text-gray-950 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10 dark:hover:text-white;
+  }
+  .tw-dot { @apply inline-block h-2 w-2 shrink-0 rounded-full; }
+  /* Grey shimmer placeholder while something loads. */
+  .tw-skeleton { @apply animate-pulse rounded-xl bg-gray-200/80 dark:bg-white/10; }
+  /* Thin progress track and its filled bar. */
+  .tw-track { @apply block h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5; }
+  .tw-track-bar { @apply block h-full rounded-full transition-[width] duration-700; }
+  /* Big number in cards. */
+  .tw-figure { @apply font-semibold tracking-tight tabular-nums text-gray-950 dark:text-white; }
+  /* Striped fill used for empty columns in the bar widget (like the reference designs). */
+  .tw-stripes {
+    background-image: repeating-linear-gradient(135deg, rgb(0 0 0 / 0.05) 0 2px, transparent 2px 7px);
+  }
+  .dark .tw-stripes { background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.06) 0 2px, transparent 2px 7px); }
   .tw-prose { @apply prose prose-sm max-w-none dark:prose-invert; }
 
   trix-editor.tw-trix {
@@ -62,7 +118,7 @@
   trix-toolbar .trix-button-group { @apply border-gray-200 dark:border-white/10 !important; }
   trix-toolbar .trix-button { @apply dark:bg-white/80 !important; }
   .ts-wrapper.tw-ts .ts-control {
-    @apply min-h-[38px] rounded-lg border-0 bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-inset ring-gray-950/10
+    @apply min-h-[38px] rounded-xl border-0 bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-inset ring-gray-950/10
       dark:bg-white/5 dark:text-white dark:ring-white/10;
   }
   .ts-wrapper.tw-ts.focus .ts-control { @apply ring-2 ring-primary-500 shadow-sm; }
@@ -101,7 +157,7 @@
 /* Desktop sidebar collapsed to icons (toggled with twToggleSidebar()). */
 @media (min-width: 1024px) {
   .tw-sidebar-collapsed .tw-sb-aside { width: 5rem; }
-  .tw-sidebar-collapsed .tw-sb-main { padding-inline-start: 5rem; }
+  .tw-sidebar-collapsed .tw-sb-main { padding-inline-start: 6.5rem; }
   .tw-sidebar-collapsed .tw-sb-label { display: none !important; }
   .tw-sidebar-collapsed .tw-sb-brand span { display: none; }
   .tw-sidebar-collapsed .tw-nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
@@ -109,3 +165,8 @@
 }
 .tw-sb-aside, .tw-sb-main { transition: width .2s ease, padding .2s ease; }
 @keyframes tw-wave { 0%, 60%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(14deg); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } }
+@keyframes tw-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* Cards fade up softly when the page opens. */
+@media (prefers-reduced-motion: no-preference) {
+  .tw-rise { animation: tw-rise .45s cubic-bezier(.2,.7,.2,1) both; }
+}

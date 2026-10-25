@@ -1,0 +1,21 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# ScheduleWidget: this week as a strip of days, then today's events. #}
+{% call ui.card(__(w.heading) if w.heading else month, __(w.description) if w.description else (month if w.heading else none), 'px-6 pb-6 pt-5', 'h-full', link, w.link_label, w.icon, w.icon_color) %}
+<div class="min-w-0" data-tw-widget="schedule">
+  {{ ui.week_strip(days) }}
+  <ul class="mt-5 grid grid-cols-1 gap-2.5">
+    {% for it in entries %}
+    <li class="flex min-w-0 items-center gap-3 rounded-2xl p-3 ring-1 ring-inset ring-gray-950/5 dark:ring-white/10" style="background: linear-gradient(90deg, rgb(var(--tw-c-{{ it.color if it.color in colors.COLOR_NAMES else 'primary' }}-500) / 0.10), transparent 70%)">
+      <span class="h-9 w-1 shrink-0 rounded-full" style="background: {{ colors.css_rgb(it.color) }}"></span>
+      <div class="min-w-0 flex-1">
+        {% if it.url %}<a href="{{ it.url }}" class="block truncate text-sm font-medium text-gray-950 hover:underline dark:text-white">{{ __(it.label) }}</a>{% else %}<p class="truncate text-sm font-medium text-gray-950 dark:text-white">{{ __(it.label) }}</p>{% endif %}
+        {% if it.description %}<p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ __(it.description) }}</p>{% endif %}
+      </div>
+      {% if it.time %}<span class="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-gray-600 ring-1 ring-inset ring-gray-950/10 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10">{{ it.time }}</span>{% endif %}
+    </li>
+    {% else %}
+    <li class="py-4 text-center text-sm text-gray-500">{{ __('Nothing planned.') }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endcall %}

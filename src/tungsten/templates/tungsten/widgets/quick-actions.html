@@ -1,0 +1,15 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# QuickActionsWidget: a grid of icon buttons. #}
+{% set cols = {2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4', 5: 'grid-cols-3 sm:grid-cols-5', 6: 'grid-cols-3 sm:grid-cols-6'} %}
+{% call ui.card(__(w.heading) if w.heading else none, __(w.description) if w.description else none, 'p-5', 'h-full', link, w.link_label, w.icon, w.icon_color) %}
+<ul class="grid {{ cols.get(w.columns, cols[4]) }} gap-3" data-tw-widget="quick-actions">
+  {% for it in entries %}
+  <li>
+    <a href="{{ it.url or '#' }}" class="tw-well group flex h-full flex-col items-center gap-2.5 px-2 py-4 text-center transition hover:bg-white hover:shadow-md hover:ring-gray-950/10 dark:hover:bg-white/10">
+      <span class="tw-icon-tile h-11 w-11 {{ colors.pick(colors.SOFT_ICON, it.color) }} transition group-hover:scale-110">{{ icon(it.icon or 'plus', 'h-5 w-5') }}</span>
+      <span class="text-xs font-medium text-gray-700 dark:text-gray-200">{{ __(it.label) }}</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% endcall %}

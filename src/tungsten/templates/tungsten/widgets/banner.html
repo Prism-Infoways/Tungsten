@@ -1,0 +1,5 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# BannerWidget: a wide colored card with a button. #}
+<div class="h-full" data-tw-widget="banner">
+{{ ui.banner(__(w.heading or ''), __(w.text) if w.text else none, __(w.button_label) if w.button_label else none, button_url, __(w.eyebrow) if w.eyebrow else none, w.variant, w.color, w.button_icon) }}
+</div>

@@ -1,0 +1,9 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# ActivityWidget: a timeline of recent events. #}
+{% call ui.card(__(w.heading) if w.heading else none, __(w.description) if w.description else none, 'px-6 pb-6 pt-5', 'h-full', link, w.link_label, w.icon, w.icon_color) %}
+{% if entries %}
+<ol data-tw-widget="activity">
+  {% for it in entries %}{{ ui.timeline_item(__(it.label), __(it.description) if it.description else none, it.time, it.icon or 'circle-dot', it.color, loop.last, it.url) }}{% endfor %}
+</ol>
+{% else %}<p class="py-6 text-center text-sm text-gray-500">{{ __('Nothing here yet.') }}</p>{% endif %}
+{% endcall %}

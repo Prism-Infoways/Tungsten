@@ -78,3 +78,15 @@ class Reports(Page):
             '<div class="tw-card p-6 text-sm text-gray-600 dark:text-gray-300">'
             "Custom pages can show any HTML, widgets, a form, or all of them together.</div>"
         )
+
+
+class UiKit(Page):
+    """Every modern UI component on one page (the gallery ships with Tungsten)."""
+
+    title = "UI kit"
+    slug = "ui-kit"
+    icon = "palette"
+    navigation_group = "Settings"
+    navigation_sort = 98
+    subheading = "Cards, pills, rings, gauges, lists and more. Copy any block into your own pages."
+    content_template = "tungsten/components/gallery.html"

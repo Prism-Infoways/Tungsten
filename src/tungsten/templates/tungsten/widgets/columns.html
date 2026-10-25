@@ -1,0 +1,16 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# ColumnsWidget: rounded columns with one highlighted. #}
+<section class="tw-card flex h-full flex-col p-6" data-tw-widget="columns">
+  <header class="mb-6 flex items-center justify-between gap-4">
+    {{ ui.card_heading(__(w.heading) if w.heading else '', __(w.description) if w.description else none, w.icon, w.icon_color) }}
+    {% if filters %}
+    <select class="tw-input w-auto shrink-0 rounded-full py-1.5 pe-9 text-xs font-semibold uppercase tracking-wide" aria-label="{{ __('Period') }}" name="filter"
+            hx-get="{{ w.get_url(ctx, filter=None) }}" hx-target="closest section" hx-swap="outerHTML">
+      {% for value, label in filters.items() %}<option value="{{ value }}" {% if value == active_filter %}selected{% endif %}>{{ __(label) }}</option>{% endfor %}
+    </select>
+    {% endif %}
+  </header>
+  {% if columns %}
+  <div class="mt-auto">{{ ui.columns(columns, w.color, w.height) }}</div>
+  {% else %}<p class="py-10 text-center text-sm text-gray-500">{{ __('No data yet.') }}</p>{% endif %}
+</section>

@@ -1,0 +1,20 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# GaugeWidget: progress to a target as a half circle or ring. #}
+{% set filled = w.variant in ('dark', 'brand') %}
+<section class="{{ 'tw-card-dark' if w.variant == 'dark' else ('tw-card-brand' if w.variant == 'brand' else 'tw-card') }} relative flex h-full flex-col overflow-hidden p-6" data-tw-widget="gauge">
+  {% if filled %}<span class="pointer-events-none absolute -end-16 -top-16 h-48 w-48 rounded-full bg-white/[0.06]" aria-hidden="true"></span>{% endif %}
+  <header class="relative mb-4 flex items-center justify-between gap-3">
+    <div class="min-w-0">
+      <h3 class="truncate text-base font-semibold tracking-tight {{ 'text-white' if filled else 'text-gray-950 dark:text-white' }}">{{ __(w.heading or '') }}</h3>
+      {% if w.description %}<p class="truncate text-sm {{ 'text-white/60' if filled else 'text-gray-500 dark:text-gray-400' }}">{{ __(w.description) }}</p>{% endif %}
+    </div>
+    <span class="tw-trend-pill {{ 'bg-white/15 text-white' if filled else colors.pick(colors.BADGE, w.color) }}">{{ percent | round | int }}%</span>
+  </header>
+  <div class="relative flex flex-1 items-center justify-center">
+    {% if w.shape == 'ring' %}
+    <div class="{{ '[&_.stroke-gray-100]:stroke-white/10 [&_span]:!text-white' if filled }}">{{ ui.progress_ring(percent, 'gray' if w.variant == 'brand' else w.color, 168, 16, __(gauge.label or w.label) if (gauge.label or w.label) else none, gauge.display) }}</div>
+    {% else %}
+    {{ ui.gauge(percent, w.color if w.variant != 'brand' else 'gray', gauge.display, gauge.caption, __(gauge.label or w.label) if (gauge.label or w.label) else none, filled) }}
+    {% endif %}
+  </div>
+</section>
