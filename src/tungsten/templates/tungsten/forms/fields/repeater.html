@@ -62,7 +62,7 @@
   <button type="button" class="tw-btn tw-btn-sm {{ colors.BUTTON.gray }}" @click="open = !open">{{ icon('plus', 'h-4 w-4') }}{{ v.add_label }}{{ icon('chevron-down', 'h-4 w-4') }}</button>
   <div x-show="open" x-cloak class="absolute z-20 mt-2 w-56 rounded-xl bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
     {% for b in v.blocks %}
-    <button type="button" class="flex w-full items-center gap-2 rounded-md px-2 py-2 text-start text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
+    <button type="button" class="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-start text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
             hx-post="{{ form.refresh_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form"
             hx-vals='{"_tw_ui_action": "repeater.add:{{ v.path }}:{{ b.name }}"}'>{{ icon(b.icon, 'h-4 w-4 text-gray-400') }}{{ b.label }}</button>
     {% endfor %}

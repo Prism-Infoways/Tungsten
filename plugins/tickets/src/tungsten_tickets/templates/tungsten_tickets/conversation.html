@@ -18,7 +18,7 @@
   {% else %}
   <li class="flex gap-x-3">
     {{ ui.avatar(m.author) }}
-    <div class="min-w-0 flex-1 rounded-xl px-4 py-3 ring-1 {{ tones.get(m.kind, tones.customer) }}">
+    <div class="min-w-0 flex-1 rounded-2xl px-4 py-3 ring-1 {{ tones.get(m.kind, tones.customer) }}">
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span class="text-sm font-semibold text-gray-950 dark:text-white">{{ m.author }}</span>
         {% set tag = tags.get(m.kind) %}{% if tag and show_tags %}{{ ui.badge(__(tag[0]), tag[1]) }}{% endif %}
@@ -30,9 +30,9 @@
         {% for f in m.attachments %}
         <li>
           {% if f.url %}
-          <a href="{{ f.url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-x-1.5 rounded-md bg-white px-2 py-1 text-xs font-medium ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10 {{ colors.LINK.gray }}">{{ icon('paperclip', 'h-3.5 w-3.5') }}{{ f.name }}</a>
+          <a href="{{ f.url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-x-1.5 rounded-full bg-white px-2 py-1 text-xs font-medium ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10 {{ colors.LINK.gray }}">{{ icon('paperclip', 'h-3.5 w-3.5') }}{{ f.name }}</a>
           {% else %}
-          <span class="inline-flex items-center gap-x-1.5 rounded-md px-2 py-1 text-xs text-gray-500 ring-1 ring-gray-950/10 dark:ring-white/10">{{ icon('paperclip', 'h-3.5 w-3.5') }}{{ f.name }}</span>
+          <span class="inline-flex items-center gap-x-1.5 rounded-full px-2 py-1 text-xs text-gray-500 ring-1 ring-gray-950/10 dark:ring-white/10">{{ icon('paperclip', 'h-3.5 w-3.5') }}{{ f.name }}</span>
           {% endif %}
         </li>
         {% endfor %}

@@ -7,10 +7,10 @@
   {% endif %}
   <dd class="min-w-0">
     {% if code %}
-    <div class="group relative overflow-hidden rounded-lg bg-gray-50 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
+    <div class="group relative overflow-hidden rounded-xl bg-gray-50 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10">
       {% if v.copyable %}
       <button type="button" data-tw-local title="{{ __('Copy') }}" aria-label="{{ __('Copy') }}"
-              class="absolute end-2 top-2 rounded-md bg-white/80 p-1.5 text-gray-500 opacity-0 shadow-sm ring-1 ring-gray-950/10 transition hover:text-gray-700 focus:opacity-100 group-hover:opacity-100 dark:bg-gray-900/80 dark:text-gray-400 dark:ring-white/10"
+              class="absolute end-2 top-2 rounded-lg bg-white/80 p-1.5 text-gray-500 opacity-0 shadow-sm ring-1 ring-gray-950/10 transition hover:text-gray-700 focus:opacity-100 group-hover:opacity-100 dark:bg-gray-900/80 dark:text-gray-400 dark:ring-white/10"
               onclick="event.preventDefault(); navigator.clipboard.writeText({{ code | tojson | forceescape }}); window.twToast && twToast({title: twT('Copied'), status: 'success'})">{{ icon('copy', 'h-3.5 w-3.5') }}</button>
       {% endif %}
       <div class="flex overflow-auto text-[13px] leading-6" {% if v.max_height %}style="max-height: {{ v.max_height | int }}px"{% endif %}>

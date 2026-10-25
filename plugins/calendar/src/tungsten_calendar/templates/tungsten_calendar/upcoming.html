@@ -3,7 +3,7 @@
 <ul class="grid gap-1" data-calendar-upcoming>
   {% for r in rows %}
   <li>
-    <a {% if r.url %}href="{{ r.url }}"{% endif %} class="flex items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5" style="text-decoration:none">
+    <a {% if r.url %}href="{{ r.url }}"{% endif %} class="flex items-center gap-3 rounded-xl px-2 py-2 text-sm hover:bg-gray-50 dark:hover:bg-white/5" style="text-decoration:none">
       <span class="shrink-0 rounded-full" style="width:8px;height:8px;background:{{ r.strong }}"></span>
       <span class="shrink-0" style="width:7rem;line-height:1.25"><span class="block text-gray-950 dark:text-white" style="font-weight:500">{{ __(r.day) }}</span><span class="block text-xs text-gray-500 dark:text-gray-400">{{ __(r.time) }}</span></span>
       <span class="min-w-0 flex-1 truncate font-medium text-gray-950 dark:text-white">{{ r.title }}</span>

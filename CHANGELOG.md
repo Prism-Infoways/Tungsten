@@ -9,6 +9,7 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 - **Filled stats cards**: `Stat(...).highlight()` fills a card with the brand color, `.highlight("dark")` makes it near black.
 - **UI kit for your own templates**: new macros `pill_tabs`, `segmented`, `switch`, `chip`, `trend_pill`, `progress_ring`, `gauge`, `meter`, `columns`, `banner`, `list_row`, `timeline_item`, `avatar_group`, `week_strip`, `alert`, `kpi`, `skeleton`, `divider`, `dot` and `kbd`, and CSS classes like `tw-card-dark`, `tw-card-brand`, `tw-glass`, `tw-well` and `tw-pill-nav`. A gallery page shows them all: `content_template = "tungsten/components/gallery.html"`.
 - **Demo app**: the shop dashboard now uses the new widgets, and has a **UI kit** page under Settings.
+- **Plugins in the new design**: every plugin page follows the new look. Saved view tabs, calendar view buttons, kanban lanes and cards, toggle buttons, relation manager tabs, wizard steps, ticket replies, dashboards toolbars and file fields are pill shaped and rounded like the rest.
 
 ## 2026-10-17 · tungsten-admin 0.1.11: advanced filters
 

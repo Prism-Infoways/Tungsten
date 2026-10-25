@@ -9,7 +9,7 @@
   <div class="{{ span_class.get(item.span, 'md:col-span-2') }} flex min-w-0 flex-col" data-dash-item="{{ item.id }}"
        {% if editing and builtin %}x-data="{ open: false }"{% endif %}>
     {% if editing %}
-    <div class="mb-2 flex items-center gap-2 rounded-lg bg-white px-2 py-1.5 ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
+    <div class="mb-2 flex items-center gap-2 rounded-full bg-white px-2 py-1.5 ring-1 ring-gray-950/[0.06] dark:bg-white/5 dark:ring-white/10">
       <button type="button" class="dash-handle cursor-grab rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200"
               title="{{ __('Drag to move') }}" aria-label="{{ __('Drag to move') }}">{{ icon('grip-vertical', 'h-4 w-4') }}</button>
       <span class="min-w-0 truncate text-sm font-medium text-gray-700 dark:text-gray-200">{{ item_label(ctx, plugin, item) }}</span>

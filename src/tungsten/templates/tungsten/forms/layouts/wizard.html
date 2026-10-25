@@ -7,7 +7,7 @@
     {% set state = 'done' if s.index < v.current else ('current' if s.index == v.current else 'todo') %}
     <li class="shrink-0">
       <button type="button" {% if v.skippable or s.index < v.current %}hx-post="{{ form.refresh_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form" hx-vals='{"_tw_ui_action": "wizard.goto:{{ key }}:{{ s.index }}"}'{% else %}disabled{% endif %}
-              class="flex w-full items-center gap-x-3 rounded-lg px-3 py-2 text-start text-sm transition {{ 'bg-primary-50 dark:bg-primary-500/10' if state == 'current' }}">
+              class="flex w-full items-center gap-x-3 rounded-full px-3 py-2 pe-4 text-start text-sm transition {{ 'bg-primary-50 dark:bg-primary-500/10' if state == 'current' }}">
         <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold
                      {{ 'bg-primary-600 text-white' if state == 'current' else ('bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300' if state == 'done' else 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400') }}
                      {{ 'ring-2 ring-danger-500' if s.errors }}">

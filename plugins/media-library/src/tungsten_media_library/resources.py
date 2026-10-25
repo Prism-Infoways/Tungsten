@@ -83,7 +83,7 @@ def _usages_html(ctx: Any, record: Any) -> Markup:
 def _missing_note(record: Any) -> Markup:
     if record is None or not record.missing:
         return Markup("")
-    return Markup('<p class="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-700 dark:bg-danger-400/10 '
+    return Markup('<p class="rounded-xl bg-danger-50 px-3 py-2 text-sm text-danger-700 dark:bg-danger-400/10 '
                   'dark:text-danger-400">This file is missing from storage. Upload it again, or delete this '
                   'entry.</p>')
 
@@ -97,10 +97,10 @@ def _file_card(ctx: Any, record: Any) -> Markup:
         return _missing_note(record)
     if record.kind == "image":
         return Markup(f'<a href="{url}" target="_blank" rel="noopener"><img src="{url}" alt="{escape(record.alt or "")}"'
-                      f' loading="lazy" class="w-full rounded-lg ring-1 ring-gray-950/10 dark:ring-white/10" '
+                      f' loading="lazy" class="w-full rounded-xl ring-1 ring-gray-950/10 dark:ring-white/10" '
                       f'style="max-height:420px;object-fit:contain;background:#f3f4f6"></a>')
     if record.kind == "video":
-        return Markup(f'<video src="{url}" controls preload="metadata" class="w-full rounded-lg" '
+        return Markup(f'<video src="{url}" controls preload="metadata" class="w-full rounded-xl" '
                       f'style="max-height:420px"></video>')
     if record.kind == "audio":
         return Markup(f'<audio src="{url}" controls preload="metadata" class="w-full"></audio>')
