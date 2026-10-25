@@ -118,6 +118,188 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
     });
 
     // ui.dropdown(): while open, the panel floats next to the trigger (floatPanel below)
+    // ------------------------------------------------------------ code editor
+    Alpine.data("twCodeEditor", function (opts) {
+      opts = opts || {};
+      var pad = " ".repeat(opts.indent || 2);
+      return {
+        lines: 1,
+        gutter: "1",
+        init: function () { this.sync(); },
+        sync: function () {
+          var el = this.$refs.code;
+          if (!el) return;
+          var n = el.value.split("\n").length;
+          this.lines = n;
+          if (opts.numbers) {
+            var out = [];
+            for (var i = 1; i <= n; i++) out.push(i);
+            this.gutter = out.join("\n");
+          }
+        },
+        scroll: function () { if (this.$refs.gutter) this.$refs.gutter.scrollTop = this.$refs.code.scrollTop; },
+        keys: function (e) {
+          var el = e.target, start = el.selectionStart, end = el.selectionEnd, v = el.value;
+          var set = function (text, s, en) {
+            el.value = text; el.selectionStart = s; el.selectionEnd = en == null ? s : en;
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+          };
+          if (e.key === "Tab") {
+            e.preventDefault();
+            var ls = v.lastIndexOf("\n", start - 1) + 1;
+            if (start !== end || e.shiftKey) {
+              var le = v.indexOf("\n", end); if (le < 0) le = v.length;
+              var block = v.slice(ls, le).split("\n"), delta = 0;
+              block = block.map(function (line, i) {
+                if (e.shiftKey) { var cut = Math.min(line.match(/^ */)[0].length, pad.length); if (i === 0) delta = -cut; return line.slice(cut); }
+                if (i === 0) delta = pad.length; return pad + line;
+              });
+              var joined = block.join("\n");
+              set(v.slice(0, ls) + joined + v.slice(le), Math.max(ls, start + delta), ls + joined.length);
+            } else {
+              set(v.slice(0, start) + pad + v.slice(end), start + pad.length);
+            }
+          } else if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+            var lineStart = v.lastIndexOf("\n", start - 1) + 1;
+            var indent = v.slice(lineStart, start).match(/^[ \t]*/)[0];
+            var before = v.slice(0, start).trimEnd().slice(-1);
+            if (/[{[(:]/.test(before)) indent += pad;
+            e.preventDefault();
+            set(v.slice(0, start) + "\n" + indent + v.slice(end), start + 1 + indent.length);
+          }
+        },
+      };
+    });
+
+    // ------------------------------------------------------------ markdown editor
+    // The preview follows the same rules as tungsten.support.markdown on the server.
+    function mdEscape(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+    function mdSafeUrl(u) { return /^(https?:|mailto:|tel:|\/|#|\.)/i.test(u.trim()) ? u : "#"; }
+    function mdInline(text) {
+      var keep = [];
+      var hold = function (html) { keep.push(html); return "\u0000" + (keep.length - 1) + "\u0000"; };
+      var s = text.replace(/`([^`\n]+)`/g, function (m, c) { return hold("<code>" + mdEscape(c) + "</code>"); });
+      s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, function (m, a, u) { return hold('<img src="' + mdEscape(mdSafeUrl(u)) + '" alt="' + mdEscape(a) + '">'); });
+      s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (m, t, u) { return hold('<a href="' + mdEscape(mdSafeUrl(u)) + '">' + mdInline(t) + "</a>"); });
+      s = s.replace(/(^|[^\w\/])(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g, function (m, pre, u) { return pre + hold('<a href="' + mdEscape(u) + '">' + mdEscape(u) + "</a>"); });
+      s = mdEscape(s)
+        .replace(/(^|[^\w*])\*\*(?=\S)(.+?)(?<=\S)\*\*(?![\w*])/g, "$1<strong>$2</strong>")
+        .replace(/(^|[^\w_])__(?=\S)(.+?)(?<=\S)__(?![\w_])/g, "$1<strong>$2</strong>")
+        .replace(/(^|[^\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])/g, "$1<em>$2</em>")
+        .replace(/(^|[^\w_])_(?=\S)(.+?)(?<=\S)_(?![\w_])/g, "$1<em>$2</em>")
+        .replace(/~~(?=\S)(.+?)(?<=\S)~~/g, "<del>$1</del>")
+        .replace(/  \n/g, "<br>\n");
+      return s.replace(/\u0000(\d+)\u0000/g, function (m, i) { return keep[+i]; });
+    }
+    function mdItem(text) {
+      var t = text.match(/^\[([ xX])\]\s+(.*)$/);
+      if (t) return "<li>" + (t[1] === " " ? "&#9744;" : "&#9745;") + " " + mdInline(t[2]) + "</li>";
+      return "<li>" + mdInline(text) + "</li>";
+    }
+    function mdRender(text) {
+      var lines = (text || "").replace(/\r\n?/g, "\n").split("\n"), out = [], para = [], stack = [], quote = [], i = 0;
+      var flushPara = function () { if (para.length) { out.push("<p>" + mdInline(para.map(function (s) { return s.trim(); }).join(" ")) + "</p>"); para = []; } };
+      var closeLists = function (to) { if (to == null) to = -1; while (stack.length && stack[stack.length - 1].indent > to) { var l = stack.pop(); out.push(l.nested ? "</" + l.tag + "></li>" : "</" + l.tag + ">"); } };
+      var flushQuote = function () { if (quote.length) { out.push("<blockquote>" + mdRender(quote.join("\n")) + "</blockquote>"); quote = []; } };
+      var flushAll = function () { flushPara(); closeLists(); flushQuote(); };
+      while (i < lines.length) {
+        var line = lines[i], m;
+        if ((m = line.match(/^(```|~~~)\s*([\w+-]*)\s*$/))) {
+          flushAll(); var code = []; i++;
+          while (i < lines.length && lines[i].indexOf(m[1]) !== 0) code.push(lines[i++]);
+          out.push("<pre><code" + (m[2] ? ' class="language-' + mdEscape(m[2]) + '"' : "") + ">" + mdEscape(code.join("\n")) + "</code></pre>"); i++; continue;
+        }
+        if (!line.trim()) { flushAll(); i++; continue; }
+        if (/^\s*>/.test(line)) { flushPara(); closeLists(); quote.push(line.replace(/^\s*>\s?/, "")); i++; continue; }
+        flushQuote();
+        if (/^(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { flushPara(); closeLists(); out.push("<hr>"); i++; continue; }
+        if ((m = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/))) { flushPara(); closeLists(); out.push("<h" + m[1].length + ">" + mdInline(m[2]) + "</h" + m[1].length + ">"); i++; continue; }
+        if (line.indexOf("|") >= 0 && i + 1 < lines.length && /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(lines[i + 1])) {
+          flushPara(); closeLists();
+          var cells = function (row) { return row.trim().replace(/^\||\|$/g, "").split("|").map(function (c) { return c.trim(); }); };
+          var head = cells(line); i += 2; var body = [];
+          while (i < lines.length && lines[i].indexOf("|") >= 0 && lines[i].trim()) body.push(cells(lines[i++]));
+          out.push("<table><thead><tr>" + head.map(function (c) { return "<th>" + mdInline(c) + "</th>"; }).join("") + "</tr></thead>");
+          if (body.length) out.push("<tbody>" + body.map(function (r) { return "<tr>" + r.map(function (c) { return "<td>" + mdInline(c) + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody>");
+          out.push("</table>"); continue;
+        }
+        var ul = line.match(/^(\s*)[-*+]\s+(.*)$/), ol = ul ? null : line.match(/^(\s*)\d+[.)]\s+(.*)$/);
+        if (ul || ol) {
+          flushPara(); m = ul || ol; var tag = ul ? "ul" : "ol", indent = m[1].replace(/\t/g, "    ").length;
+          if (stack.length && indent > stack[stack.length - 1].indent) { out[out.length - 1] = out[out.length - 1].slice(0, -5); out.push("<" + tag + ">"); stack.push({ tag: tag, indent: indent, nested: true }); }
+          else {
+            closeLists(indent);
+            if (stack.length && stack[stack.length - 1].indent === indent && stack[stack.length - 1].tag !== tag) closeLists(indent - 1);
+            if (!stack.length || stack[stack.length - 1].indent < indent) { out.push("<" + tag + ">"); stack.push({ tag: tag, indent: indent, nested: false }); }
+          }
+          out.push(mdItem(m[2])); i++; continue;
+        }
+        if (stack.length && /^ /.test(line)) { out[out.length - 1] = out[out.length - 1].slice(0, -5) + " " + mdInline(line.trim()) + "</li>"; i++; continue; }
+        closeLists(); para.push(line); i++;
+      }
+      flushAll();
+      return out.join("\n");
+    }
+    window.twMarkdown = mdRender;
+
+    Alpine.data("twMarkdownEditor", function () {
+      return {
+        tab: "write",
+        preview: function () {
+          if (this.$refs.preview) this.$refs.preview.innerHTML = mdRender(this.$refs.text.value) || '<p class="text-gray-400">' + twT("Nothing to preview.") + "</p>";
+          this.tab = "preview";
+        },
+        wrap: function (before, after, placeholder) {
+          var el = this.$refs.text, s = el.selectionStart, e = el.selectionEnd, v = el.value;
+          var sel = v.slice(s, e) || placeholder || "";
+          el.value = v.slice(0, s) + before + sel + after + v.slice(e);
+          el.focus();
+          el.selectionStart = s + before.length; el.selectionEnd = s + before.length + sel.length;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        },
+        lines: function (prefix) {
+          var el = this.$refs.text, s = el.selectionStart, e = el.selectionEnd, v = el.value;
+          var ls = v.lastIndexOf("\n", s - 1) + 1, le = v.indexOf("\n", e); if (le < 0) le = v.length;
+          var n = 0, block = v.slice(ls, le).split("\n").map(function (line) { n++; return (typeof prefix === "function" ? prefix(n) : prefix) + line; }).join("\n");
+          var lead = (ls > 0 && v[ls - 1] !== "\n" && v.slice(0, ls).trim() ? "\n" : "");
+          el.value = v.slice(0, ls) + lead + block + v.slice(le);
+          el.focus(); el.selectionStart = ls + lead.length; el.selectionEnd = ls + lead.length + block.length;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        },
+        insert: function (text) {
+          var el = this.$refs.text, s = el.selectionStart, v = el.value;
+          var lead = s > 0 && v[s - 1] !== "\n" ? "\n\n" : "";
+          el.value = v.slice(0, s) + lead + text + v.slice(el.selectionEnd);
+          el.focus(); el.selectionStart = el.selectionEnd = s + lead.length + text.length;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        },
+        run: function (name) {
+          switch (name) {
+            case "bold": return this.wrap("**", "**", twT("bold text"));
+            case "italic": return this.wrap("*", "*", twT("italic text"));
+            case "strike": return this.wrap("~~", "~~", twT("text"));
+            case "code": return this.wrap("`", "`", "code");
+            case "codeBlock": return this.wrap("```\n", "\n```", "code");
+            case "link": { var url = window.prompt(twT("Link URL"), "https://"); if (url) this.wrap("[", "](" + url + ")", twT("link text")); return; }
+            case "image": { var src = window.prompt(twT("Image URL"), "https://"); if (src) this.insert("![" + twT("alt text") + "](" + src + ")"); return; }
+            case "heading": return this.lines("## ");
+            case "quote": return this.lines("> ");
+            case "bulletList": return this.lines("- ");
+            case "orderedList": return this.lines(function (n) { return n + ". "; });
+            case "taskList": return this.lines("- [ ] ");
+            case "table": return this.insert("| " + twT("Heading") + " | " + twT("Heading") + " |\n| --- | --- |\n| " + twT("Cell") + " | " + twT("Cell") + " |");
+            case "hr": return this.insert("---");
+          }
+        },
+        keys: function (e) {
+          if (!(e.ctrlKey || e.metaKey)) return;
+          var map = { b: "bold", i: "italic", e: "code", k: "link" };
+          var name = map[e.key.toLowerCase()];
+          if (name) { e.preventDefault(); this.run(name); }
+        },
+      };
+    });
+
     Alpine.data("twDropdown", function (align) {
       return {
         open: false,

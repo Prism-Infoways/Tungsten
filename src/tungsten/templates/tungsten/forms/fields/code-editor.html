@@ -1,0 +1,23 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% call wrapper(field, v) %}
+<div class="tw-code-editor overflow-hidden rounded-xl bg-white shadow-sm ring-1 focus-within:ring-2 focus-within:ring-primary-500 dark:bg-white/5 {{ 'ring-danger-600' if v.errors else 'ring-gray-950/10 dark:ring-white/20' }} {{ 'opacity-60' if v.disabled }}"
+     x-data="twCodeEditor({ indent: {{ v.indent }}, numbers: {{ 'true' if v.line_numbers else 'false' }} })" data-tw-code-editor>
+  <div class="flex items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-3 py-1.5 text-xs text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+    <span class="font-mono uppercase tracking-wider">{{ v.language or 'text' }}</span>
+    <span class="tabular-nums" x-text="lines + ' ' + ({{ __('lines') | tojson | forceescape }})">{{ v.rows }} {{ __('lines') }}</span>
+  </div>
+  <div class="flex font-mono text-[13px] leading-6" style="{% if v.min_height %}min-height: {{ v.min_height | int }}px;{% endif %}{% if v.max_height %}max-height: {{ v.max_height | int }}px;{% endif %}">
+    {% if v.line_numbers %}
+    <pre aria-hidden="true" x-ref="gutter" class="w-10 shrink-0 select-none overflow-hidden border-e border-gray-100 bg-gray-50/60 py-3 pe-2 text-end text-gray-400 dark:border-white/10 dark:bg-white/[0.03] dark:text-gray-500" x-text="gutter"></pre>
+    {% endif %}
+    <textarea id="{{ v.id }}" name="{{ v.path }}" rows="{{ v.rows }}" spellcheck="false" autocomplete="off" autocapitalize="off"
+              x-ref="code" @input="sync()" @scroll="scroll()" @keydown="keys($event)"
+              class="min-w-0 flex-1 resize-y border-0 bg-transparent px-3 py-3 font-mono text-[13px] leading-6 text-gray-900 placeholder:text-gray-400 focus:ring-0 dark:text-gray-100 {{ 'whitespace-pre-wrap break-words' if v.wrap else 'whitespace-pre overflow-x-auto' }}"
+              {% if v.wrap %}wrap="soft"{% else %}wrap="off"{% endif %}
+              {% if v.maxlength %}maxlength="{{ v.maxlength }}"{% endif %}
+              {% if v.placeholder %}placeholder="{{ v.placeholder }}"{% endif %}
+              {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>{{ v.state if v.state is not none else '' }}</textarea>
+  </div>
+</div>
+{{ mirror(v) }}
+{% endcall %}

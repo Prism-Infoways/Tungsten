@@ -1,0 +1,4 @@
+{% from "tungsten/tables/layouts/_child.html" import child %}
+<div class="grid {{ v.grid }} {{ v.gap }} {{ v.classes }}" data-tw-layout="grid">
+  {% for c in v.children %}{{ child(c) }}{% endfor %}
+</div>

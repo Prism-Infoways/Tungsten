@@ -167,7 +167,8 @@
           {% if selectable %}
           <input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox absolute end-4 top-4" data-tw-local x-model="selected" aria-label="{{ __('Select row') }}">
           {% endif %}
-          {% for c in columns %}
+          {% if layout %}<div class="flex flex-col gap-2 {{ 'pe-8' if selectable }}">{% for c in columns %}{{ c.render_cell(table, row.record) }}{% endfor %}</div>{% endif %}
+          {% for c in columns if not layout %}
           <div class="min-w-0 {{ 'pe-8 text-base font-semibold text-gray-950 dark:text-white' if loop.first else '' }}">
             {% if not loop.first %}<p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ c.get_label() }}</p>{% endif %}
             {% if row.url and not c.editable and not c._url %}
@@ -195,7 +196,7 @@
     {% elif rows %}
     <div class="{{ 'max-md:overflow-visible' if stacked }} overflow-x-auto border-t border-gray-100 dark:border-white/10">
       <table class="w-full table-auto divide-y divide-gray-100 text-start dark:divide-white/5 {{ 'max-md:block' if stacked }}" {% if stacked %}data-tw-stacked{% endif %}>
-        <thead class="bg-gray-50 dark:bg-white/[0.03] {{ 'max-md:hidden' if stacked }}">
+        <thead class="bg-gray-50 dark:bg-white/[0.03] {{ 'max-md:hidden' if stacked }} {{ 'hidden' if layout and not selectable and not reordering and not row_actions }}">
           {% if column_groups %}
           {# shared headings over grouped columns: ColumnGroup("Pricing", [...]) #}
           <tr>
@@ -216,7 +217,8 @@
             <th class="w-1 px-4 py-3"><input type="checkbox" class="tw-checkbox" data-tw-local :checked="allSelected" @click="toggleAll()" aria-label="{{ __('Select all') }}"></th>
             {% endif %}
             {% if table._row_index %}<th class="w-1 px-3 py-3 text-start text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">#</th>{% endif %}
-            {% for c in columns %}
+            {% if layout %}<th></th>{% endif %}
+            {% for c in columns if not layout %}
             <th class="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 {{ 'text-end' if c._alignment == 'end' else ('text-center' if c._alignment == 'center' else 'text-start') }}"
                 {% if c._width %}style="width: {{ c._width }}"{% endif %}>
               {% if c._sortable %}
@@ -274,7 +276,10 @@
             <td class="w-1 px-4 py-3 {{ 'max-md:absolute max-md:end-1 max-md:top-2' if stacked }}"><input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox" data-tw-local x-model="selected" aria-label="{{ __('Select row') }}"></td>
             {% endif %}
             {% if table._row_index %}<td class="px-3 py-3 text-sm text-gray-500 dark:text-gray-400 {{ 'max-md:hidden' if stacked }}">{{ row.index }}</td>{% endif %}
-            {% for c in columns %}
+            {% if layout %}
+            <td class="whitespace-normal px-4 py-3" data-tw-layout-cell><div class="flex flex-col gap-2">{% for c in columns %}{{ c.render_cell(table, row.record) }}{% endfor %}</div></td>
+            {% endif %}
+            {% for c in columns if not layout %}
             <td class="px-3 py-3 {{ 'whitespace-normal' if c._wrap else 'whitespace-nowrap' }} {{ 'max-md:flex max-md:items-start max-md:justify-between max-md:gap-4 max-md:py-1.5 max-md:text-end max-md:before:shrink-0 max-md:before:text-start max-md:before:text-sm max-md:before:font-medium max-md:before:text-gray-500 max-md:before:content-[attr(data-label)] dark:max-md:before:text-gray-400' if stacked }}"
                 {% if stacked %}data-label="{{ c.get_label() }}"{% endif %}>
               {% if row.url and not c.editable and not c._url %}

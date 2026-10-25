@@ -129,6 +129,7 @@ class Table(Component):
     def __init__(self) -> None:
         super().__init__()
         self._columns: list[Column] = []
+        self._layout: list[Column] = []  # the top-level columns as given, when a layout column is used
         self._filters: list[Filter] = []
         self._advanced_filters: tuple[list[str] | None, list[str]] | None = None
         self._actions: list = []
@@ -188,14 +189,24 @@ class Table(Component):
         """The table's columns. A :class:`ColumnGroup` puts a shared heading over the columns in it."""
         self._columns = []
         self._column_groups = {}
+        self._layout = []
         for item in columns:
             if isinstance(item, ColumnGroup):
                 for col in item.columns:
                     self._column_groups[col.name] = item
                     self._columns.append(col)
+            elif getattr(item, "is_layout", False):
+                # Split/Stack/Panel/Grid: the inner columns still search, sort, toggle and eager-load
+                self._columns.extend(item.flatten())
             else:
                 self._columns.append(item)
+        if any(getattr(item, "is_layout", False) for item in columns):
+            self._layout = [item for item in columns if not isinstance(item, ColumnGroup)]
         return self
+
+    def has_layout(self) -> bool:
+        """``True`` when the columns are arranged with Split, Stack, Panel or Grid."""
+        return bool(self._layout)
 
     FILTER_LAYOUTS = ("panel", "above", "modal", "dropdown")
 
@@ -673,6 +684,8 @@ class Table(Component):
     def visible_columns(self) -> list[Column]:
         hidden = self.hidden_columns()
         ev = self.ev()
+        if self._layout:
+            return [c for c in self._layout if c.name not in hidden and c.is_visible(**ev)]
         return [c for c in self._columns if c.name not in hidden and c.is_visible(**ev)]
 
     def column_group_headers(self, columns: list[Column]) -> list[dict]:
@@ -1280,7 +1293,8 @@ class Table(Component):
             "cursors": self._cursors,
             "column_groups": self.column_group_headers(columns),
             "content_grid": self.content_grid_classes() if self._content_grid else None,
-            "stacked": self._stacked_on_mobile and not self._content_grid,
+            "stacked": self._stacked_on_mobile and not self._content_grid and not self._layout,
+            "layout": bool(self._layout),
             "deferred": self.has_deferred_filters(),
             "filters_layout": self._filters_layout,
             "reordering": self.is_reordering,

@@ -1,0 +1,12 @@
+{% from "tungsten/tables/layouts/_child.html" import child %}
+<div class="tw-well relative mt-2 p-3 {{ v.classes }}" data-tw-layout="panel" {% if v.collapsible %}x-data="{ open: {{ 'false' if v.collapsed else 'true' }} }"{% endif %}>
+  {% if v.collapsible %}
+  <button type="button" class="absolute -top-2 end-3 flex h-6 w-6 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm ring-1 ring-gray-950/10 hover:text-gray-950 dark:bg-gray-900 dark:ring-white/10 dark:hover:text-white"
+          data-tw-local @click.stop.prevent="open = !open" :aria-expanded="open" aria-label="{{ __('Toggle') }}">
+    <span :class="open && 'rotate-180'" class="transition">{{ icon('chevron-down', 'h-3.5 w-3.5') }}</span>
+  </button>
+  <div x-show="open" {% if v.collapsed %}x-cloak{% endif %}>
+  {% endif %}
+  <div class="flex flex-col gap-2">{% for c in v.children %}{{ child(c) }}{% endfor %}</div>
+  {% if v.collapsible %}</div>{% endif %}
+</div>

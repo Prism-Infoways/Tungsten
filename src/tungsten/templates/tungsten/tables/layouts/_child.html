@@ -1,0 +1,3 @@
+{%- macro child(c, extra='') -%}
+<div class="min-w-0 {{ extra }} {{ c.classes }}">{% if c.url %}<a href="{{ c.url }}" class="block" hx-target="body" hx-swap="innerHTML show:window:top">{{ c.html }}</a>{% else %}{{ c.html }}{% endif %}</div>
+{%- endmacro -%}

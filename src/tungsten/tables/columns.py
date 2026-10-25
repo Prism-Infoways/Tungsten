@@ -51,6 +51,8 @@ class Column(Component):
     template = "tungsten/tables/columns/text.html"
     #: inline-editable cells are not wrapped in the row link
     editable = False
+    #: Split, Stack, Panel and Grid hold other columns and hide the header
+    is_layout = False
 
     def __init__(self, name: str) -> None:
         super().__init__()
@@ -80,6 +82,8 @@ class Column(Component):
         self._wrap = False
         self._tooltip: Any = None
         self._extra_classes: Any = None
+        self._grow = True
+        self._visible_from: str | None = None
 
     # ------------------------------------------------------------------ config
     def label(self, label: Any) -> "Column":
@@ -183,6 +187,16 @@ class Column(Component):
 
     def extra_classes(self, value: Any) -> "Column":
         self._extra_classes = value
+        return self
+
+    def grow(self, condition: bool = True) -> "Column":
+        """Inside a :class:`~tungsten.tables.Split`: take the free space (default) or only what is needed."""
+        self._grow = condition
+        return self
+
+    def visible_from(self, breakpoint: str) -> "Column":
+        """Inside a layout column: only show from this screen size up (sm, md, lg, xl, 2xl)."""
+        self._visible_from = breakpoint
         return self
 
     # ------------------------------------------------------------------ data

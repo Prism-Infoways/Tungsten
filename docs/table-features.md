@@ -162,6 +162,8 @@ table.content_grid(4)                     # always 4 per row
 
 Screen sizes are `sm`, `md`, `lg`, `xl` and `2xl`, with 1 to 6 cards per row.
 
+For a richer card, arrange the columns with the `Split`, `Stack`, `Panel` and `Grid` [layouts](table-columns#layouts-split-stack-panel-and-grid).
+
 ## Show and hide columns
 
 Mark columns as `toggleable()` and a **Columns** dropdown appears in the toolbar. Users tick the columns they want to see.

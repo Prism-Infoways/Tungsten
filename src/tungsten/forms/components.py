@@ -1,5 +1,6 @@
-"""Content blocks and extra layouts for forms: ``Actions``, ``Text``, ``Html``,
-``Callout``, ``Flex`` (alias ``Split``) and ``ViewField``/``View`` for your own templates.
+"""Content blocks and extra layouts for forms: ``Actions``, ``Text``, ``Html``, ``Icon``,
+``Image``, ``UnorderedList``, ``Callout``, ``Flex`` (alias ``Split``), ``FusedGroup`` and
+``ViewField``/``View`` for your own templates.
 
 None of the content blocks hold a value; they are skipped when the form is saved.
 """
@@ -34,6 +35,8 @@ TEXT_WEIGHTS = {"normal": "font-normal", "medium": "font-medium", "semibold": "f
 JUSTIFY = {"start": "justify-start", "center": "justify-center", "end": "justify-end", "between": "justify-between"}
 ITEMS = {"start": "md:items-start", "center": "md:items-center", "end": "md:items-end"}
 FLEX_FROM = {"sm": "sm:flex-row", "md": "md:flex-row", "lg": "lg:flex-row", "xl": "xl:flex-row"}
+ICON_SIZES = {"xs": "h-3.5 w-3.5", "sm": "h-4 w-4", "md": "h-5 w-5", "lg": "h-6 w-6", "xl": "h-8 w-8"}
+IMAGE_SIZES = {"xs": "h-8", "sm": "h-12", "md": "h-24", "lg": "h-40", "xl": "h-64", "full": "w-full"}
 
 
 class Static(Field):
@@ -180,6 +183,183 @@ class Html(Static):
         if content is None:
             content = ""
         v["content"] = content if isinstance(content, Markup) else Markup(sanitize(str(content)))
+        return v
+
+
+class Icon(Static):
+    """A Lucide icon on its own: ``Icon("sparkles").color("warning").size("lg").tooltip("New")``."""
+
+    template = "tungsten/forms/components/icon.html"
+
+    def __init__(self, icon: Any = None, name: str | None = None) -> None:
+        super().__init__(name)
+        self._icon = icon
+        self._color: Any = None
+        self._size = "md"
+        self._tooltip: Any = None
+        self._column_span = 1
+
+    def icon(self, icon: Any) -> "Icon":
+        self._icon = icon
+        return self
+
+    def color(self, color: Any) -> "Icon":
+        self._color = color
+        return self
+
+    def size(self, size: str) -> "Icon":
+        """xs, sm, md, lg or xl"""
+        self._size = size
+        return self
+
+    def tooltip(self, text: Any) -> "Icon":
+        self._tooltip = text
+        return self
+
+    def view_data(self, form: "Form", base: str) -> dict[str, Any]:
+        v = super().view_data(form, base)
+        ev = self.field_ev(form, base)
+        v.update(icon=evaluate(self._icon, **ev), color=evaluate(self._color, **ev),
+                 size=ICON_SIZES.get(self._size, ICON_SIZES["md"]), tooltip=maybe(evaluate(self._tooltip, **ev)))
+        return v
+
+
+class Image(Static):
+    """A picture in a form or infolist: ``Image("/media/map.png", "Office map").size("lg").rounded()``.
+
+    ``url`` can be a closure (``lambda record: record.cover``). ``.circular()`` makes an avatar.
+    """
+
+    template = "tungsten/forms/components/image.html"
+
+    def __init__(self, url: Any = None, alt: Any = None, name: str | None = None) -> None:
+        super().__init__(name)
+        self._url = url
+        self._alt = alt
+        self._size = "md"
+        self._width: str | None = None
+        self._height: str | None = None
+        self._rounded = "rounded-xl"
+        self._alignment = "start"
+        self._tooltip: Any = None
+        self._link: Any = None
+        self._column_span = "full"
+
+    def url(self, url: Any) -> "Image":
+        self._url = url
+        return self
+
+    def alt(self, alt: Any) -> "Image":
+        self._alt = alt
+        return self
+
+    def size(self, size: str) -> "Image":
+        """xs, sm, md, lg, xl or full (the height; the width follows)"""
+        self._size = size
+        return self
+
+    def width(self, value: str) -> "Image":
+        """A CSS width like ``"200px"`` or ``"50%"``."""
+        self._width = value
+        return self
+
+    def height(self, value: str) -> "Image":
+        self._height = value
+        return self
+
+    def rounded(self, condition: bool = True) -> "Image":
+        self._rounded = "rounded-xl" if condition else "rounded-none"
+        return self
+
+    def circular(self, condition: bool = True) -> "Image":
+        self._rounded = "rounded-full object-cover aspect-square" if condition else "rounded-xl"
+        return self
+
+    def alignment(self, value: str) -> "Image":
+        """start, center or end"""
+        self._alignment = value
+        return self
+
+    def tooltip(self, text: Any) -> "Image":
+        self._tooltip = text
+        return self
+
+    def link(self, url: Any) -> "Image":
+        """Open this URL when the picture is clicked."""
+        self._link = url
+        return self
+
+    def view_data(self, form: "Form", base: str) -> dict[str, Any]:
+        v = super().view_data(form, base)
+        ev = self.field_ev(form, base)
+        style = ";".join(p for p in (f"width:{self._width}" if self._width else "", f"height:{self._height}" if self._height else "") if p)
+        v.update(url=evaluate(self._url, **ev), alt=maybe(evaluate(self._alt, **ev)) or "",
+                 size="" if style else IMAGE_SIZES.get(self._size, IMAGE_SIZES["md"]), style=style, rounded=self._rounded,
+                 justify=JUSTIFY.get(self._alignment, JUSTIFY["start"]), tooltip=maybe(evaluate(self._tooltip, **ev)),
+                 link=evaluate(self._link, **ev))
+        return v
+
+
+class UnorderedList(Static):
+    """A bullet list of short lines, each with an optional icon::
+
+        UnorderedList([
+            Text("Free shipping").icon("truck"),
+            Text("30 day returns").icon("undo"),
+            "Secure checkout",
+        ]).size("sm")
+
+    Items are strings or :class:`Text` blocks. ``.ordered()`` numbers them instead of bullets.
+    """
+
+    template = "tungsten/forms/components/unordered-list.html"
+
+    def __init__(self, items: Any = None, name: str | None = None) -> None:
+        super().__init__(name)
+        self._items = items
+        self._size = "sm"
+        self._ordered = False
+        self._column_span = "full"
+
+    def items(self, items: Any) -> "UnorderedList":
+        """A list, or a closure returning one (``lambda record: [...]``)."""
+        self._items = items
+        return self
+
+    def schema(self, items: Any) -> "UnorderedList":
+        return self.items(items)
+
+    def size(self, size: str) -> "UnorderedList":
+        """xs, sm, md or lg"""
+        self._size = size
+        return self
+
+    def ordered(self, condition: bool = True) -> "UnorderedList":
+        self._ordered = condition
+        return self
+
+    def form_actions(self, form: "Form", base: str) -> list:
+        out = list(super().form_actions(form, base))
+        for item in (self._items if isinstance(self._items, (list, tuple)) else []):
+            if hasattr(item, "form_actions"):
+                out.extend(item.form_actions(form, base))
+        return out
+
+    def view_data(self, form: "Form", base: str) -> dict[str, Any]:
+        v = super().view_data(form, base)
+        ev = self.field_ev(form, base)
+        entries = []
+        for item in evaluate(self._items, **ev) or []:
+            if isinstance(item, Text):
+                if item._size == "sm" and self._size != "sm":
+                    item._size = self._size
+                html = item.render(form, base)
+                if html:
+                    entries.append(html)
+            else:
+                entries.append(Markup('<p class="{size} text-gray-700 dark:text-gray-300">{text}</p>').format(
+                    size=TEXT_SIZES.get(self._size, "text-sm"), text=maybe(item)))
+        v.update(entries=entries, ordered=self._ordered, size=TEXT_SIZES.get(self._size, "text-sm"))
         return v
 
 
@@ -344,3 +524,52 @@ class Flex(Layout):
 
 
 Split = Flex
+
+
+class FusedGroup(Layout):
+    """Join a few fields into one control that shares a border (Filament's ``FusedGroup``)::
+
+        FusedGroup("Address").schema([
+            TextInput("street").placeholder("Street"),
+            TextInput("city").placeholder("City"),
+            Select("country").options(COUNTRIES).placeholder("Country"),
+        ]).columns(3)
+
+    The fields' own labels are hidden, so give them placeholders. Text inputs, selects,
+    textareas and date pickers fit; the group's own label is shown above once.
+    """
+
+    template = "tungsten/forms/layouts/fused-group.html"
+
+    def __init__(self, label: Any = None, schema: list | None = None) -> None:
+        super().__init__(schema)
+        self._label = label
+        self._columns = 1
+        self._column_span = 1
+        self._helper_text: Any = None
+
+    def label(self, label: Any) -> "FusedGroup":
+        self._label = label
+        return self
+
+    def helper_text(self, text: Any) -> "FusedGroup":
+        self._helper_text = text
+        return self
+
+    def view_data(self, form: "Form", base: str) -> dict[str, Any]:
+        ev = form.ev(base)
+        children = []
+        errors: list[str] = []
+        for c in self.child_components():
+            if hasattr(c, "_hidden_label"):
+                c._hidden_label = True
+            html = c.render(form, base)
+            if html:
+                children.append(html)
+            path = c.path(base) if hasattr(c, "path") else None
+            if path and form.errors.get(path):
+                errors.extend(form.errors[path])
+        return {"base": base, "label": maybe(evaluate(self._label, **ev)), "children": children,
+                "columns": self._columns if isinstance(self._columns, int) else 1,
+                "helper_text": maybe(evaluate(self._helper_text, **ev)), "has_errors": bool(errors),
+                "extra": self._extra_attributes}
