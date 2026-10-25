@@ -594,6 +594,72 @@ Placeholder("order_total").content(lambda get: f"₹{items_total(get):,.2f}")
 
 When `content` is empty, the field shows "—". If it reads other fields with `get`, add `.live()` to those fields so the text updates.
 
+## MarkdownEditor
+
+Write Markdown with a toolbar, keyboard shortcuts (Ctrl+B, Ctrl+I, Ctrl+E, Ctrl+K) and a **Preview** tab. The value saved is the Markdown text.
+
+```python
+from tungsten.forms import MarkdownEditor
+
+MarkdownEditor("body").toolbar_buttons(["bold", "italic", "link", "bulletList"]).html_column("body_html")
+```
+
+| Option | What it does |
+| --- | --- |
+| `toolbar_buttons([...])` | Which buttons to show: `bold`, `italic`, `strike`, `heading`, `quote`, `code`, `codeBlock`, `link`, `image`, `bulletList`, `orderedList`, `taskList`, `table`, `hr`. `[]` hides the toolbar. |
+| `disable_toolbar_buttons([...])` | Hide some buttons. |
+| `preview(False)` | No Preview tab. |
+| `html_column("body_html")` | Also save the rendered HTML into this attribute, so your site can show it without converting. |
+| `min_height(px)`, `max_height(px)`, `rows()`, `max_length()` | Size limits. |
+
+To show the Markdown elsewhere, use `tungsten.support.markdown.markdown_to_html(text)`. It understands headings, bold, italic, strike-through, inline code, code blocks, links, images, quotes, bullet and numbered lists, task lists, tables and dividers, and cleans the result so user text can't add scripts. `markdown_text(text)` gives plain text for search or summaries.
+
+## CodeEditor
+
+A monospaced editor with line numbers, Tab indenting (Shift+Tab outdents, Enter keeps the indent) and a language chip. No JavaScript library is loaded.
+
+```python
+from tungsten.forms import CodeEditor
+
+CodeEditor("script").language("python").line_numbers()
+CodeEditor("settings").json()       # pretty JSON in, a dict or list out
+```
+
+| Option | What it does |
+| --- | --- |
+| `language("json")` | The chip text: `json`, `python`, `js`, `sql`, `bash`, `php`, `html`, `css`, `yaml`... Python makes Tab 4 spaces. |
+| `json()` | The text must be valid JSON. It is shown pretty-printed and saved as data (for a `JSON` column). |
+| `line_numbers(False)` | Hide the gutter. |
+| `indent(4)` | Spaces per Tab (default 2). |
+| `wrap()` | Wrap long lines instead of scrolling sideways. |
+| `min_height(px)`, `max_height(px)` | Size limits (default 160 to 480 px). |
+
+The matching read-only entry is `CodeEntry` in [infolists](infolists#code-entry).
+
+## MorphToSelect
+
+Point at a record from one of several models, like a comment that belongs to a product *or* a post. Two selects are shown: the type, then the record. The record list follows the chosen type without a page reload.
+
+```python
+from tungsten.forms import MorphToSelect, MorphType
+
+MorphToSelect("commentable").types([
+    MorphType(Product).title("name"),
+    MorphType(Post, key="post").title(lambda record: record.title[:40]).label("Blog post"),
+])
+```
+
+It saves two columns: `commentable_type` (the type key, the model name unless you pass `key=`) and `commentable_id`.
+
+| Option | What it does |
+| --- | --- |
+| `types([...])` | The models. Each `MorphType(Model)` takes `title(attribute or closure)`, `label()`, `modify_query(lambda query: ...)` and `searchable()`. |
+| `type_column("kind")`, `id_column("ref")` | Other column names. |
+| `label()`, `required()` | Apply to both selects. |
+| `searchable()` | A searchable record list. |
+
+Read the record back yourself from the two columns, for example with a small property on the model.
+
 ## Custom fields
 
 There are two ways to make your own field.

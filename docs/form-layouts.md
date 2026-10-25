@@ -202,16 +202,35 @@ Flex([
 | `vertical_alignment(value)` | `start` (default), `center` or `end`. |
 | `.grow(False)` on a child | The child takes only the width it needs. |
 
-## Text, Html and Callout
+## FusedGroup
+
+A few fields joined into one control that shares a border, like a street, city and postcode in one line. The fields' own labels are hidden, so give them placeholders. The group's label is shown above once, and an error in any field marks the whole group.
+
+```python
+from tungsten.forms import FusedGroup
+
+FusedGroup("Address").schema([
+    TextInput("street").placeholder("Street"),
+    TextInput("city").placeholder("City"),
+    Select("country").options(COUNTRIES).placeholder("Country"),
+]).columns(3).helper_text("Shown on invoices")
+```
+
+Text inputs, selects, textareas and date pickers fit well. On small screens the fields stack.
+
+## Text, Html, Icon, Image, UnorderedList and Callout
 
 Content inside a form that is not a field. These hold no value and are never saved.
 
 ```python
-from tungsten.forms import Callout, Html, Text
+from tungsten.forms import Callout, Html, Icon, Image, Text, UnorderedList
 
 Text("Prices include GST.").color("gray").size("sm")
 Text("Beta").badge().color("warning")
 Html(Markup("<p>Need help? <a href='/docs'>Read the guide</a>.</p>"))
+Icon("sparkles").color("warning").size("lg").tooltip("New")
+Image(lambda record: record.cover, "Cover").size("lg").rounded()
+UnorderedList([Text("Free shipping").icon("truck"), "30 day returns"])
 Callout("Stock is low").description(lambda record: f"Only {record.stock} left.").color("warning")
     .visible(lambda record: record and record.stock < 5)
 ```
@@ -220,6 +239,9 @@ Callout("Stock is low").description(lambda record: f"Only {record.stock} left.")
 | --- | --- |
 | `Text(content)` | `color()`, `size("xs"/"sm"/"md"/"lg")`, `weight("medium"/"semibold"/"bold")`, `icon()`, `badge()`, `tooltip()`. |
 | `Html(content)` | A `Markup` value (or a closure returning one) is shown as is. A plain string is cleaned first, so user data can't add scripts. |
+| `Icon(name)` | A Lucide icon on its own: `color()`, `size("xs"/"sm"/"md"/"lg"/"xl")`, `tooltip()`. |
+| `Image(url, alt)` | A picture: `size("xs"/"sm"/"md"/"lg"/"xl"/"full")`, `width()`, `height()`, `rounded()`, `circular()`, `alignment()`, `link()`, `tooltip()`. `url` can be a closure. |
+| `UnorderedList(items)` | A bullet list of strings or `Text` blocks: `size()`, `ordered()`. `items` can be a closure. |
 | `Callout(heading)` | `description()`, `icon()` (a fitting icon by default), `color("primary"/"success"/"danger"/"warning"/"info"/"gray")`, `actions([...])`. |
 
 `content`, `heading` and `description` can be closures (`lambda get, record: ...`). For your own template, use `View("myapp/notice.html", {"extra": "data"})`.

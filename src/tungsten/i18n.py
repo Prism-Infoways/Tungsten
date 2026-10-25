@@ -146,6 +146,8 @@ JS_STRINGS = (
     "You have unsaved changes. Leave this page?", "Copied",
     "This file type is not allowed.", "The file is too large.", "The file could not be uploaded.",
     "Click a block in the editor first.",
+    "Nothing to preview.", "Link URL", "Image URL", "bold text", "italic text", "text", "link text", "alt text",
+    "Heading", "Cell",
 )
 
 

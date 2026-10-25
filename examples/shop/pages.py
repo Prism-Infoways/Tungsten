@@ -8,7 +8,20 @@ from pathlib import Path
 from markupsafe import Markup
 
 from tungsten import Page
-from tungsten.forms import ColorPicker, KeyValue, Section, Select, TextInput, Toggle
+from tungsten.forms import (
+    CodeEditor,
+    ColorPicker,
+    FusedGroup,
+    Icon,
+    KeyValue,
+    MarkdownEditor,
+    Section,
+    Select,
+    Text,
+    TextInput,
+    Toggle,
+    UnorderedList,
+)
 
 from .widgets import RevenueChart, SalesByCategory, UsersByRole
 
@@ -23,6 +36,12 @@ DEFAULTS = {
     "system_notifications": True,
     "marketing_emails": False,
     "extra": {"gst_number": "27ABCDE1234F1Z5"},
+    "street": "12 MG Road",
+    "city": "Pune",
+    "postcode": "411001",
+    "welcome_message": "## Welcome to **Tungsten Store**\n\nOrders placed before 4 pm ship the *same day*.\n\n- Free shipping over ₹999\n- 30 day returns",
+    "custom_css": ".storefront h1 {\n  letter-spacing: -0.02em;\n}",
+    "webhooks": {"order.paid": "https://example.com/hooks/paid", "order.shipped": "https://example.com/hooks/shipped"},
 }
 
 
@@ -48,6 +67,23 @@ class SystemSettings(Page):
                 Toggle("system_notifications").helper_text("Receive in-app notifications").column_span("full"),
                 Toggle("marketing_emails").helper_text("Product updates and marketing emails").column_span("full"),
             ]),
+            Section("Store address").description("Shown on invoices. Three fields joined into one control.").schema([
+                FusedGroup("Address").schema([
+                    TextInput("street").placeholder("Street"),
+                    TextInput("city").placeholder("City"),
+                    TextInput("postcode").placeholder("Postcode"),
+                ]).columns(3).column_span("full"),
+                UnorderedList([
+                    Text("Invoices use this address").icon("receipt"),
+                    Text("Change it any time").icon("pencil"),
+                ]).column_span("full"),
+            ]).icon("map-pin").column_span("full"),
+            Section("Storefront").description("What customers read, and how the store looks.").schema([
+                MarkdownEditor("welcome_message").helper_text("Markdown with a live preview.").column_span("full"),
+                CodeEditor("custom_css").language("css").line_numbers().min_height(140),
+                CodeEditor("webhooks").json().helper_text("Event name to URL.").min_height(140),
+                Icon("sparkles").color("warning").tooltip("New in this release"),
+            ]).icon("palette").column_span("full"),
             Section("Extra settings").description("Any other key/value settings.").schema([
                 KeyValue("extra").column_span("full"),
             ]).column_span("full"),

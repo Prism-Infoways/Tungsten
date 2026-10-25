@@ -39,6 +39,8 @@ from tungsten.forms import (
     FileUpload,
     Group,
     KeyValue,
+    MorphToSelect,
+    MorphType,
     Placeholder,
     Radio,
     Repeater,
@@ -71,6 +73,9 @@ from tungsten.tables import (
     Group as TableGroup,
     IconColumn,
     ListTab,
+    Panel,
+    Split,
+    Stack,
     SelectColumn,
     SelectFilter,
     Sum,
@@ -783,17 +788,33 @@ class PostResource(Resource):
                 Select("author_id").label("Author").relationship("author", "name").searchable().column_span("full"),
                 DateTimePicker("published_at").column_span("full"),
             ]).columns(1),
+            Section("Featured item").description("A product or a category this post is about.").column_span(3).schema([
+                MorphToSelect("featured").types([
+                    MorphType(Product).title("name"),
+                    MorphType(Category).title("name"),
+                ]),
+            ]),
         ])
 
     @classmethod
     def table(cls, table):
         return (
             table.columns([
-                TextColumn("title").searchable().sortable().weight("medium").description(lambda record: f"/blog/{record.slug}"),
-                SelectColumn("status").options({"draft": "Draft", "review": "In review", "published": "Published"}),
-                TextColumn("author.name").label("Author"),
-                TextColumn("blocks").label("Blocks").state(lambda record: len(record.content or [])),
-                TextColumn("published_at").date().sortable().placeholder("Not published"),
+                # a card per post: Split puts things side by side, Stack one under the other
+                Split([
+                    Stack([
+                        TextColumn("title").searchable().sortable().weight("medium").description(lambda record: f"/blog/{record.slug}"),
+                        TextColumn("author.name").label("Author").icon("user").color("gray").size("sm"),
+                    ]),
+                    SelectColumn("status").options({"draft": "Draft", "review": "In review", "published": "Published"}).grow(False),
+                    TextColumn("published_at").date().sortable().placeholder("Not published").icon("calendar").grow(False).visible_from("lg"),
+                ]),
+                Panel([
+                    Stack([
+                        TextColumn("blocks").label("Blocks").state(lambda record: f"{len(record.content or [])} blocks"),
+                        TextColumn("created_at").since().label("Created").color("gray").size("sm"),
+                    ]),
+                ]).collapsible(),
             ])
             .tabs([
                 ListTab("all").badge(),

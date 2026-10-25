@@ -1,0 +1,6 @@
+{% if v.url %}
+<div class="flex {{ v.justify }}">
+  {% set img %}<img src="{{ v.url }}" alt="{{ v.alt }}" loading="lazy" class="{{ v.size }} max-w-full {{ v.rounded }} bg-gray-100 ring-1 ring-gray-950/5 dark:bg-white/5 dark:ring-white/10 {{ 'object-cover' if v.size != 'w-full' }}" {% if v.style %}style="{{ v.style }}"{% endif %} {% if v.tooltip %}title="{{ v.tooltip }}"{% endif %}>{% endset %}
+  {% if v.link %}<a href="{{ v.link }}" class="inline-block" target="_blank" rel="noopener">{{ img }}</a>{% else %}{{ img }}{% endif %}
+</div>
+{% endif %}

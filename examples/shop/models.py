@@ -218,6 +218,9 @@ class Post(Base):
     author_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     published_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+    # a "featured" item the post points at: a product or a category (MorphToSelect)
+    featured_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    featured_id: Mapped[int | None] = mapped_column(nullable=True)
 
     author: Mapped[User | None] = relationship()
 

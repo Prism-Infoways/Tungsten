@@ -12,6 +12,8 @@ from tungsten.tables import (
 )
 ```
 
+To arrange a row's columns as a card instead of plain cells, see [Layouts](#layouts-split-stack-panel-and-grid).
+
 ## Options for every column
 
 | Method | What it does |
@@ -243,6 +245,40 @@ ViewColumn("rating", "shop/columns/stars.html")
 ```
 
 Add your template folder with `Panel(template_dirs=[...])`.
+
+## Layouts: Split, Stack, Panel and Grid
+
+Wrap columns in a layout to draw each row as a card instead of plain cells. `Split` puts columns side by side, `Stack` one under the other, `Panel` puts them in a box that can collapse, and `Grid` lays them out in a grid. They nest.
+
+```python
+from tungsten.tables import Grid, ImageColumn, Panel, Split, Stack, TextColumn
+
+table.columns([
+    Split([
+        ImageColumn("avatar").circular().grow(False),
+        Stack([
+            TextColumn("name").searchable().sortable().weight("bold"),
+            TextColumn("email").icon("mail").color("gray").size("sm"),
+        ]),
+        TextColumn("status").badge().grow(False),
+        TextColumn("created_at").since().grow(False).visible_from("lg"),
+    ]),
+    Panel([
+        Grid([TextColumn("city"), TextColumn("orders_count").counts("orders")]).columns({"md": 2}),
+    ]).collapsible(),
+])
+```
+
+When a layout is used the column headers are hidden, like in Filament. The inner columns keep their search, toggle, visibility and relationship loading settings. Layouts work in the normal table and in [`content_grid()`](table-features#a-grid-of-cards) cards.
+
+| Layout | Options |
+| --- | --- |
+| `Split([...])` | `from_breakpoint("sm"/"md"/"lg"/"xl")`: below it the children stack. `vertical_alignment("start"/"center"/"end")`. |
+| `Stack([...])` | `space(1..8)`, `alignment("start"/"center"/"end")`. |
+| `Panel([...])` | `collapsible()`, `collapsed(False)` to start open. |
+| `Grid([...])` | `columns(3)` or `columns({"md": 2, "xl": 4})`, `space()`. |
+
+On any column inside a layout: `.grow(False)` takes only the width it needs in a `Split`, and `.visible_from("lg")` hides it on smaller screens.
 
 ## Editable columns
 

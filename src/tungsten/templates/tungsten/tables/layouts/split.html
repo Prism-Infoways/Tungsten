@@ -1,0 +1,4 @@
+{% from "tungsten/tables/layouts/_child.html" import child %}
+<div class="flex flex-col gap-3 {{ v.row }} {{ v.items }} {{ v.classes }}" data-tw-layout="split">
+  {% for c in v.children %}{{ child(c, 'flex-1' if c.grow else 'shrink-0') }}{% endfor %}
+</div>

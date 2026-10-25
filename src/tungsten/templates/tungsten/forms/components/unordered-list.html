@@ -1,0 +1,5 @@
+{% if v.entries %}
+<{{ 'ol' if v.ordered else 'ul' }} class="space-y-1.5 ps-5 {{ 'list-decimal' if v.ordered else 'list-disc' }} {{ v.size }} marker:text-gray-400 dark:marker:text-gray-500">
+  {% for e in v.entries %}<li>{{ e }}</li>{% endfor %}
+</{{ 'ol' if v.ordered else 'ul' }}>
+{% endif %}

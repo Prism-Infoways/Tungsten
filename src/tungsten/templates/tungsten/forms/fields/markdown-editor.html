@@ -1,0 +1,31 @@
+{% from "tungsten/forms/macros.html" import wrapper, mirror %}
+{% call wrapper(field, v) %}
+<div class="tw-markdown-editor overflow-hidden rounded-xl bg-white shadow-sm ring-1 focus-within:ring-2 focus-within:ring-primary-500 dark:bg-white/5 {{ 'ring-danger-600' if v.errors else 'ring-gray-950/10 dark:ring-white/20' }} {{ 'opacity-60' if v.disabled }}"
+     x-data="twMarkdownEditor()" data-tw-markdown-editor>
+  <div class="flex flex-wrap items-center gap-1 border-b border-gray-100 bg-gray-50 px-2 py-1.5 dark:border-white/10 dark:bg-white/5">
+    {% if not v.disabled %}
+    {% for b in v.toolbar %}
+    <button type="button" class="rounded-lg p-1.5 text-gray-500 transition hover:bg-white hover:text-gray-950 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white"
+            title="{{ b.label }}{% if b.shortcut %} ({{ b.shortcut }}){% endif %}" aria-label="{{ b.label }}" tabindex="-1" @click="run('{{ b.name }}')" :disabled="tab === 'preview'">{{ icon(b.icon, 'h-4 w-4') }}</button>
+    {% endfor %}
+    {% endif %}
+    {% if v.preview %}
+    <div class="tw-pill-nav tw-pill-nav-muted ms-auto !p-0.5 text-xs">
+      <button type="button" class="tw-pill-nav-item !px-3 !py-1" :class="tab === 'write' && 'tw-pill-nav-item-active'" @click="tab = 'write'">{{ __('Write') }}</button>
+      <button type="button" class="tw-pill-nav-item !px-3 !py-1" :class="tab === 'preview' && 'tw-pill-nav-item-active'" @click="preview()">{{ __('Preview') }}</button>
+    </div>
+    {% endif %}
+  </div>
+  <textarea id="{{ v.id }}" name="{{ v.path }}" rows="{{ v.rows }}" x-ref="text" x-show="tab === 'write'" @keydown="keys($event)"
+            class="block w-full resize-y border-0 bg-transparent px-4 py-3 font-mono text-sm leading-6 text-gray-900 placeholder:text-gray-400 focus:ring-0 dark:text-gray-100"
+            style="{% if v.min_height %}min-height: {{ v.min_height | int }}px;{% endif %}{% if v.max_height %}max-height: {{ v.max_height | int }}px;{% endif %}"
+            {% if v.maxlength %}maxlength="{{ v.maxlength }}"{% endif %}
+            {% if v.placeholder %}placeholder="{{ v.placeholder }}"{% endif %}
+            {% if v.disabled %}disabled{% endif %} {{ v.live }} {{ v.extra }}>{{ v.state if v.state is not none else '' }}</textarea>
+  {% if v.preview %}
+  <div x-show="tab === 'preview'" x-cloak x-ref="preview" class="tw-prose max-w-none overflow-auto px-4 py-3 text-sm"
+       style="{% if v.min_height %}min-height: {{ v.min_height | int }}px;{% endif %}{% if v.max_height %}max-height: {{ v.max_height | int }}px;{% endif %}">{{ v.preview_html or '' }}</div>
+  {% endif %}
+</div>
+{{ mirror(v) }}
+{% endcall %}
