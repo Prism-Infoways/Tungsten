@@ -1,0 +1,20 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# FunnelWidget: stages with shrinking bars. #}
+{% call ui.card(__(w.heading) if w.heading else none, __(w.description) if w.description else none, 'px-6 pb-6 pt-5', 'h-full', link, w.link_label, w.icon, w.icon_color) %}
+<ul class="grid grid-cols-1 gap-4" data-tw-widget="funnel">
+  {% for it in entries %}
+  <li class="text-sm">
+    <div class="mb-1.5 flex items-center justify-between gap-2">
+      <span class="truncate text-gray-600 dark:text-gray-300">{{ __(it.label) }}</span>
+      <span class="shrink-0 tabular-nums"><span class="font-semibold text-gray-950 dark:text-white">{{ it.value }}</span> <span class="text-xs text-gray-400">{{ it.percent | round | int }}%</span></span>
+    </div>
+    <span class="relative block h-7 overflow-hidden rounded-xl bg-gray-100 dark:bg-white/5">
+      <span class="absolute inset-y-0 start-0 rounded-xl transition-[width] duration-700"
+            style="width: {{ [it.percent, 3] | max }}%; background: linear-gradient(90deg, {{ colors.css_rgb(it.color, 600) }}, {{ colors.css_rgb(it.color, 400) }})"></span>
+    </span>
+  </li>
+  {% else %}
+  <li class="py-6 text-center text-sm text-gray-500">{{ __('No data yet.') }}</li>
+  {% endfor %}
+</ul>
+{% endcall %}

@@ -4,11 +4,11 @@
 <div class="min-h-full" x-data="{ sidebar: false }"{% if panel.global_search_enabled %} @keydown.window.prevent.ctrl.k="$dispatch('tw-open-search')" @keydown.window.prevent.meta.k="$dispatch('tw-open-search')"{% endif %}>
   {# ------------------------------------------------------------ sidebar #}
   <div x-show="sidebar" x-cloak class="fixed inset-0 z-40 bg-gray-950/50 lg:hidden" @click="sidebar = false"></div>
-  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full max-lg:rtl:translate-x-full flex-col overflow-hidden bg-sidebar-950 text-sidebar-300 transition-transform duration-200 {{ 'lg:hidden' if panel.top_navigation else 'lg:translate-x-0' }}"
+  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full max-lg:rtl:translate-x-full flex-col overflow-hidden bg-sidebar-950 text-sidebar-300 shadow-2xl shadow-gray-950/20 transition-transform duration-200 lg:inset-y-3 lg:start-3 lg:rounded-[1.75rem] {{ 'lg:hidden' if panel.top_navigation else 'lg:translate-x-0' }}"
          :class="sidebar && '!translate-x-0'">
     {# warm glow at the bottom of the sidebar #}
-    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(ellipse_at_bottom_left,rgb(var(--tw-c-primary-600)/0.28),transparent_65%)]" aria-hidden="true"></div>
-    <div class="relative flex h-16 shrink-0 items-center justify-between gap-2 px-5">
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(ellipse_at_bottom_left,rgb(var(--tw-c-primary-600)/0.22),transparent_65%)]" aria-hidden="true"></div>
+    <div class="relative flex h-20 shrink-0 items-center justify-between gap-2 px-5">
       <a href="{{ panel.url() }}" class="tw-sb-brand flex min-w-0 items-center gap-2.5">{% include "tungsten/components/brand.html" %}</a>
       {% if not panel.brand_logo %}<span class="tw-sb-label me-auto rounded-md bg-white/5 px-1.5 py-0.5 text-[11px] font-medium text-sidebar-400 ring-1 ring-inset ring-white/10">v{{ version }}</span>{% endif %}
       <button type="button" class="tw-icon-btn text-sidebar-400 hover:text-white lg:hidden" @click="sidebar = false" aria-label="{{ __('Close menu') }}">{{ icon('x', 'h-5 w-5') }}</button>
@@ -18,8 +18,8 @@
     {% endif %}
     {% if panel.global_search_enabled %}
     <div class="tw-sb-label relative px-3 pb-3">
-      <button type="button" @click="$dispatch('tw-open-search')" class="flex w-full items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-sidebar-400 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-sidebar-200">
-        {{ icon('search', 'h-4 w-4') }}<span class="flex-1 text-start">{{ __('Search menu...') }}</span><kbd class="rounded border border-white/10 px-1.5 text-xs">⌘K</kbd>
+      <button type="button" @click="$dispatch('tw-open-search')" class="flex w-full items-center gap-2 rounded-full bg-white/[0.06] px-4 py-2.5 text-sm text-sidebar-400 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-sidebar-200">
+        {{ icon('search', 'h-4 w-4') }}<span class="flex-1 text-start">{{ __('Search menu...') }}</span><kbd class="rounded-full border border-white/10 px-2 text-xs">⌘K</kbd>
       </button>
     </div>
     {% endif %}
@@ -54,7 +54,7 @@
               {% endif %}
             </div>
             {% if item.children %}
-            <ul class="tw-sb-label ms-5 mt-0.5 space-y-0.5 border-s border-white/10 ps-3" x-show="expanded" {% if not item.expanded %}x-cloak{% endif %}>
+            <ul class="tw-sb-label ms-5 mt-1 space-y-0.5 border-s border-white/10 ps-3" x-show="expanded" {% if not item.expanded %}x-cloak{% endif %}>
               {% for child in item.children %}
               <li><a href="{{ child.url }}" class="tw-nav-item py-1.5 {{ 'tw-nav-item-active' if child.active }}">
                 <span class="flex-1 truncate">{{ __(child.label) }}</span>{% if child.badge is not none and child.badge != '' %}{{ ui.count_pill(child.badge, child.badge_color) }}{% endif %}
@@ -71,8 +71,8 @@
     </nav>
     <div class="tw-sb-label relative p-3">
       {% if panel.sidebar_footer is not none %}{{ panel.sidebar_footer }}{% else %}
-      <div class="flex items-center gap-3 rounded-xl bg-gradient-to-br from-primary-500/20 via-white/5 to-white/[0.03] p-3 ring-1 ring-inset ring-primary-400/20">
-        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-500/20 text-primary-400 ring-1 ring-inset ring-primary-400/30">{{ icon('crown', 'h-5 w-5') }}</span>
+      <div class="flex items-center gap-3 rounded-[1.25rem] bg-gradient-to-br from-primary-500/25 via-white/5 to-white/[0.03] p-3 ring-1 ring-inset ring-primary-400/20">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500/20 text-primary-400 ring-1 ring-inset ring-primary-400/30">{{ icon('crown', 'h-5 w-5') }}</span>
         <div class="min-w-0 flex-1">
           <p class="truncate text-sm font-semibold text-white">{{ panel.brand_name }}</p>
           <p class="truncate text-xs text-sidebar-400">{{ __(panel.brand_tagline) if panel.brand_tagline else 'v' ~ version }}</p>
@@ -84,15 +84,15 @@
   </aside>
 
   {# ------------------------------------------------------------ main #}
-  <div class="{{ '' if panel.top_navigation else 'tw-sb-main lg:ps-64' }}">
-    <header class="sticky top-0 z-30 flex h-16 items-center gap-x-4 border-b border-gray-200 bg-white/90 px-4 backdrop-blur sm:px-6 lg:px-8 dark:border-white/10 dark:bg-gray-900/90">
-      <button type="button" class="tw-icon-btn text-gray-500 lg:hidden" @click="sidebar = true" aria-label="{{ __('Open menu') }}">{{ icon('menu', 'h-5 w-5') }}</button>
+  <div class="{{ '' if panel.top_navigation else 'tw-sb-main lg:ps-[17.5rem]' }}">
+    <header class="sticky top-0 z-30 flex h-16 items-center gap-x-3 bg-gray-100/80 px-4 backdrop-blur-md sm:px-6 lg:h-20 lg:gap-x-4 lg:px-8 dark:bg-gray-950/80">
+      <button type="button" class="tw-round-btn lg:hidden" @click="sidebar = true" aria-label="{{ __('Open menu') }}">{{ icon('menu', 'h-5 w-5') }}</button>
       {% if panel.top_navigation %}
       <a href="{{ panel.url() }}" class="hidden shrink-0 items-center gap-2.5 lg:flex">{% with brand_on_light = true %}{% include "tungsten/components/brand.html" %}{% endwith %}</a>
       {% if tenants or tenant_menu %}<div class="hidden w-48 shrink-0 lg:block">{% with on_light = true %}{% include "tungsten/components/tenant-menu.html" %}{% endwith %}</div>{% endif %}
       {% include "tungsten/components/top-navigation.html" %}
       {% elif panel.sidebar_collapsible %}
-      <button type="button" class="tw-icon-btn hidden text-gray-500 lg:inline-flex" onclick="twToggleSidebar()" aria-label="{{ __('Collapse sidebar') }}" title="{{ __('Collapse sidebar') }}">{{ icon('panel-left', 'h-5 w-5') }}</button>
+      <button type="button" class="tw-round-btn hidden lg:inline-flex" onclick="twToggleSidebar()" aria-label="{{ __('Collapse sidebar') }}" title="{{ __('Collapse sidebar') }}">{{ icon('panel-left', 'h-5 w-5') }}</button>
       {% endif %}
       {{ panel.hooks('topbar.start', ctx) }}
       {% if panel.global_search_enabled %}
@@ -101,10 +101,10 @@
       <div class="ms-auto flex items-center gap-x-2 sm:gap-x-3">
         {{ panel.hooks('topbar.end', ctx) }}
         {% if panel.dark_mode %}
-        <div class="hidden items-center rounded-full bg-gray-100 p-1 sm:flex dark:bg-white/5" x-data>
-          <button type="button" class="rounded-full p-1.5 transition" :class="$store.theme.mode === 'light' ? 'bg-white text-primary-600 shadow-sm dark:bg-white/10' : 'text-gray-400 hover:text-gray-600'" @click="$store.theme.set('light')" title="{{ __('Light') }}">{{ icon('sun', 'h-4 w-4') }}</button>
-          <button type="button" class="rounded-full p-1.5 transition" :class="$store.theme.mode === 'dark' ? 'bg-white text-primary-600 shadow-sm dark:bg-white/10' : 'text-gray-400 hover:text-gray-600'" @click="$store.theme.set('dark')" title="{{ __('Dark') }}">{{ icon('moon', 'h-4 w-4') }}</button>
-          <button type="button" class="rounded-full p-1.5 transition" :class="$store.theme.mode === 'system' ? 'bg-white text-primary-600 shadow-sm dark:bg-white/10' : 'text-gray-400 hover:text-gray-600'" @click="$store.theme.set('system')" title="{{ __('System') }}">{{ icon('monitor', 'h-4 w-4') }}</button>
+        <div class="hidden items-center gap-0.5 rounded-full bg-white p-1 shadow-[0_1px_2px_rgb(0_0_0/0.04)] ring-1 ring-gray-950/[0.05] sm:flex dark:bg-white/5 dark:ring-white/10" x-data>
+          <button type="button" class="rounded-full p-1.5 transition" :class="$store.theme.mode === 'light' ? 'bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="$store.theme.set('light')" title="{{ __('Light') }}">{{ icon('sun', 'h-4 w-4') }}</button>
+          <button type="button" class="rounded-full p-1.5 transition" :class="$store.theme.mode === 'dark' ? 'bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="$store.theme.set('dark')" title="{{ __('Dark') }}">{{ icon('moon', 'h-4 w-4') }}</button>
+          <button type="button" class="rounded-full p-1.5 transition" :class="$store.theme.mode === 'system' ? 'bg-gray-950 text-white shadow-sm dark:bg-white dark:text-gray-950' : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'" @click="$store.theme.set('system')" title="{{ __('System') }}">{{ icon('monitor', 'h-4 w-4') }}</button>
         </div>
         {% endif %}
         {% if user and panel.database_notifications %}
@@ -116,7 +116,7 @@
         {% if user %}
         {% call(part) ui.dropdown(width='w-60') %}
           {% if part == 'trigger' %}
-          <button type="button" class="flex items-center gap-x-3 rounded-full p-0.5 pe-2 transition hover:bg-gray-100 dark:hover:bg-white/5">
+          <button type="button" class="flex items-center gap-x-3 rounded-full bg-white p-1 pe-3 shadow-[0_1px_2px_rgb(0_0_0/0.04)] ring-1 ring-gray-950/[0.05] transition hover:ring-gray-950/10 dark:bg-white/5 dark:ring-white/10">
             {{ ui.avatar(user_name, user_avatar) }}
             <span class="hidden text-start md:block">
               <span class="block text-sm font-semibold leading-tight text-gray-950 dark:text-white">{{ user_name }}</span>
@@ -165,9 +165,9 @@
         {% set sub_position = sub_navigation.position %}
         <div class="{{ 'flex flex-col gap-6' if sub_position == 'top' else 'flex flex-col gap-6 lg:flex-row lg:items-start' }}" data-tw-sub-navigation="{{ sub_position }}">
           {% if sub_position == 'top' %}
-          <nav class="-mb-2 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-white/10" aria-label="{{ sub_navigation.heading }}">
+          <nav class="tw-pill-nav self-start" aria-label="{{ sub_navigation.heading }}">
             {% for item in sub_navigation['items'] %}
-            <a href="{{ item.url }}" class="-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition {{ 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400' if item.active else 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200' }}" {% if item.active %}aria-current="page"{% endif %}>
+            <a href="{{ item.url }}" class="tw-pill-nav-item {{ 'tw-pill-nav-item-active' if item.active }}" {% if item.active %}aria-current="page"{% endif %}>
               {{ icon(item.current_icon, 'h-4 w-4') }}{{ __(item.label) }}{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
             </a>
             {% endfor %}
@@ -178,7 +178,7 @@
             {% if sub_navigation.description %}<p class="px-3 pb-2 text-xs text-gray-500 dark:text-gray-400">{{ __(sub_navigation.description) }}</p>{% endif %}
             <ul class="space-y-0.5">
               {% for item in sub_navigation['items'] %}
-              <li><a href="{{ item.url }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition {{ 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-400' if item.active else 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white' }}" {% if item.active %}aria-current="page"{% endif %}>
+              <li><a href="{{ item.url }}" class="flex items-center gap-2.5 rounded-full px-3.5 py-2 text-sm font-medium transition {{ 'bg-gray-950 text-white dark:bg-white dark:text-gray-950' if item.active else 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white' }}" {% if item.active %}aria-current="page"{% endif %}>
                 {{ icon(item.current_icon, 'h-4 w-4 shrink-0') }}<span class="flex-1 truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
               </a></li>
               {% endfor %}

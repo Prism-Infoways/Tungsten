@@ -12,7 +12,7 @@ from markupsafe import Markup
 from tungsten import Auth, LocalStorage, NavigationItem, Panel, Plugin
 
 from .models import Base, User, make_engine
-from .pages import Reports, SystemSettings
+from .pages import Reports, SystemSettings, UiKit
 from .resources import ALL_RESOURCES
 from .widgets import DASHBOARD_WIDGETS, ShopDashboard
 
@@ -52,7 +52,7 @@ def create_panel(session_factory=None, storage_dir: str = "storage/tungsten", ma
         locales=["en", "hi"],  # English and Hindi; users pick from the user menu or the login page
         lang_dirs=[Path(__file__).with_name("lang")],
     )
-    panel.resources(ALL_RESOURCES).pages([Reports, SystemSettings]).widgets(DASHBOARD_WIDGETS)
+    panel.resources(ALL_RESOURCES).pages([Reports, SystemSettings, UiKit]).widgets(DASHBOARD_WIDGETS)
     panel.rbac()
     panel.plugin(DocsPlugin())
     return panel

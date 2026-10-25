@@ -7,13 +7,33 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
-from tungsten import ChartWidget, Dashboard, ProgressItem, ProgressListWidget, Stat, StatsOverviewWidget, TableWidget
+from tungsten import (
+    ActivityWidget,
+    BannerWidget,
+    ChartWidget,
+    ChecklistWidget,
+    ColumnsWidget,
+    Dashboard,
+    FunnelWidget,
+    GaugeWidget,
+    HeroStatWidget,
+    Item,
+    LeaderboardWidget,
+    ProgressItem,
+    ProgressListWidget,
+    QuickActionsWidget,
+    ScheduleWidget,
+    Stat,
+    StatsOverviewWidget,
+    TableWidget,
+    TeamWidget,
+)
 from tungsten.forms import Select
 from tungsten.i18n import translate as __
 from tungsten.models import Role, RoleAssignment
 from tungsten.tables import TextColumn
 
-from .models import Category, Order, OrderItem, OrderStatus, Product, User
+from .models import Category, Customer, Order, OrderItem, OrderStatus, Post, Product, User
 
 INR = "₹"
 
@@ -71,7 +91,7 @@ def compare(this: float, prev: float) -> tuple[str, str]:
 
 
 class ShopStats(StatsOverviewWidget):
-    sort = 1
+    sort = 4
 
     @classmethod
     def stats(cls, db, ctx, filters):
@@ -89,7 +109,7 @@ class ShopStats(StatsOverviewWidget):
         new_products = period_counts(db, Product, Product.created_at, days)
         return [
             Stat("Total users", f"{users:,}").icon("users").color("primary").trend(*compare(*new_users))
-            .describe(__("+:count new users", count=int(new_users[0]))).chart(u).url(ctx.url("users")),
+            .describe(__("+:count new users", count=int(new_users[0]))).chart(u).url(ctx.url("users")).highlight(),
             Stat("Orders", f"{int(orders[0]):,}").icon("shopping-cart").color("success").trend(*compare(*orders))
             .describe(__("In the last :days days", days=days)).chart(o).url(ctx.url("orders")),
             Stat("Revenue", inr(revenue[0])).icon("indian-rupee").color("info").trend(*compare(*revenue))
@@ -119,7 +139,7 @@ class RevenueChart(ChartWidget):
     icon = "chart-column"
     type = "bar"
     column_span = 2
-    sort = 2
+    sort = 14
     filters = {"12": "Last 12 months", "6": "Last 6 months", "3": "Last 3 months"}
 
     @classmethod
@@ -155,7 +175,7 @@ class RecentOrders(TableWidget):
     icon = "shopping-cart"
     model = Order
     column_span = 2
-    sort = 3
+    sort = 8
 
     @classmethod
     def query(cls, ctx):
@@ -183,7 +203,7 @@ class TopProducts(TableWidget):
     icon = "crown"
     model = Product
     column_span = 2
-    sort = 4
+    sort = 15
 
     @classmethod
     def query(cls, ctx):
@@ -213,7 +233,7 @@ class UsersByRole(ChartWidget):
     icon = "users"
     type = "doughnut"
     column_span = 1
-    sort = 5
+    sort = 16
     side_legend = True
     max_height = "14rem"
 
@@ -234,7 +254,7 @@ class SalesByCategory(ProgressListWidget):
     description = "Share of total revenue"
     icon = "chart-pie"
     column_span = 1
-    sort = 6
+    sort = 17
 
     @classmethod
     def items(cls, db):
@@ -313,4 +333,190 @@ class OrderStats(StatsOverviewWidget):
         ]
 
 
-DASHBOARD_WIDGETS = [ShopStats, RevenueChart, RecentOrders, TopProducts, UsersByRole, SalesByCategory]
+
+# ---------------------------------------------------------------------- modern dashboard cards
+class RevenueHero(HeroStatWidget):
+    sort = 1
+    description = "All time"
+
+    @classmethod
+    def stat(cls, db, ctx, filters):
+        days = int(filters.get("period") or 30)
+        total = db.scalar(select(func.coalesce(func.sum(Order.total), 0)))
+        this, prev = period_counts(db, Order, Order.created_at, days, value=Order.total)
+        return (Stat("Total revenue", inr(total)).icon("wallet").trend(*compare(this, prev))
+                .describe(__("Revenue in the last :days days: :amount", days=days, amount=inr(this)))
+                .chart(monthly_counts(db, Order, Order.created_at, months=9, value=Order.total)))
+
+    @classmethod
+    def actions(cls, ctx):
+        return [
+            Item("New order", url=ctx.url("orders", "create"), icon="plus", color="primary"),
+            Item("Add product", url=ctx.url("products", "create"), icon="package-plus", color="dark"),
+            Item("Reports", url=ctx.url("reports"), icon="chart-column", color="gray"),
+        ]
+
+
+class MonthlyTarget(GaugeWidget):
+    heading = "Monthly target"
+    description = "Revenue this month"
+    sort = 2
+    label = "Target"
+    target = 500000
+
+    @classmethod
+    def value(cls, db):
+        start = dt.date.today().replace(day=1)
+        month = float(db.scalar(select(func.coalesce(func.sum(Order.total), 0)).where(Order.created_at >= start)) or 0)
+        return {"value": month, "max": cls.target, "display": inr(month), "caption": __("of :amount", amount=inr(cls.target))}
+
+
+class ShortcutsWidget(QuickActionsWidget):
+    heading = "Shortcuts"
+    sort = 3
+    columns = 2
+
+    @classmethod
+    def items(cls, ctx):
+        return [
+            Item("New order", url=ctx.url("orders", "create"), icon="shopping-cart", color="primary"),
+            Item("Customer", url=ctx.url("customers", "create"), icon="user-plus", color="info"),
+            Item("Product", url=ctx.url("products", "create"), icon="package-plus", color="purple"),
+            Item("Blog post", url=ctx.url("posts", "create"), icon="pen-line", color="pink"),
+        ]
+
+
+class SalesOverview(ColumnsWidget):
+    heading = "Sales overview"
+    description = "Orders per month"
+    icon = "chart-no-axes-column"
+    column_span = 2
+    sort = 5
+    filters = {"6": "6 months", "9": "9 months", "12": "12 months"}
+
+    @classmethod
+    def data(cls, db, filter):
+        months = int(filter or 6)
+        today = dt.date.today().replace(day=1)
+        labels, values = [], []
+        for i in range(months - 1, -1, -1):
+            start = (today - dt.timedelta(days=31 * i)).replace(day=1)
+            end = (start + dt.timedelta(days=32)).replace(day=1)
+            labels.append(__(start.strftime("%b")))
+            values.append(db.scalar(select(func.count()).select_from(Order)
+                                    .where(Order.created_at >= start, Order.created_at < end)) or 0)
+        return {"labels": labels, "values": values, "display": [__(":count orders", count=v) for v in values]}
+
+
+class OrderFunnel(FunnelWidget):
+    heading = "Order funnel"
+    description = "Where orders are right now"
+    icon = "filter"
+    sort = 6
+
+    @classmethod
+    def items(cls, db):
+        counts = dict(db.execute(select(Order.status, func.count()).group_by(Order.status)).all())
+        total = sum(counts.values())
+        processing = total - counts.get(OrderStatus.PENDING, 0) - counts.get(OrderStatus.CANCELLED, 0)
+        shipped = counts.get(OrderStatus.SHIPPED, 0) + counts.get(OrderStatus.PAID, 0)
+        return [
+            Item("Placed", total, color="primary"),
+            Item("Confirmed", processing, color="info"),
+            Item("Shipped", shipped, color="purple"),
+            Item("Paid", counts.get(OrderStatus.PAID, 0), color="success"),
+        ]
+
+
+class TopCustomers(LeaderboardWidget):
+    heading = "Top customers"
+    description = "By total spend"
+    icon = "trophy"
+    sort = 7
+
+    @classmethod
+    def items(cls, db, ctx):
+        rows = db.execute(
+            select(Customer, func.coalesce(func.sum(Order.total), 0).label("spent"), func.count(Order.id))
+            .join(Order, Order.customer_id == Customer.id).group_by(Customer.id)
+            .order_by(func.sum(Order.total).desc()).limit(5)
+        ).all()
+        top = float(rows[0][1]) if rows else 1
+        return [Item(c.name, inr(spent), description=__(":count orders", count=n), avatar=c.avatar,
+                     percent=float(spent) / top * 100, color="primary") for c, spent, n in rows]
+
+
+class RecentActivity(ActivityWidget):
+    heading = "Recent activity"
+    icon = "activity"
+    sort = 9
+
+    @classmethod
+    def items(cls, db, ctx):
+        icons = {"pending": "clock", "processing": "loader", "shipped": "truck", "paid": "badge-check", "cancelled": "circle-x"}
+        orders = db.scalars(select(Order).order_by(Order.created_at.desc()).limit(5)).all()
+        return [Item(f"{o.number} · {__(o.status.value.title())}",
+                     description=f"{o.customer.name} · {inr(o.total)}", time=o.created_at.strftime("%d %b"),
+                     icon=icons[o.status.value], color=o.status.color, url=ctx.url("orders", o.id, "edit")) for o in orders]
+
+
+class TeamSchedule(ScheduleWidget):
+    description = "Today's plan"
+    sort = 10
+
+    @classmethod
+    def items(cls):
+        return [
+            Item("Stand-up with the team", description="Google Meet", time="10:00", color="primary"),
+            Item("Pack and ship orders", description="Warehouse", time="12:30", color="info"),
+            Item("Review new products", description="Catalog", time="16:00", color="purple"),
+        ]
+
+
+class GrowBanner(BannerWidget):
+    heading = "Selling is better together"
+    text = "Invite your teammates to manage orders, products and customers with you."
+    eyebrow = "Team"
+    button_label = "Invite people"
+    variant = "soft"
+    color = "purple"
+    sort = 11
+
+    @classmethod
+    def get_button_url(cls, ctx):
+        return ctx.url("users", "create")
+
+
+class TeamMembers(TeamWidget):
+    heading = "Members"
+    icon = "users"
+    sort = 12
+
+    @classmethod
+    def items(cls, db, ctx):
+        users = db.scalars(select(User).where(User.is_active.is_(True)).order_by(User.id).limit(6)).all()
+        return [Item(u.name.split()[0], description=u.department, avatar=u.avatar, badge="online" if i % 3 == 0 else None,
+                     color="success", url=ctx.url("users", u.id, "edit")) for i, u in enumerate(users)]
+
+
+class SetupGuide(ChecklistWidget):
+    heading = "Setup guide"
+    description = "Get your store ready"
+    icon = "list-checks"
+    icon_color = "success"
+    sort = 13
+
+    @classmethod
+    def items(cls, db, ctx):
+        has = lambda model: bool(db.scalar(select(func.count()).select_from(model)))  # noqa: E731
+        return [
+            Item("Add your first product", done=has(Product), url=ctx.url("products", "create")),
+            Item("Get your first order", done=has(Order), url=ctx.url("orders", "create")),
+            Item("Write a blog post", done=has(Post), url=ctx.url("posts", "create")),
+            Item("Set up payments", description="Connect a payment gateway", url=ctx.url("system-settings")),
+        ]
+
+
+DASHBOARD_WIDGETS = [RevenueHero, MonthlyTarget, ShortcutsWidget, ShopStats, SalesOverview, OrderFunnel, TopCustomers,
+                     RecentOrders, RecentActivity, TeamSchedule, GrowBanner, TeamMembers, SetupGuide,
+                     RevenueChart, TopProducts, UsersByRole, SalesByCategory]

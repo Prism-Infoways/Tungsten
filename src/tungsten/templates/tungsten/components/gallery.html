@@ -1,0 +1,127 @@
+{#
+  The UI kit gallery: every modern component with sample data.
+  Use it as a custom page:  content_template = "tungsten/components/gallery.html"
+#}
+{% import "tungsten/components/ui.html" as ui %}
+{% set people = [{'name': 'Sophia Brown', 'avatar': none}, {'name': 'Alex Johnson', 'avatar': none}, {'name': 'Riya Kapoor', 'avatar': none}, {'name': 'Dev Patel', 'avatar': none}, {'name': 'Mia Chen', 'avatar': none}, {'name': 'Omar Ali', 'avatar': none}] %}
+{% macro section(title, note) %}
+<section class="mb-8">
+  <div class="mb-3 flex items-baseline justify-between gap-4">
+    <h2 class="shrink-0 text-lg font-semibold tracking-tight text-gray-950 dark:text-white">{{ __(title) }}</h2>
+    <code class="hidden min-w-0 truncate rounded-full bg-white px-3 py-1 text-xs text-gray-500 ring-1 ring-gray-950/5 sm:block dark:bg-white/5 dark:text-gray-400 dark:ring-white/10">{{ note }}</code>
+  </div>
+  {{ caller() }}
+</section>
+{% endmacro %}
+
+<div data-tw-gallery>
+{% call section('Stat cards', "ui.stat_card(..., variant='brand' | 'dark')") %}
+<div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.stat_card('Total earnings', '₹3,48,000', 'wallet', 'primary', 'This month', '12%', 'up', none, [4, 6, 5, 8, 7, 9], none, 'g-s1', 'brand') }}
+  {{ ui.stat_card('Total spending', '₹1,13,500', 'credit-card', 'info', 'This month', '5%', 'down', none, [9, 7, 8, 6, 7, 5], none, 'g-s2') }}
+  {{ ui.stat_card('New customers', '1,368', 'users', 'success', 'Since last week', '8%', 'up', none, [3, 4, 4, 6, 7, 8], none, 'g-s3') }}
+  {{ ui.stat_card('Q4 revenue', '₹5,626', 'target', 'primary', 'Target ₹20,000', '28%', 'up', none, none, none, 'g-s4', 'dark') }}
+</div>
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+  {% call section('Navigation pills', 'ui.pill_tabs(items) · ui.segmented(name, options, value)') %}
+  <div class="tw-card flex flex-col gap-5 p-6">
+    {{ ui.pill_tabs([{'label': 'Overview', 'url': '#', 'active': true}, {'label': 'Activity', 'url': '#'}, {'label': 'Manage', 'url': '#'}, {'label': 'Reports', 'url': '#', 'badge': 4}]) }}
+    {{ ui.pill_tabs([{'label': 'Day', 'url': '#'}, {'label': 'Week', 'url': '#', 'active': true}, {'label': 'Month', 'url': '#'}], muted=true) }}
+    {{ ui.segmented('g_period', {'7': '7 days', '30': '30 days', '90': '90 days'}, '30') }}
+  </div>
+  {% endcall %}
+  </div>
+  {% call section('Chips & badges', 'ui.chip · ui.badge · ui.trend_pill · ui.kbd') %}
+  <div class="tw-card flex flex-wrap items-center gap-2.5 p-6">
+    {{ ui.chip('June 2025', 'calendar') }}{{ ui.chip('USD', dot_color='success') }}{{ ui.chip('All time', 'clock') }}
+    {{ ui.badge('Paid', 'success') }}{{ ui.badge('Pending', 'warning') }}{{ ui.badge('Cancelled', 'danger') }}
+    {{ ui.trend_pill('12%', 'up') }}{{ ui.trend_pill('4%', 'down') }}{{ ui.kbd('⌘K') }}
+  </div>
+  {% endcall %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  {% call section('Progress ring', 'ui.progress_ring(percent, color, size)') %}
+  <div class="tw-card flex items-center justify-around gap-4 p-6">
+    {{ ui.progress_ring(42, 'primary', 104, 11, 'Websites') }}
+    {{ ui.progress_ring(76, 'success', 104, 11, 'Done') }}
+  </div>
+  {% endcall %}
+  {% call section('Gauge', 'ui.gauge(percent, color, value, caption)') %}
+  <div class="tw-card-dark p-6">{{ ui.gauge(28, 'primary', '₹5,626', 'of ₹20,000', 'Target', true) }}</div>
+  {% endcall %}
+  {% call section('Meters', 'ui.meter(label, percent, color)') %}
+  <div class="tw-card grid gap-4 p-6">
+    {{ ui.meter('Enterprise deals', 12, 'danger') }}
+    {{ ui.meter('Upsell revenue', 56, 'success') }}
+    {{ ui.meter('Renewals', 81, 'info') }}
+  </div>
+  {% endcall %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-2">
+  {% call section('Columns', 'ui.columns(cols, color, height)') %}
+  <div class="tw-card p-6">
+    {{ ui.columns([{'label': 'Jan', 'display': '120', 'height': 55}, {'label': 'Feb', 'display': '90', 'height': 40}, {'label': 'Mar', 'display': '₹1,300', 'height': 90, 'active': true}, {'label': 'Apr', 'display': '60', 'height': 28}, {'label': 'May', 'display': '140', 'height': 62}, {'label': 'Jun', 'display': '100', 'height': 46}], 'info', '13rem') }}
+  </div>
+  {% endcall %}
+  {% call section('Banner', "ui.banner(heading, text, button_label, url, eyebrow, variant='soft' | 'brand' | 'dark')") %}
+  <div class="grid h-[calc(100%-2.25rem)] gap-6 sm:grid-cols-2">
+    {{ ui.banner("Work's better together", 'Add teammates and work as one.', 'Add member', '#', 'Team', 'soft', 'purple') }}
+    {{ ui.banner('Get premium', 'Unlock every report.', 'Join pro', '#', '14 day trial', 'dark') }}
+  </div>
+  {% endcall %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  {% call section('Timeline', 'ui.timeline_item(title, description, time, icon, color)') %}
+  <div class="tw-card p-6"><ol>
+    {{ ui.timeline_item('Order ORD-031 paid', 'Nikhil Verma · ₹7,196', '2h ago', 'badge-check', 'success') }}
+    {{ ui.timeline_item('New customer', 'Riya Kapoor signed up', '5h ago', 'user-plus', 'info') }}
+    {{ ui.timeline_item('Product updated', 'Smart Watch price changed', 'Yesterday', 'pencil', 'purple', true) }}
+  </ol></div>
+  {% endcall %}
+  {% call section('List rows', 'ui.list_row(title, description, value, ...)') %}
+  <div class="tw-card grid gap-1 p-4">
+    {{ ui.list_row('Hannah Lee', 'Sales lead', '₹82,410', avatar_name='Hannah Lee') }}
+    {{ ui.list_row('Marcus Webb', 'Account exec', '₹61,200', avatar_name='Marcus Webb') }}
+    {{ ui.list_row('Website', 'Lead source', none, 'globe', 'info', badge_text='42%', badge_color='info') }}
+    {{ ui.list_row('Referral', 'Lead source', none, 'share-2', 'pink', badge_text='18%', badge_color='pink') }}
+  </div>
+  {% endcall %}
+  {% call section('People & week', 'ui.avatar_group(people) · ui.week_strip(days)') %}
+  <div class="tw-card grid gap-6 p-6">
+    <div class="flex items-center justify-between gap-3">{{ ui.avatar_group(people) }}<span class="text-sm text-gray-500 dark:text-gray-400">{{ __('6 members') }}</span></div>
+    {{ ui.week_strip([{'name': 'Mon', 'day': 15}, {'name': 'Tue', 'day': 16}, {'name': 'Wed', 'day': 17, 'today': true}, {'name': 'Thu', 'day': 18}, {'name': 'Fri', 'day': 19}, {'name': 'Sat', 'day': 20}, {'name': 'Sun', 'day': 21}]) }}
+  </div>
+  {% endcall %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  {% call section('Alerts', "ui.alert(heading, text, color)") %}
+  <div class="grid gap-3">
+    {{ ui.alert('Backup finished', 'All 12 tables were saved.', 'success') }}
+    {{ ui.alert('Stock is low', '3 products have less than 5 left.', 'warning') }}
+  </div>
+  {% endcall %}
+  {% call section('Switches & KPIs', 'ui.switch(name, checked, label) · ui.kpi(label, value)') %}
+  <div class="tw-card grid gap-4 p-6">
+    {{ ui.switch('g_online', true, 'Online payments', 'Allow card payments') }}
+    {{ ui.switch('g_abroad', false, 'Use abroad', 'Payments outside India') }}
+    <div class="grid grid-cols-2 gap-4 pt-2">{{ ui.kpi('New business', '₹2,263', accent='info') }}{{ ui.kpi('Renewals', '₹1,244', '9%', accent='warning') }}</div>
+  </div>
+  {% endcall %}
+  {% call section('Surfaces', '.tw-card · .tw-well · .tw-glass · .tw-skeleton') %}
+  <div class="tw-card grid gap-4 p-6">
+    <div class="tw-well p-4 text-sm text-gray-600 dark:text-gray-300">{{ __('A well: a soft block inside a card.') }}</div>
+    <div class="rounded-[1.75rem] bg-gradient-to-br from-primary-200 to-purple-200 p-3 dark:from-primary-500/30 dark:to-purple-500/30"><div class="tw-glass p-4 text-sm text-gray-700 dark:text-gray-200">{{ __('Glass: a frosted panel.') }}</div></div>
+    {{ ui.skeleton(3) }}
+    {{ ui.divider('or') }}
+    <div class="flex flex-wrap gap-2">{{ ui.button('Primary') }}{{ ui.button('Gray', 'gray') }}<a href="#" class="tw-btn bg-gray-950 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950">{{ __('Dark') }}</a></div>
+  </div>
+  {% endcall %}
+</div>
+</div>

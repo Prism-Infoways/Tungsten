@@ -1,0 +1,25 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# LeaderboardWidget: ranked rows with avatar, value and an optional bar. #}
+{% call ui.card(__(w.heading) if w.heading else none, __(w.description) if w.description else none, 'px-4 pb-4 pt-4', 'h-full', link, w.link_label, w.icon, w.icon_color) %}
+<ul class="grid grid-cols-1 gap-1" data-tw-widget="leaderboard">
+  {% for it in entries %}
+  <li>
+    {% set tag = 'a' if it.url else 'div' %}
+    <{{ tag }} {% if it.url %}href="{{ it.url }}"{% endif %} class="flex items-center gap-3 rounded-2xl px-2 py-2 {{ 'transition hover:bg-gray-50 dark:hover:bg-white/5' if it.url }}">
+      {% if w.ranked %}<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold {{ 'bg-gray-950 text-white dark:bg-white dark:text-gray-950' if loop.first else 'bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300' }}">{{ loop.index }}</span>{% endif %}
+      {% if it.icon and not it.avatar %}<span class="tw-icon-tile h-9 w-9 {{ colors.pick(colors.SOFT_ICON, it.color) }}">{{ icon(it.icon, 'h-4 w-4') }}</span>{% else %}{{ ui.avatar(it.label, it.avatar) }}{% endif %}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center justify-between gap-2">
+          <p class="truncate text-sm font-medium text-gray-950 dark:text-white">{{ __(it.label) }}</p>
+          {% if it.value is not none %}<span class="shrink-0 text-sm font-semibold tabular-nums text-gray-950 dark:text-white">{{ it.value }}</span>{% endif %}
+        </div>
+        {% if it.description %}<p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ __(it.description) }}</p>{% endif %}
+        {% if it.percent is not none %}<span class="tw-track mt-1.5 h-1.5"><span class="tw-track-bar" style="width: {{ it.percent }}%; background: {{ colors.css_rgb(it.color) }}"></span></span>{% endif %}
+      </div>
+    </{{ tag }}>
+  </li>
+  {% else %}
+  <li class="py-6 text-center text-sm text-gray-500">{{ __('No data yet.') }}</li>
+  {% endfor %}
+</ul>
+{% endcall %}

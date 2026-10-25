@@ -1,4 +1,4 @@
-"""Dashboard widgets: stats cards, charts, tables and progress lists."""
+"""Dashboard widgets: stats cards, charts, tables, progress lists and the modern card widgets."""
 
 from __future__ import annotations
 
@@ -86,6 +86,7 @@ class Stat:
         self.trend_color: str | None = None
         self.chart_points: list[float] | None = None
         self.url_value: str | None = None
+        self.variant = "default"
 
     @classmethod
     def make(cls, label: str, value: Any) -> "Stat":
@@ -116,6 +117,11 @@ class Stat:
 
     def url(self, url: str) -> "Stat":
         self.url_value = url
+        return self
+
+    def highlight(self, variant: str = "brand") -> "Stat":
+        """Fill the card: ``"brand"`` (the primary color) or ``"dark"`` (near black)."""
+        self.variant = variant if variant in ("brand", "dark") else "default"
         return self
 
 
@@ -283,3 +289,225 @@ class AccountWidget(Widget):
 
     template = "tungsten/widgets/account.html"
     lazy = False
+
+
+# ---------------------------------------------------------------------------------------------------
+# Modern card widgets. Most of them show a list of ``Item`` objects; each widget uses the fields it needs.
+
+
+class Item:
+    """One row for the list widgets: ``Item("Nikhil Verma", "₹12,400", description="12 orders", avatar=url)``.
+
+    ``value`` is shown as given. ``percent`` (0-100) draws a bar, ``done`` ticks a checklist row,
+    ``time`` is a short label like "09:30" or "2h ago", and ``url`` makes the row a link.
+    """
+
+    def __init__(self, label: str, value: Any = None, *, description: str | None = None, icon: str | None = None,
+                 color: str = "primary", avatar: str | None = None, url: str | None = None,
+                 percent: float | None = None, time: str | None = None, done: bool = False,
+                 badge: str | None = None) -> None:
+        self.label, self.value, self.description = label, value, description
+        self.icon, self.color, self.avatar, self.url = icon, color, avatar, url
+        self.percent = None if percent is None else max(0.0, min(100.0, float(percent)))
+        self.time, self.done, self.badge = time, done, badge
+
+
+def _items(cls: type[Widget], ctx: "Context") -> list[Item]:
+    return list(call(cls.items, ctx=ctx, db=ctx.db, user=ctx.user, filters=ctx.filters) or [])
+
+
+class _ItemsWidget(Widget):
+    link: ClassVar[str | None] = None
+    link_label: ClassVar[str] = "View all"
+
+    @classmethod
+    def items(cls, ctx: "Context") -> list[Item]:
+        return []
+
+    @classmethod
+    def view_data(cls, ctx: "Context") -> dict[str, Any]:
+        return {"entries": _items(cls, ctx), "link": cls.link}
+
+
+class HeroStatWidget(Widget):
+    """One big number with a trend, a line of text, action buttons and small bars ("Total revenue")."""
+
+    template = "tungsten/widgets/hero-stat.html"
+    column_span = 2
+
+    @classmethod
+    def stat(cls, ctx: "Context") -> Stat:
+        return Stat("", "")
+
+    @classmethod
+    def actions(cls, ctx: "Context") -> list[Item]:
+        """Buttons under the number: ``Item("Add deal", url=..., icon="plus", color="primary")``."""
+        return []
+
+    @classmethod
+    def view_data(cls, ctx: "Context") -> dict[str, Any]:
+        kw = {"ctx": ctx, "db": ctx.db, "user": ctx.user, "filters": ctx.filters}
+        stat = call(cls.stat, **kw)
+        points = stat.chart_points or []
+        top = max(points) if points else 0
+        bars = [round(p / top * 100) if top else 0 for p in points]
+        return {"stat": stat, "actions": list(call(cls.actions, **kw) or []), "bars": bars}
+
+
+class GaugeWidget(Widget):
+    """Progress towards a target, drawn as a half circle (``shape = "arc"``) or a ring (``"ring"``).
+
+    ``value()`` returns ``{"value": 5626, "max": 20000, "display": "₹5,626", "caption": "of ₹20,000"}``.
+    """
+
+    template = "tungsten/widgets/gauge.html"
+    shape: ClassVar[str] = "arc"
+    #: "dark" draws a near-black card, "brand" a primary colored one, "default" a white one
+    variant: ClassVar[str] = "dark"
+    color: ClassVar[str] = "primary"
+    label: ClassVar[str | None] = None
+
+    @classmethod
+    def value(cls, ctx: "Context") -> dict[str, Any]:
+        return {"value": 0, "max": 100}
+
+    @classmethod
+    def view_data(cls, ctx: "Context") -> dict[str, Any]:
+        data = dict(call(cls.value, ctx=ctx, db=ctx.db, user=ctx.user, filters=ctx.filters) or {})
+        total = float(data.get("max") or 100) or 100
+        percent = max(0.0, min(100.0, float(data.get("value") or 0) / total * 100))
+        data.setdefault("display", data.get("value"))
+        return {"gauge": data, "percent": round(percent, 1)}
+
+
+class ColumnsWidget(Widget):
+    """Rounded columns with one highlighted (the "Sales overview" look). No chart library needed.
+
+    ``data()`` returns ``{"labels": [...], "values": [...]}``, plus optional ``"display"`` (the text for
+    each value) and ``"highlight"`` (the index to highlight; default the biggest value).
+    """
+
+    template = "tungsten/widgets/columns.html"
+    color: ClassVar[str] = "primary"
+    height: ClassVar[str] = "12rem"
+    filters: ClassVar[dict[str, str] | None] = None
+    default_filter: ClassVar[str | None] = None
+
+    @classmethod
+    def data(cls, ctx: "Context", filter: str | None = None) -> dict[str, Any]:
+        return {"labels": [], "values": []}
+
+    @classmethod
+    def view_data(cls, ctx: "Context") -> dict[str, Any]:
+        active = ctx.request.query_params.get("filter") or cls.default_filter or (
+            next(iter(cls.filters)) if cls.filters else None)
+        data = call(cls.data, ctx=ctx, db=ctx.db, user=ctx.user, filter=active, filters=ctx.filters) or {}
+        values = [float(v or 0) for v in data.get("values", [])]
+        labels = list(data.get("labels", []))
+        display = list(data.get("display") or [f"{v:,.0f}" for v in values])
+        top = max(values) if values else 0
+        highlight = data.get("highlight")
+        if highlight is None and values:
+            highlight = values.index(top)
+        columns = [{"label": labels[i] if i < len(labels) else "", "value": v,
+                    "display": display[i] if i < len(display) else v,
+                    "height": max(6, round(v / top * 100)) if top else 6, "active": i == highlight}
+                   for i, v in enumerate(values)]
+        return {"columns": columns, "filters": cls.filters, "active_filter": active}
+
+
+class BannerWidget(Widget):
+    """A wide colored card with a heading, a line of text and a button ("Get premium feature")."""
+
+    template = "tungsten/widgets/banner.html"
+    column_span = 2
+    lazy = False
+    eyebrow: ClassVar[str | None] = None
+    text: ClassVar[str | None] = None
+    button_label: ClassVar[str | None] = None
+    button_url: ClassVar[str | None] = None
+    button_icon: ClassVar[str | None] = "arrow-up-right"
+    #: "brand" (primary gradient), "dark", "soft" (light tint of ``color``) or "purple"-style any color name
+    variant: ClassVar[str] = "soft"
+    color: ClassVar[str] = "primary"
+
+    @classmethod
+    def view_data(cls, ctx: "Context") -> dict[str, Any]:
+        return {"button_url": call(cls.get_button_url, ctx=ctx)}
+
+    @classmethod
+    def get_button_url(cls, ctx: "Context") -> str | None:
+        return cls.button_url
+
+
+class ActivityWidget(_ItemsWidget):
+    """A timeline of recent events: ``Item("Order #31 paid", time="2h ago", icon="credit-card")``."""
+
+    template = "tungsten/widgets/activity.html"
+
+
+class LeaderboardWidget(_ItemsWidget):
+    """A ranked list of people or things with a value and an optional bar ("Top sales reps")."""
+
+    template = "tungsten/widgets/leaderboard.html"
+    #: show 1, 2, 3... before each row
+    ranked: ClassVar[bool] = True
+
+
+class FunnelWidget(_ItemsWidget):
+    """Stages with shrinking bars; each bar is the stage's share of the first stage ("Sales funnel")."""
+
+    template = "tungsten/widgets/funnel.html"
+
+    @classmethod
+    def view_data(cls, ctx: "Context") -> dict[str, Any]:
+        entries = _items(cls, ctx)
+        first = float(entries[0].value or 0) if entries else 0
+        for it in entries:
+            if it.percent is None:
+                it.percent = round(float(it.value or 0) / first * 100, 1) if first else 0.0
+        return {"entries": entries, "link": cls.link}
+
+
+class ScheduleWidget(_ItemsWidget):
+    """This week as a strip of days (today highlighted) with a list of events under it ("Meeting schedule")."""
+
+    template = "tungsten/widgets/schedule.html"
+
+    @classmethod
+    def view_data(cls, ctx: "Context") -> dict[str, Any]:
+        import datetime as dt
+
+        today = dt.date.today()
+        start = today - dt.timedelta(days=today.weekday())
+        days = [{"name": __((start + dt.timedelta(days=i)).strftime("%a")), "day": (start + dt.timedelta(days=i)).day,
+                 "today": start + dt.timedelta(days=i) == today} for i in range(7)]
+        return {"entries": _items(cls, ctx), "link": cls.link, "days": days,
+                "month": __(today.strftime("%B")) + today.strftime(" %Y")}
+
+
+class TeamWidget(_ItemsWidget):
+    """People as avatars with their name and role under each ("Members")."""
+
+    template = "tungsten/widgets/team.html"
+
+
+class QuickActionsWidget(_ItemsWidget):
+    """A grid of round icon buttons that link somewhere ("New order", "Add product"...)."""
+
+    template = "tungsten/widgets/quick-actions.html"
+    lazy = False
+    columns: ClassVar[int] = 4
+
+
+class ChecklistWidget(_ItemsWidget):
+    """A to-do style list with ticks and an overall progress bar ("Setup guide")."""
+
+    template = "tungsten/widgets/checklist.html"
+
+    @classmethod
+    def view_data(cls, ctx: "Context") -> dict[str, Any]:
+        entries = _items(cls, ctx)
+        done = sum(1 for it in entries if it.done)
+        return {"entries": entries, "link": cls.link, "done": done,
+                "percent": round(done / len(entries) * 100) if entries else 0}

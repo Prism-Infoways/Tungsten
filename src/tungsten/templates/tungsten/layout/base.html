@@ -34,7 +34,7 @@
   <script defer src="{{ panel.asset('vendor/alpine.min.js') }}"></script>
   {{ panel.hooks('head.end', ctx) }}
 </head>
-<body class="h-full bg-gray-50 font-sans text-gray-950 dark:bg-gray-950 dark:text-white"
+<body class="h-full bg-gray-100 font-sans text-gray-950 dark:bg-gray-950 dark:text-white"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
       {% if panel.spa %}hx-boost="true"{% endif %}
       data-tw-unsaved-alerts="{{ 'true' if panel.unsaved_changes_alerts else 'false' }}"

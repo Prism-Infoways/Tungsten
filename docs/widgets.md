@@ -26,7 +26,7 @@ You can also show widgets in other places:
 | Custom page | `widgets = [...]` on a [custom page](custom-pages) |
 | Resource list page | `widgets = [...]` on a [resource](resources) (shown above the table) |
 
-Tungsten ships five widget types:
+Tungsten ships these basic widget types:
 
 | Class | What it shows |
 | --- | --- |
@@ -37,6 +37,8 @@ Tungsten ships five widget types:
 | `AccountWidget` | A "Welcome" card with the user's name and a link to their profile |
 
 All of them can be imported from `tungsten`.
+
+There are also ten modern card widgets, like a big "Total revenue" card, a target gauge, rounded columns, a funnel, a leaderboard and a timeline. See [Modern widgets](modern-widgets). For the small building blocks you can use in your own templates (pills, chips, rings, meters...), see [UI components](ui-components).
 
 > [!TIP]
 > `tungsten make:widget Sales --type chart` writes a starter widget for you. The types are `stats`, `chart`, `table` and `progress`. See [CLI](cli).
@@ -99,6 +101,7 @@ class ShopStats(StatsOverviewWidget):
 | `.trend("25%", "up", "danger")` | Pass a third argument to pick the trend color yourself, for example when "up" is bad. |
 | `.chart([3, 5, 4, 8, 9])` | A small sparkline (a tiny line chart) drawn from the numbers. |
 | `.url("/admin/orders")` | Makes the whole card a link. |
+| `.highlight()` | Fills the card with the brand color. `.highlight("dark")` makes it near black. |
 
 ### Cards per row
 

@@ -9,11 +9,11 @@
 {%- if style == 'link' -%}
 inline-flex items-center gap-1.5 text-sm font-semibold {{ colors.pick(colors.LINK, color) }}
 {%- elif style == 'icon' -%}
-inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white ring-1 ring-gray-950/10 transition dark:bg-white/5 dark:ring-white/10 {{ colors.pick(colors.ICON_BUTTON, color if color != 'primary' else 'gray') }}
+inline-flex h-9 w-9 items-center justify-center rounded-full bg-white ring-1 ring-gray-950/10 transition dark:bg-white/5 dark:ring-white/10 {{ colors.pick(colors.ICON_BUTTON, color if color != 'primary' else 'gray') }}
 {%- elif style == 'soft' -%}
 tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.SOFT_BUTTON, color) }}
 {%- elif style == 'dropdown' -%}
-flex w-full items-center gap-2 rounded-md px-2 py-2 text-start text-sm transition hover:bg-gray-50 dark:hover:bg-white/5 {{ colors.pick(colors.TEXT, color) if color not in ('primary', 'gray') else 'text-gray-700 dark:text-gray-200' }}
+flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-start text-sm transition hover:bg-gray-50 dark:hover:bg-white/5 {{ colors.pick(colors.TEXT, color) if color not in ('primary', 'gray') else 'text-gray-700 dark:text-gray-200' }}
 {%- elif outlined -%}
 tw-btn {{ sizes.get(size, sizes.md) }} bg-white ring-1 ring-gray-950/10 dark:bg-transparent dark:ring-white/20 {{ colors.pick(colors.LINK, color) }}
 {%- else -%}
@@ -42,7 +42,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 
 {# ---------------------------------------------------------------- badges #}
 {% macro badge(text, color='gray', icon_name=None, size='sm') %}
-<span class="inline-flex items-center gap-x-1 whitespace-nowrap rounded-md px-2 {{ 'py-0.5 text-xs' if size == 'sm' else 'py-1 text-sm' }} font-medium ring-1 ring-inset {{ colors.pick(colors.BADGE, color) }}">
+<span class="inline-flex items-center gap-x-1 whitespace-nowrap rounded-full px-2.5 {{ 'py-0.5 text-xs' if size == 'sm' else 'py-1 text-sm' }} font-medium ring-1 ring-inset {{ colors.pick(colors.BADGE, color) }}">
   {{ icon(icon_name, 'h-3.5 w-3.5') }}{{ text }}
 </span>
 {% endmacro %}
@@ -73,7 +73,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 <div class="flex min-w-0 items-center gap-3">
   {% if icon_name %}<span class="tw-icon-tile h-10 w-10 {{ colors.pick(colors.SOFT_ICON, icon_color) }}">{{ icon(icon_name, 'h-5 w-5') }}</span>{% endif %}
   <div class="min-w-0">
-    <h3 class="truncate text-base font-semibold text-gray-950 dark:text-white">{{ heading }}</h3>
+    <h3 class="truncate text-base font-semibold tracking-tight text-gray-950 dark:text-white">{{ heading }}</h3>
     {% if description %}<p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
   </div>
 </div>
@@ -102,7 +102,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 <div class="relative {{ classes }}" x-data="twDropdown('{{ align }}')" @keydown.escape.window="open = false" @click.outside="open = false">
   <div @click="open = !open">{{ caller('trigger') }}</div>
   <div x-ref="panel" x-show="open" x-cloak x-transition.opacity.duration.100ms @click="$event.target.closest('a, button:not([disabled])') && (open = false)"
-       class="absolute z-30 mt-2 {{ 'end-0' if align == 'end' else 'start-0' }} {{ width }} rounded-xl bg-white p-1 shadow-lg ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+       class="absolute z-30 mt-2 {{ 'end-0' if align == 'end' else 'start-0' }} {{ width }} rounded-2xl bg-white p-1.5 shadow-xl ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
     {{ caller('panel') }}
   </div>
 </div>
@@ -158,28 +158,28 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {% endif %}
 {% endmacro %}
 
-{% macro stat_card(label, value, icon_name=None, color='primary', description=None, trend_value=None, trend_direction='up', trend_color=None, chart=None, url=None, id='stat') %}
+{% macro stat_card(label, value, icon_name=None, color='primary', description=None, trend_value=None, trend_direction='up', trend_color=None, chart=None, url=None, id='stat', variant='default') %}
 {% set tag = 'a' if url else 'div' %}
 {% set description = description or (__('vs last month') if trend_value else none) %}
-<{{ tag }} {% if url %}href="{{ url }}"{% endif %} class="tw-card group relative block overflow-hidden p-5 {{ 'transition hover:-translate-y-0.5 hover:shadow-md hover:ring-primary-500/30' if url }}">
-  <div class="flex items-start gap-3.5">
+{% set filled = variant in ('brand', 'dark') %}
+<{{ tag }} {% if url %}href="{{ url }}"{% endif %} class="{{ 'tw-card-brand' if variant == 'brand' else ('tw-card-dark relative overflow-hidden' if variant == 'dark' else 'tw-card') }} group relative block overflow-hidden p-5 {{ 'tw-card-hover' if url }}" data-tw-stat="{{ variant }}">
+  {% if filled %}<span class="pointer-events-none absolute -end-10 -top-12 h-36 w-36 rounded-full bg-white/10" aria-hidden="true"></span><span class="pointer-events-none absolute -bottom-16 end-10 h-28 w-28 rounded-full bg-white/[0.06]" aria-hidden="true"></span>{% endif %}
+  <div class="relative flex items-center justify-between gap-3">
+    <p class="truncate text-sm font-medium {{ 'text-white/80' if filled else 'text-gray-500 dark:text-gray-400' }}" title="{{ label }}">{{ label }}</p>
     {% if icon_name %}
-    <span class="tw-icon-tile h-11 w-11 {{ colors.pick(colors.SOFT_ICON, color) }}">{{ icon(icon_name, 'h-5 w-5') }}</span>
+    <span class="tw-icon-tile h-10 w-10 {{ 'bg-white/15 text-white ring-1 ring-inset ring-white/20' if filled else colors.pick(colors.SOFT_ICON, color) }}">{{ icon(icon_name, 'h-5 w-5') }}</span>
     {% endif %}
-    <div class="min-w-0 flex-1">
-      <p class="truncate text-sm font-medium text-gray-500 dark:text-gray-400" title="{{ label }}">{{ label }}</p>
-      <div class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
-        <p class="whitespace-nowrap text-2xl font-bold tracking-tight text-gray-950 dark:text-white">{{ value }}</p>
-        {% if trend_value %}
-        {% set c = trend_color or ('success' if trend_direction == 'up' else 'danger') %}
-        <span class="tw-trend-pill {{ colors.pick(colors.BADGE, c) }}">{{ icon('arrow-up' if trend_direction == 'up' else 'arrow-down', 'h-3 w-3') }}{{ trend_value }}</span>
-        {% endif %}
-      </div>
-    </div>
   </div>
-  <div class="mt-3 flex min-h-[2.75rem] items-end justify-between gap-3">
-    {% if description %}<p class="line-clamp-2 min-w-0 flex-1 break-words text-sm leading-snug text-gray-500 dark:text-gray-400" title="{{ description }}">{{ description }}</p>{% else %}<span></span>{% endif %}
-    {% if chart %}<div class="shrink-0">{{ sparkline(chart, trend_color or color, id) }}</div>{% endif %}
+  <div class="relative mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+    <p class="whitespace-nowrap text-3xl font-semibold tracking-tight tabular-nums {{ 'text-white' if filled else 'text-gray-950 dark:text-white' }}">{{ value }}</p>
+    {% if trend_value %}
+    {% set c = trend_color or ('success' if trend_direction == 'up' else 'danger') %}
+    <span class="tw-trend-pill {{ 'bg-white/20 text-white' if filled else colors.pick(colors.BADGE, c) }}">{{ icon('arrow-up' if trend_direction == 'up' else 'arrow-down', 'h-3 w-3') }}{{ trend_value }}</span>
+    {% endif %}
+  </div>
+  <div class="relative mt-3 flex min-h-[2.5rem] items-end justify-between gap-3">
+    {% if description %}<p class="line-clamp-2 min-w-0 flex-1 text-sm leading-snug {{ 'text-white/75' if filled else 'text-gray-500 dark:text-gray-400' }}" title="{{ description }}">{{ description }}</p>{% else %}<span></span>{% endif %}
+    {% if chart %}<div class="shrink-0 {{ '[&_path]:!stroke-white [&_stop]:![stop-color:white]' if filled }}">{{ sparkline(chart, trend_color or color, id) }}</div>{% endif %}
   </div>
 </{{ tag }}>
 {% endmacro %}
@@ -193,4 +193,236 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
          autocomplete="off" class="tw-input ps-9 {{ 'pe-12' if shortcut }}" {{ attrs_ }}>
   {% if shortcut %}<kbd class="pointer-events-none absolute inset-y-0 end-2 my-auto flex h-6 items-center rounded-md border border-gray-200 px-1.5 text-xs text-gray-400 dark:border-white/10">{{ shortcut }}</kbd>{% endif %}
 </label>
+{% endmacro %}
+
+
+{# ================================================================ modern components
+   Small building blocks in the style of the dashboard: pills, chips, rings, gauges, bars and lists.
+   Every macro works in light and dark mode. See docs/ui-components.md. #}
+
+{# A trend pill on its own: ui.trend_pill('12%', 'up') #}
+{% macro trend_pill(value, direction='up', color=None) %}
+{% set c = color or ('success' if direction == 'up' else 'danger') %}
+<span class="tw-trend-pill {{ colors.pick(colors.BADGE, c) }}">{{ icon('arrow-up' if direction == 'up' else 'arrow-down', 'h-3 w-3') }}{{ value }}</span>
+{% endmacro %}
+
+{# A colored dot: ui.dot('success') #}
+{% macro dot(color='primary') %}<span class="tw-dot" style="background: {{ colors.css_rgb(color) }}" aria-hidden="true"></span>{% endmacro %}
+
+{# A small rounded label, optionally with an icon or a colored dot: ui.chip('June 2025', 'calendar') #}
+{% macro chip(text, icon_name=None, dot_color=None, href=None) %}
+{% set tag = 'a' if href else 'span' %}
+<{{ tag }} {% if href %}href="{{ href }}"{% endif %} class="tw-chip {{ 'transition hover:bg-gray-50 dark:hover:bg-white/10' if href }}">
+  {% if dot_color %}{{ dot(dot_color) }}{% endif %}{{ icon(icon_name, 'h-3.5 w-3.5') }}{{ text }}
+</{{ tag }}>
+{% endmacro %}
+
+{# A keyboard key: ui.kbd('⌘K') #}
+{% macro kbd(text) %}<kbd class="inline-flex h-6 items-center rounded-full border border-gray-200 bg-white px-2 font-sans text-xs text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">{{ text }}</kbd>{% endmacro %}
+
+{# A thin line with an optional label in the middle. #}
+{% macro divider(label=None) %}
+<div class="flex items-center gap-3 py-2 text-xs font-medium uppercase tracking-wider text-gray-400" role="separator">
+  <span class="h-px flex-1 bg-gray-200 dark:bg-white/10"></span>{% if label %}{{ label }}<span class="h-px flex-1 bg-gray-200 dark:bg-white/10"></span>{% endif %}
+</div>
+{% endmacro %}
+
+{# Grey loading placeholder lines. #}
+{% macro skeleton(lines=3) %}
+<div class="grid gap-3" aria-hidden="true">
+  {% for i in range(lines) %}<div class="tw-skeleton h-4" style="width: {{ [100, 82, 64, 90, 72][i % 5] }}%"></div>{% endfor %}
+</div>
+{% endmacro %}
+
+{# Pill navigation. items: list of dicts {label, url, active, icon, badge}. muted=true gives a grey bar. #}
+{% macro pill_tabs(items, muted=false, label='Tabs') %}
+<nav class="tw-pill-nav {{ 'tw-pill-nav-muted' if muted }}" aria-label="{{ __(label) }}">
+  {% for it in items %}
+  <a href="{{ it.url or '#' }}" class="tw-pill-nav-item {{ 'tw-pill-nav-item-active' if it.active }}" {% if it.active %}aria-current="page"{% endif %}>
+    {{ icon(it.icon, 'h-4 w-4') }}{{ __(it.label) }}{% if it.badge is defined and it.badge is not none %}<span class="rounded-full bg-gray-950/5 px-1.5 text-xs dark:bg-white/10">{{ it.badge }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</nav>
+{% endmacro %}
+
+{# A segmented control that posts with the form: ui.segmented('period', {'7': '7 days', '30': '30 days'}, '30') #}
+{% macro segmented(name, options, value=None) %}
+<div class="tw-pill-nav tw-pill-nav-muted" role="radiogroup">
+  {% for v, text in options.items() %}
+  <label class="tw-pill-nav-item cursor-pointer py-1.5 has-[:checked]:bg-white has-[:checked]:text-gray-950 has-[:checked]:shadow-sm has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary-500 dark:has-[:checked]:bg-white/15 dark:has-[:checked]:text-white">
+    <input type="radio" name="{{ name }}" value="{{ v }}" class="sr-only" {% if v | string == value | string %}checked{% endif %}>{{ __(text) }}
+  </label>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# An on/off switch for forms (a styled checkbox). #}
+{% macro switch(name, checked=false, label=None, description=None, value='1') %}
+<label class="flex cursor-pointer items-center justify-between gap-4">
+  {% if label %}<span class="min-w-0"><span class="block text-sm font-medium text-gray-950 dark:text-white">{{ __(label) }}</span>{% if description %}<span class="block text-xs text-gray-500 dark:text-gray-400">{{ __(description) }}</span>{% endif %}</span>{% endif %}
+  <span class="relative inline-flex shrink-0">
+    <input type="checkbox" name="{{ name }}" value="{{ value }}" class="peer sr-only" {% if checked %}checked{% endif %}>
+    <span class="h-6 w-11 rounded-full bg-gray-200 transition peer-checked:bg-primary-600 peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500 peer-focus-visible:ring-offset-2 dark:bg-white/10"></span>
+    <span class="absolute start-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5 rtl:peer-checked:-translate-x-5"></span>
+  </span>
+</label>
+{% endmacro %}
+
+{# A ring that fills to `percent`, with text in the middle. #}
+{% macro progress_ring(percent, color='primary', size=96, stroke=10, label=None, value=None) %}
+{% set r = (size - stroke) / 2 %}{% set c = 2 * 3.14159265 * r %}
+{% set p = [[percent or 0, 0] | max, 100] | min %}
+<div class="relative inline-flex shrink-0 items-center justify-center" style="width: {{ size }}px; height: {{ size }}px" role="img" aria-label="{{ (label ~ ': ') if label }}{{ p | round | int }}%">
+  <svg viewBox="0 0 {{ size }} {{ size }}" class="-rotate-90" width="{{ size }}" height="{{ size }}" aria-hidden="true">
+    <circle cx="{{ size / 2 }}" cy="{{ size / 2 }}" r="{{ r }}" fill="none" stroke-width="{{ stroke }}" class="stroke-gray-100 dark:stroke-white/10"/>
+    <circle cx="{{ size / 2 }}" cy="{{ size / 2 }}" r="{{ r }}" fill="none" stroke-width="{{ stroke }}" stroke-linecap="round"
+            stroke="{{ colors.css_rgb(color) }}" stroke-dasharray="{{ c | round(2) }}" stroke-dashoffset="{{ (c * (1 - p / 100)) | round(2) }}"/>
+  </svg>
+  <span class="absolute inset-0 flex flex-col items-center justify-center text-center leading-tight">
+    <span class="font-semibold tabular-nums text-gray-950 dark:text-white" style="font-size: {{ (size / 5) | round | int }}px">{{ value if value is not none else (p | round | int ~ '%') }}</span>
+    {% if label %}<span class="text-[11px] text-gray-500 dark:text-gray-400">{{ label }}</span>{% endif %}
+  </span>
+</div>
+{% endmacro %}
+
+{# A half-circle gauge. on_dark=true draws it for a dark or brand card. #}
+{% macro gauge(percent, color='primary', value=None, caption=None, label=None, on_dark=false) %}
+{% set p = [[percent or 0, 0] | max, 100] | min %}
+{% set len = 3.14159265 * 80 %}
+<div class="relative mx-auto w-full max-w-[15rem]" role="img" aria-label="{{ (label ~ ': ') if label }}{{ p | round | int }}%">
+  <svg viewBox="0 0 200 112" class="w-full" aria-hidden="true">
+    <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke-width="16" stroke-linecap="round" class="{{ 'stroke-white/10' if on_dark else 'stroke-gray-100 dark:stroke-white/10' }}"/>
+    <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke-width="16" stroke-linecap="round" stroke="{{ colors.css_rgb(color) }}"
+          stroke-dasharray="{{ len | round(2) }}" stroke-dashoffset="{{ (len * (1 - p / 100)) | round(2) }}"/>
+  </svg>
+  <div class="absolute inset-x-0 bottom-0 flex flex-col items-center leading-tight">
+    {% if label %}<span class="text-xs {{ 'text-white/60' if on_dark else 'text-gray-500 dark:text-gray-400' }}">{{ label }}</span>{% endif %}
+    <span class="text-3xl font-semibold tracking-tight tabular-nums {{ 'text-white' if on_dark else 'text-gray-950 dark:text-white' }}">{{ value if value is not none else (p | round | int ~ '%') }}</span>
+    {% if caption %}<span class="text-xs {{ 'text-white/60' if on_dark else 'text-gray-500 dark:text-gray-400' }}">{{ caption }}</span>{% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{# A labelled bar: ui.meter('Enterprise deals', 12, 'danger', '12%') #}
+{% macro meter(label, percent, color='primary', value=None) %}
+{% set p = [[percent or 0, 0] | max, 100] | min %}
+<div>
+  <div class="mb-1.5 flex items-center justify-between gap-2 text-sm">
+    <span class="truncate font-medium text-gray-700 dark:text-gray-200">{{ label }}</span>
+    <span class="shrink-0 tabular-nums text-gray-500 dark:text-gray-400">{{ value if value is not none else (p | round | int ~ '%') }}</span>
+  </div>
+  <span class="tw-track" role="progressbar" aria-valuenow="{{ p | round | int }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ label }}">
+    <span class="tw-track-bar" style="width: {{ p }}%; background: {{ colors.css_rgb(color) }}"></span>
+  </span>
+</div>
+{% endmacro %}
+
+{# Overlapping avatars. people: list of dicts {name, avatar}. #}
+{% macro avatar_group(people, max=4, size='h-9 w-9') %}
+<div class="flex items-center -space-x-2 rtl:space-x-reverse">
+  {% for person in people[:max] %}<span class="rounded-full ring-2 ring-white dark:ring-gray-900" title="{{ person.name }}">{{ avatar(person.name, person.avatar, size, 'text-xs') }}</span>{% endfor %}
+  {% if people | length > max %}<span class="{{ size }} inline-flex items-center justify-center rounded-full bg-gray-950 text-xs font-semibold text-white ring-2 ring-white dark:bg-white dark:text-gray-950 dark:ring-gray-900">+{{ people | length - max }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{# One row in a list: an avatar or icon, a title and muted text, and a value at the end. #}
+{% macro list_row(title, description=None, value=None, icon_name=None, color='primary', avatar_url=None, avatar_name=None, href=None, badge_text=None, badge_color='gray') %}
+{% set tag = 'a' if href else 'div' %}
+<{{ tag }} {% if href %}href="{{ href }}"{% endif %} class="flex items-center gap-3 rounded-2xl px-2 py-2 {{ 'transition hover:bg-gray-50 dark:hover:bg-white/5' if href }}">
+  {% if avatar_name or avatar_url %}{{ avatar(avatar_name or title, avatar_url) }}
+  {% elif icon_name %}<span class="tw-icon-tile h-9 w-9 {{ colors.pick(colors.SOFT_ICON, color) }}">{{ icon(icon_name, 'h-4 w-4') }}</span>{% endif %}
+  <div class="min-w-0 flex-1">
+    <p class="truncate text-sm font-medium text-gray-950 dark:text-white">{{ title }}</p>
+    {% if description %}<p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+  </div>
+  {% if badge_text %}{{ badge(badge_text, badge_color) }}{% endif %}
+  {% if value is not none %}<span class="shrink-0 text-sm font-semibold tabular-nums text-gray-950 dark:text-white">{{ value }}</span>{% endif %}
+</{{ tag }}>
+{% endmacro %}
+
+{# One timeline entry (use inside <ol>). last=true hides the line below. #}
+{% macro timeline_item(title, description=None, time=None, icon_name='circle', color='primary', last=false, href=None) %}
+<li class="relative flex gap-3 pb-5 last:pb-0">
+  {% if not last %}<span class="absolute start-[1.1rem] top-10 -bottom-0 w-px bg-gray-200 dark:bg-white/10" aria-hidden="true"></span>{% endif %}
+  <span class="tw-icon-tile relative h-9 w-9 {{ colors.pick(colors.SOFT_ICON, color) }} ring-4 ring-white dark:ring-gray-900">{{ icon(icon_name, 'h-4 w-4') }}</span>
+  <div class="min-w-0 flex-1 pt-1">
+    <div class="flex items-start justify-between gap-3">
+      {% if href %}<a href="{{ href }}" class="text-sm font-medium text-gray-950 hover:underline dark:text-white">{{ title }}</a>{% else %}<p class="text-sm font-medium text-gray-950 dark:text-white">{{ title }}</p>{% endif %}
+      {% if time %}<span class="shrink-0 whitespace-nowrap text-xs text-gray-400">{{ time }}</span>{% endif %}
+    </div>
+    {% if description %}<p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+  </div>
+</li>
+{% endmacro %}
+
+{# Rounded columns, one highlighted. columns: list of dicts {label, display, height (0-100), active}. #}
+{% macro columns(cols, color='primary', height='12rem') %}
+<div class="flex items-end gap-2 sm:gap-3" style="height: {{ height }}">
+  {% for col in cols %}
+  <div class="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
+    <div class="relative flex w-full flex-1 items-end justify-center">
+      {% if col.active %}<span class="absolute z-10 -translate-y-full whitespace-nowrap rounded-full bg-gray-950 px-2.5 py-1 text-xs font-semibold text-white shadow-lg dark:bg-white dark:text-gray-950" style="bottom: calc({{ col.height }}% + 0.5rem)">{{ col.display }}</span>{% endif %}
+      <div class="relative w-full max-w-[3.25rem] overflow-hidden rounded-2xl transition-all duration-500 {{ '' if col.active else 'tw-stripes bg-gray-100 group-hover:bg-gray-200 dark:bg-white/5 dark:group-hover:bg-white/10' }}"
+           style="height: {{ col.height }}%; {% if col.active %}background: linear-gradient(to top, {{ colors.css_rgb(color, 400) }}, {{ colors.css_rgb(color, 600) }}){% endif %}" title="{{ col.label }}: {{ col.display }}">
+        {% if col.active %}<span class="absolute inset-x-2 top-2 h-2 rounded-full bg-white/50"></span>{% endif %}
+      </div>
+    </div>
+    <span class="truncate text-xs {{ 'font-semibold text-gray-950 dark:text-white' if col.active else 'text-gray-400' }}">{{ col.label }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# A colored banner card. variant: soft | brand | dark #}
+{% macro banner(heading, text=None, button_label=None, button_url=None, eyebrow=None, variant='soft', color='primary', button_icon='arrow-up-right') %}
+{% set filled = variant in ('brand', 'dark') %}
+<section class="relative flex h-full flex-col justify-between gap-5 overflow-hidden p-6 sm:p-7 {{ 'tw-card-brand' if variant == 'brand' else ('tw-card-dark' if variant == 'dark' else 'tw-card') }}"
+         {% if variant == 'soft' %}style="background-image: linear-gradient(120deg, {{ colors.css_rgb(color, 100) }}, {{ colors.css_rgb(color, 200) }} 55%, {{ colors.css_rgb(color, 300) }})"{% endif %}>
+  <span class="pointer-events-none absolute -end-12 -top-16 h-56 w-56 rounded-full {{ 'bg-white/10' if filled else 'bg-white/40' }} blur-2xl" aria-hidden="true"></span>
+  <svg class="pointer-events-none absolute -bottom-10 end-4 h-44 w-44 {{ 'text-white/10' if filled else 'text-white/50' }}" viewBox="0 0 200 200" fill="currentColor" aria-hidden="true">
+    {% for a in range(0, 360, 30) %}<ellipse cx="100" cy="100" rx="22" ry="90" transform="rotate({{ a }} 100 100)" opacity=".35"/>{% endfor %}
+  </svg>
+  <div class="relative max-w-lg">
+    {% if eyebrow %}<span class="mb-3 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ 'bg-white/15 text-white' if filled else 'bg-white/70 text-gray-900' }}">{{ eyebrow }}</span>{% endif %}
+    <h3 class="text-xl font-semibold tracking-tight sm:text-2xl {{ 'text-white' if filled else 'text-gray-950' }}">{{ heading }}</h3>
+    {% if text %}<p class="mt-2 text-sm {{ 'text-white/75' if filled else 'text-gray-700' }}">{{ text }}</p>{% endif %}
+  </div>
+  {% if button_label %}
+  <div class="relative">
+    <a href="{{ button_url or '#' }}" class="tw-btn px-4 py-2.5 {{ 'bg-white text-gray-950 hover:bg-white/90' if filled else 'bg-gray-950 text-white hover:bg-gray-800' }}">{{ button_label }}{{ icon(button_icon, 'h-4 w-4') }}</a>
+  </div>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{# The current week as a strip of days. days: list of dicts {name, day, today}. #}
+{% macro week_strip(days) %}
+<div class="grid grid-cols-7 gap-1">
+  {% for d in days %}
+  <div class="flex min-w-0 flex-col items-center gap-1 rounded-2xl py-2 text-center {{ 'bg-gray-950 text-white shadow-lg dark:bg-white dark:text-gray-950' if d.today else 'text-gray-500 dark:text-gray-400' }}" {% if d.today %}aria-current="date"{% endif %}>
+    <span class="max-w-full truncate text-[10px] uppercase {{ 'opacity-70' if d.today }}">{{ d.name[:2] if d.name | length > 3 else d.name }}</span>
+    <span class="text-sm font-semibold {{ '' if d.today else 'text-gray-950 dark:text-white' }}">{{ d.day }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# A message box. color: info | success | warning | danger | primary | gray #}
+{% macro alert(heading, text=None, color='info', icon_name=None) %}
+{% set icons = {'info': 'info', 'success': 'circle-check', 'warning': 'triangle-alert', 'danger': 'circle-x'} %}
+<div class="flex gap-3 rounded-2xl p-4 ring-1 ring-inset {{ colors.pick(colors.BADGE, color) }}" role="{{ 'alert' if color == 'danger' else 'status' }}">
+  <span class="shrink-0">{{ icon(icon_name or icons.get(color, 'info'), 'h-5 w-5') }}</span>
+  <div class="min-w-0 text-sm"><p class="font-semibold">{{ heading }}</p>{% if text %}<p class="mt-0.5 opacity-90">{{ text }}</p>{% endif %}</div>
+</div>
+{% endmacro %}
+
+{# A compact number with a label and optional trend, for use inside cards. #}
+{% macro kpi(label, value, trend_value=None, trend_direction='up', color=None, accent=None) %}
+<div class="min-w-0 {{ 'border-s-2 ps-3' if accent }}" {% if accent %}style="border-color: {{ colors.css_rgb(accent) }}"{% endif %}>
+  <p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ label }}</p>
+  <div class="mt-0.5 flex items-center gap-1.5">
+    <span class="text-lg font-semibold tracking-tight tabular-nums text-gray-950 dark:text-white">{{ value }}</span>
+    {% if trend_value %}{{ trend_pill(trend_value, trend_direction, color) }}{% endif %}
+  </div>
+</div>
 {% endmacro %}

@@ -2,6 +2,14 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-10-25 · Modern design and new components (next release)
+
+- **New look for the whole panel**, inspired by modern dashboard designs: a light gray page, white cards with big soft corners, a floating dark sidebar where the current page is a white pill, a top bar of round white buttons, pill-shaped buttons and badges, black pill tabs and small uppercase table headers. Dark mode and right-to-left languages included. Nothing to change in your code. See [UI components](/docs/ui-components).
+- **10 new dashboard widgets**: `HeroStatWidget` (one big number with buttons), `GaugeWidget` (target gauge or ring), `ColumnsWidget` (rounded columns with one highlighted), `BannerWidget`, `ActivityWidget` (timeline), `LeaderboardWidget`, `FunnelWidget`, `ScheduleWidget` (week strip and events), `TeamWidget` and `QuickActionsWidget`, plus `ChecklistWidget`. List widgets share one `Item` class. See [Modern widgets](/docs/modern-widgets).
+- **Filled stats cards**: `Stat(...).highlight()` fills a card with the brand color, `.highlight("dark")` makes it near black.
+- **UI kit for your own templates**: new macros `pill_tabs`, `segmented`, `switch`, `chip`, `trend_pill`, `progress_ring`, `gauge`, `meter`, `columns`, `banner`, `list_row`, `timeline_item`, `avatar_group`, `week_strip`, `alert`, `kpi`, `skeleton`, `divider`, `dot` and `kbd`, and CSS classes like `tw-card-dark`, `tw-card-brand`, `tw-glass`, `tw-well` and `tw-pill-nav`. A gallery page shows them all: `content_template = "tungsten/components/gallery.html"`.
+- **Demo app**: the shop dashboard now uses the new widgets, and has a **UI kit** page under Settings.
+
 ## 2026-10-17 · tungsten-admin 0.1.11: advanced filters
 
 - **`tungsten-admin` 0.1.11** is on PyPI: `pip install -U tungsten-admin`. No database changes.
