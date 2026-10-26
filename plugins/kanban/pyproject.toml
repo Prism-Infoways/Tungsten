@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tungsten-kanban"
-version = "0.1.0"
+version = "0.1.1"
 description = "Kanban boards for Tungsten: show any resource as drag-and-drop columns, with ready boards for leads, tickets and leave."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Prism Infoways" }]
 keywords = ["tungsten", "tungsten-admin", "kanban", "board", "drag-and-drop", "pipeline", "fastapi", "admin"]
-dependencies = ["tungsten-admin>=0.1.5"]
+dependencies = ["tungsten-admin>=0.1.12"]
 
 [project.urls]
 Homepage = "https://tungsten.prisminfoways.com/plugins/kanban"

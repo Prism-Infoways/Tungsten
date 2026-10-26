@@ -2,7 +2,11 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
-## 2026-10-25 · Modern design and new components (next release)
+## 2026-10-26 · tungsten-admin 0.1.12: modern design and new components
+
+- **`tungsten-admin` 0.1.12** is on PyPI: `pip install -U tungsten-admin`. No database changes.
+- **`tungsten-calendar` 0.1.1, `tungsten-kanban` 0.1.1 and `tungsten-saved-views` 0.1.1** are on PyPI with the new design: `pip install -U tungsten-calendar tungsten-kanban tungsten-saved-views`. They need `tungsten-admin` 0.1.12.
+
 
 - **New look for the whole panel**, inspired by modern dashboard designs: a light gray page, white cards with big soft corners, a floating dark sidebar where the current page is a white pill, a top bar of round white buttons, pill-shaped buttons and badges, black pill tabs and small uppercase table headers. Dark mode and right-to-left languages included. Nothing to change in your code. See [UI components](/docs/ui-components).
 - **10 new dashboard widgets**: `HeroStatWidget` (one big number with buttons), `GaugeWidget` (target gauge or ring), `ColumnsWidget` (rounded columns with one highlighted), `BannerWidget`, `ActivityWidget` (timeline), `LeaderboardWidget`, `FunnelWidget`, `ScheduleWidget` (week strip and events), `TeamWidget` and `QuickActionsWidget`, plus `ChecklistWidget`. List widgets share one `Item` class. See [Modern widgets](/docs/modern-widgets).

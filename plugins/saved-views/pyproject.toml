@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tungsten-saved-views"
-version = "0.1.0"
+version = "0.1.1"
 description = "Saved table views for Tungsten: users save filters, search, sort and columns as one-click tabs like My Leads or Pending."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Prism Infoways" }]
 keywords = ["tungsten", "tungsten-admin", "saved views", "filters", "tables", "fastapi", "admin"]
-dependencies = ["tungsten-admin>=0.1.7"]
+dependencies = ["tungsten-admin>=0.1.12"]
 
 [project.urls]
 Homepage = "https://tungsten.prisminfoways.com/"
