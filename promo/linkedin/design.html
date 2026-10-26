@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tungsten new design (LinkedIn 4:5)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+  :root { --bg: #efeff1; --ink: #0a0a0a; --muted: #6b6b73; --brand: #f97316; --card: #fff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1350px; overflow: hidden; background: var(--bg); color: var(--ink);
+    font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  #stage { position: relative; width: 1080px; height: 1350px; overflow: hidden; background: var(--bg); }
+  #stage.dark { background: #0b0b0d; color: #fafafa; }
+  .glow { position: absolute; width: 1200px; height: 1200px; border-radius: 50%; left: -60px; top: -500px;
+    background: radial-gradient(circle, rgba(249,115,22,.20), rgba(249,115,22,0) 62%); }
+  .scene { position: absolute; inset: 0; opacity: 0; }
+  .head { position: absolute; left: 0; right: 0; top: 70px; text-align: center; }
+  .chip { display: inline-flex; align-items: center; gap: 10px; padding: 9px 18px; border-radius: 999px; background: #fff;
+    font-size: 20px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #3f3f46;
+    box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.05); }
+  .chip::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--brand); }
+  .dark .chip { background: #1c1c1f; color: #d4d4d8; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+  .h { font-size: 66px; font-weight: 800; letter-spacing: -.04em; line-height: 1.04; margin-top: 20px; }
+  .h em { font-style: normal; color: var(--brand); }
+  .sub { font-size: 27px; color: var(--muted); font-weight: 500; margin-top: 14px; }
+  .dark .sub { color: #a1a1aa; }
+
+  .win { position: absolute; left: 48px; width: 984px; border-radius: 26px; overflow: hidden; background: #fff;
+    box-shadow: 0 40px 90px -30px rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.06); }
+  .win .bar { height: 42px; background: #fff; display: flex; align-items: center; gap: 8px; padding: 0 18px;
+    border-bottom: 1px solid #ececef; }
+  .win .bar i { width: 12px; height: 12px; border-radius: 50%; background: #e4e4e7; display: block; }
+  .win .bar span { margin-left: 14px; height: 26px; border-radius: 999px; background: #f4f4f5; color: #52525b;
+    font: 600 14px "JetBrains Mono", monospace; display: flex; align-items: center; padding: 0 14px; }
+  .win.dk { background: #0b0b0d; box-shadow: 0 40px 90px -30px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.1); }
+  .win.dk .bar { background: #141416; border-color: #232326; } .win.dk .bar i { background: #3f3f46; }
+  .win.dk .bar span { background: #232326; color: #a1a1aa; }
+  .view { position: relative; overflow: hidden; }
+  .view img { position: absolute; left: 0; top: 0; width: 984px; display: block; }
+
+  .tag { position: absolute; padding: 14px 24px; border-radius: 999px; background: #0a0a0a; color: #fff; font-size: 26px;
+    font-weight: 700; display: flex; align-items: center; gap: 12px; box-shadow: 0 20px 40px -12px rgba(0,0,0,.45); white-space: nowrap; }
+  .tag b { width: 10px; height: 10px; border-radius: 50%; background: var(--brand); }
+  .tag.o { background: var(--brand); } .tag.o b { background: #fff; }
+
+  .big { position: absolute; left: 70px; right: 70px; top: 50%; transform: translateY(-50%); }
+  .pills { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 46px; }
+  .pill { padding: 16px 26px; border-radius: 999px; background: #fff; font-size: 27px; font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.06); font-family: "JetBrains Mono", monospace; letter-spacing: -.02em; }
+  .pill.k { background: #0a0a0a; color: #fff; } .pill.o { background: var(--brand); color: #fff; }
+  .cmd { display: inline-flex; gap: 16px; margin-top: 46px; padding: 22px 34px; border-radius: 999px; background: #0a0a0a; color: #fff;
+    font: 600 32px "JetBrains Mono", monospace; }
+  .cmd span { color: var(--brand); }
+  .bar-p { position: absolute; left: 0; bottom: 0; height: 6px; background: var(--brand); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="glow" id="glow"></div>
+
+  <!-- 1 intro -->
+  <section class="scene" id="s-intro">
+    <div class="big" style="text-align:center">
+      <svg id="logo" viewBox="0 0 32 32" style="width:120px;height:120px;display:block;margin:0 auto"><path d="M5 5h22a3 3 0 0 1 3 3v2.5a3 3 0 0 1-3 3h-6.5V27a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3V13.5H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z" fill="#f97316"/></svg>
+      <div class="chip" id="intro-chip" style="margin-top:34px">tungsten-admin 0.1.12</div>
+      <div class="h" id="intro-h" style="font-size:96px;margin-top:26px">A brand new<br><em>look.</em></div>
+      <div class="sub" id="intro-sub" style="font-size:32px;margin-top:24px">The FastAPI admin panel, redesigned.</div>
+    </div>
+  </section>
+
+  <!-- 2 dashboard -->
+  <section class="scene" id="s-dash">
+    <div class="head"><div class="chip">Modern dashboard</div><div class="h"><em>11 new</em> widgets.</div></div>
+    <div class="win" style="top:300px"><div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin</span></div>
+      <div class="view" style="height:960px"><img src="shots/dashboard.png" id="dash-img"></div></div>
+    <div class="tag" id="t1" style="left:90px;top:520px"><b></b>Hero stats</div>
+    <div class="tag" id="t2" style="right:80px;top:640px"><b></b>Target gauge</div>
+    <div class="tag" id="t3" style="left:120px;top:900px"><b></b>Funnel</div>
+    <div class="tag" id="t4" style="right:110px;top:1010px"><b></b>Leaderboard</div>
+    <div class="tag" id="t5" style="left:200px;top:1160px"><b></b>Timeline · Schedule · Team</div>
+  </section>
+
+  <!-- 3 dark -->
+  <section class="scene" id="s-dark">
+    <div class="head"><div class="chip" id="dark-chip">One click</div><div class="h">Full <em>dark mode.</em></div></div>
+    <div class="win" id="dark-win" style="top:300px"><div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin</span></div>
+      <div class="view" style="height:960px">
+        <img src="shots/dark_dashboard.png">
+        <img src="shots/dashboard.png" id="light-over">
+      </div></div>
+  </section>
+
+  <!-- 4 ui kit -->
+  <section class="scene" id="s-kit">
+    <div class="head"><div class="chip">UI kit page</div><div class="h"><em>20</em> ready UI components.</div></div>
+    <div class="win" style="top:300px"><div class="bar"><i></i><i></i><i></i><span>localhost:8000/admin/ui-kit</span></div>
+      <div class="view" style="height:960px"><img src="shots/ui_kit.png" id="kit-img"></div></div>
+    <div class="tag o" id="k1" style="left:80px;top:1180px"><b></b>Pill tabs</div>
+    <div class="tag" id="k2" style="left:300px;top:1180px"><b></b>Progress rings</div>
+    <div class="tag" id="k3" style="left:600px;top:1180px"><b></b>Meters · Alerts</div>
+  </section>
+
+  <!-- 5 plugins -->
+  <section class="scene" id="s-plug">
+    <div class="head"><div class="chip">Plugins too</div><div class="h">Every plugin, <em>same look.</em></div></div>
+    <div class="win" id="p1" style="top:300px"><div class="bar"><i></i><i></i><i></i><span>/admin/tasks-board</span></div>
+      <div class="view" style="height:440px"><img src="shots/kanban.png" style="top:-40px"></div></div>
+    <div class="win" id="p2" style="top:830px"><div class="bar"><i></i><i></i><i></i><span>/admin/calendar</span></div>
+      <div class="view" style="height:440px"><img src="shots/calendar.png" style="top:-40px"></div></div>
+  </section>
+
+  <!-- 6 filament -->
+  <section class="scene" id="s-fil">
+    <div class="big">
+      <div class="chip">Filament parity</div>
+      <div class="h" style="font-size:84px;margin-top:26px">Every Filament<br>component.<br><em>Now in Python.</em></div>
+      <div class="pills" id="fil-pills">
+        <span class="pill">MarkdownEditor</span><span class="pill">CodeEditor</span><span class="pill">MorphToSelect</span>
+        <span class="pill">FusedGroup</span><span class="pill k">Split</span><span class="pill k">Stack</span>
+        <span class="pill k">Grid</span><span class="pill">Repeater</span><span class="pill">Wizard</span><span class="pill o">+ many more</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 website -->
+  <section class="scene" id="s-web">
+    <div class="head"><div class="chip">And the website</div><div class="h">Fresh <em>new website.</em></div></div>
+    <div class="win" style="top:300px"><div class="bar"><i></i><i></i><i></i><span>tungsten.prisminfoways.com</span></div>
+      <div class="view" style="height:960px"><img src="shots/website.png" id="web-img"></div></div>
+  </section>
+
+  <!-- 8 outro -->
+  <section class="scene" id="s-out">
+    <div class="big" style="text-align:center">
+      <svg viewBox="0 0 32 32" style="width:96px;height:96px;display:block;margin:0 auto"><path d="M5 5h22a3 3 0 0 1 3 3v2.5a3 3 0 0 1-3 3h-6.5V27a3 3 0 0 1-3 3h-3a3 3 0 0 1-3-3V13.5H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z" fill="#f97316"/></svg>
+      <div class="h" style="font-size:84px;margin-top:22px">Upgrade <em>today.</em></div>
+      <div class="cmd" id="o1"><span>$</span>pip install -U tungsten-admin</div>
+      <div class="sub" id="o2" style="font-size:32px;margin-top:40px;color:#0a0a0a;font-weight:700">tungsten.prisminfoways.com</div>
+      <div class="sub" id="o3" style="margin-top:12px">Free and open source · MIT</div>
+    </div>
+  </section>
+
+  <div class="bar-p" id="prog"></div>
+</div>
+<script>
+const SCENES = [  // id, start, end
+  ["s-intro", 0, 4], ["s-dash", 4, 11.5], ["s-dark", 11.5, 16.5], ["s-kit", 16.5, 23.5], ["s-plug", 23.5, 29.5],
+  ["s-fil", 29.5, 35], ["s-web", 35, 42], ["s-out", 42, 48]];
+const DURATION = 48, FADE = 0.45, SCALE = 984 / 2160;
+const $ = id => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ease = x => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const out = x => 1 - Math.pow(1 - clamp(x), 3);
+const back = x => { x = clamp(x); const c = 1.6; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+function pop(el, t, at) { const k = clamp((t - at) / .45); el.style.opacity = clamp((t - at) / .2);
+  el.style.transform = `translateY(${(1 - out(k)) * 24}px) scale(${.85 + .15 * back(k)})`; }
+function scroll(img, t, t0, t1, frac = 1) {  // scroll a tall shot from top to (frac of) its end
+  const view = img.parentElement.clientHeight, h = img.naturalHeight * SCALE;
+  img.style.transform = `translateY(${-ease((t - t0) / (t1 - t0)) * Math.max(0, h * frac - view)}px)`;
+}
+
+function render(t) {
+  $("stage").classList.toggle("dark", t >= 13.2 && t < 16.5);
+  for (const [id, a, b] of SCENES) {
+    const el = $(id), inA = clamp((t - a) / FADE), outB = clamp((b - t) / FADE);
+    const o = a === 0 ? outB : (b === DURATION ? inA : Math.min(inA, outB));
+    el.style.opacity = o;
+    el.style.transform = `translateY(${(1 - out(inA)) * 40}px) scale(${1 - (1 - outB) * .03})`;
+    el.style.visibility = o > 0 ? "visible" : "hidden";
+  }
+  $("glow").style.transform = `translate(${Math.sin(t / 5) * 120}px, ${Math.cos(t / 6) * 80}px)`;
+  $("prog").style.width = `${clamp(t / DURATION) * 100}%`;
+
+  // intro
+  const lk = clamp(t / .7);
+  $("logo").style.transform = `scale(${.4 + .6 * back(lk)}) rotate(${(1 - out(lk)) * -90}deg)`;
+  $("logo").style.opacity = clamp(t / .3);
+  pop($("intro-chip"), t, .6); pop($("intro-h"), t, .9); pop($("intro-sub"), t, 1.4);
+
+  // dashboard: scroll through the widgets, tags pop as they come
+  scroll($("dash-img"), t, 5, 11.2);
+  [5.2, 6.0, 7.4, 8.2, 9.6].forEach((at, i) => { const el = $("t" + (i + 1)); pop(el, t, at);
+    if (t > at + 1.6) el.style.opacity = clamp(1 - (t - at - 1.6) / .3); });
+
+  // dark: light page is wiped away left to right
+  const w = ease((t - 12.6) / 1.4) * 100;
+  $("light-over").style.clipPath = `inset(0 0 0 ${w}%)`;
+  $("dark-win").classList.toggle("dk", t >= 13.2);
+  const dimg = $("light-over").previousElementSibling;
+  [dimg, $("light-over")].forEach(i => scroll(i, t, 14, 16.4, .45));
+
+  // ui kit
+  scroll($("kit-img"), t, 17.3, 23, 1);
+  [19, 19.6, 20.2].forEach((at, i) => pop($("k" + (i + 1)), t, at));
+
+  // plugins
+  [["p1", 23.6], ["p2", 24.4]].forEach(([id, at]) => { const k = out((t - at) / .7);
+    $(id).style.transform = `translateX(${(1 - k) * (id === "p1" ? -1100 : 1100)}px)`; });
+
+  // filament pills
+  [...$("fil-pills").children].forEach((el, i) => pop(el, t, 30.6 + i * .16));
+
+  // website
+  scroll($("web-img"), t, 35.6, 41.8, .32);
+
+  // outro
+  pop($("o1"), t, 42.8); pop($("o2"), t, 43.3); pop($("o3"), t, 43.7);
+}
+if (location.hash !== "#capture") {  // live preview
+  const s = performance.now(); (function f() { render(((performance.now() - s) / 1000) % DURATION); requestAnimationFrame(f); })();
+}
+</script>
+</body>
+</html>
