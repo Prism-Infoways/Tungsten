@@ -44,7 +44,7 @@ from .service import (
     views_query,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = ["Preset", "SavedView", "SavedViewDefault", "SavedViewsPlugin", "ViewError", "ViewItem"]
 
 log = logging.getLogger("tungsten.saved_views")

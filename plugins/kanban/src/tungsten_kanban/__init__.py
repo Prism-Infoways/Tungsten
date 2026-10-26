@@ -27,7 +27,7 @@ from .board import Board, Card, Column, MoveRefused, key_of
 from .page import BoardPage, make_page
 from .routes import add_routes
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 #: built-in boards for the other official plugins, by plugin id
 AUTO_BOARDS = ("leads", "tickets", "hr")

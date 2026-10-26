@@ -38,7 +38,7 @@ from .service import (
 )
 from .sources import LINKS, Source, event_source
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 log = logging.getLogger("tungsten.calendar")
 
