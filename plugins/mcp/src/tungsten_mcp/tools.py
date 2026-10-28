@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 import enum
+import json
 import re
 import uuid
 from decimal import Decimal
@@ -40,9 +41,15 @@ class Tools:
 
     READ = ("list_resources", "describe_resource", "list_records", "get_record")
     WRITE = ("create_record", "update_record", "delete_record")
+    #: indent of the JSON text tools send back (``None``: one line); a string result is sent as it is
+    result_indent: int | None = None
 
     def __init__(self, plugin: Any) -> None:
         self.plugin = plugin
+
+    def format_result(self, name: str, result: Any) -> str:
+        """The text of a tool's (non-string) result. Override for another format per tool."""
+        return json.dumps(result, ensure_ascii=False, indent=self.result_indent, default=str)
 
     # ------------------------------------------------------------------ resources
     def resources(self, ctx: Any) -> list:

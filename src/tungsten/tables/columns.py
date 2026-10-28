@@ -12,6 +12,7 @@ from markupsafe import Markup, escape
 from ..i18n import translate as __
 from ..support import colors
 from ..support.component import Component, headline
+from ..support.dates import format_date
 from ..support.evaluate import call, evaluate
 from ..support.html import sanitize
 from ..support.icons import icon
@@ -456,7 +457,7 @@ class TextColumn(Column):
         return self
 
     def date(self, fmt: str = "%d %b %Y") -> "TextColumn":
-        self._format = lambda state: state.strftime(fmt) if hasattr(state, "strftime") else state
+        self._format = lambda state: format_date(state, fmt) if hasattr(state, "strftime") else state
         return self
 
     def datetime(self, fmt: str = "%d %b %Y, %H:%M") -> "TextColumn":

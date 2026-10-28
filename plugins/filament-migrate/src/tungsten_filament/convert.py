@@ -853,6 +853,19 @@ class Converter:
             if v and _has(cls, target):
                 return f".{target}({v})"
 
+        if m == "sortable" and kind == "column" and args and args[0].name is None and isinstance(args[0].value, Arr):
+            notes.append(ctx.todo(call_node, "sortable() on other columns: write .sortable(query=lambda q, direction: ...)")
+                         .comment())
+            return ".sortable()"
+        if m == "searchable" and kind == "column" and args and args[0].name is None and \
+                isinstance(args[0].value, Arr):
+            # ->searchable(['first_name', 'last_name']): the list names the columns to search, not a condition
+            cols = literal(args[0].value) if is_literal(args[0].value) else None
+            if isinstance(cols, list) and all(isinstance(c, str) for c in cols) and _has(cls, m):
+                extra = [f"{RENAMES.get(a.name) or snake(a.name)}={py_value(a.value, ctx)}" for a in args[1:]
+                         if a.name and py_value(a.value, ctx) is not None]
+                return f".{m}(" + ", ".join([f"columns={cols!r}"] + extra) + ")"
+
         # generic: same method in snake_case
         target = RENAMES.get(m, snake(m)) if m in RENAMES else snake(m)
         if target is None:

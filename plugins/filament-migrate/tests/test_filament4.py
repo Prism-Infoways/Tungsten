@@ -34,6 +34,8 @@ def test_resource_follows_schema_and_table_classes(blog4):
     assert "TextEntry('published_at').datetime()" in src
     assert "lambda state: {'draft': 'gray', 'published': 'success'}.get(state, None)" in src
     assert "TextColumn('published_at').datetime('%b %-d, %Y %H:%M').sortable()" in src
+    # a list in searchable() names the columns to search (issue #94)
+    assert "TextColumn('title').searchable(columns=['title', 'slug']).limit(40)" in src
     # recordActions -> actions; toolbarActions split into bulk and header actions
     assert ".actions([\n                ViewAction(),\n                EditAction(),\n            ])" in src
     assert ".bulk_actions([\n                BulkActionGroup([" in src

@@ -189,7 +189,8 @@ class Auth:
         user_id = ctx.session.get(self.session_key())
         if user_id is None:
             return None
-        if not self.session_alive(ctx.db, ctx.session, user_id):
+        token_auth = getattr(ctx.request.state, "tw_token_auth", False)  # an API/MCP token, no browser session
+        if not token_auth and not self.session_alive(ctx.db, ctx.session, user_id):
             self.logout(ctx)  # signed out elsewhere (or too old): this copy of the cookie is dead
             return None
         if self.idle_timeout:

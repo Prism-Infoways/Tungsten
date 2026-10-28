@@ -17,7 +17,7 @@ class PostsTable
     {
         return $table
             ->columns([
-                TextColumn::make('title')->searchable()->limit(40),
+                TextColumn::make('title')->searchable(['title', 'slug'])->limit(40),
                 TextColumn::make('author.name')->sortable(),
                 TextColumn::make('state')
                     ->badge()

@@ -20,7 +20,7 @@ from sqlalchemy import select
 from tungsten.context import Context
 from tungsten.i18n import reset_locale, set_locale
 
-from .models import McpToken, hash_token
+from .models import McpToken, _now, hash_token
 from .oauth import run_sync_db
 from .tools import ToolError, Tools
 
@@ -45,6 +45,10 @@ class Unauthorized(Exception):
     pass
 
 
+class Forbidden(Exception):
+    """A valid token whose user the panel does not let in: 403, so the app doesn't sign in again in a loop."""
+
+
 class McpServer:
     def __init__(self, plugin: Any, tools: type[Tools] = Tools) -> None:
         self.plugin = plugin
@@ -60,10 +64,13 @@ class McpServer:
         if not messages or not all(isinstance(m, dict) for m in messages):
             return JSONResponse(_error(None, INVALID_REQUEST, "Invalid request"), status_code=400)
         token = _bearer(request)
+        request.scope.setdefault("session", {})  # outside the panel app (``public_path``) there is no cookie
         try:
             answers = await run_sync_db(self.plugin.panel, lambda db: self._handle_all(db, request, token, messages))
         except Unauthorized as exc:
             return self.unauthorized(request, str(exc), bool(token))
+        except Forbidden as exc:
+            return JSONResponse({"error": "forbidden", "error_description": str(exc)}, status_code=403)
         answers = [a for a in answers if a is not None]
         if not answers:  # only notifications
             return Response(status_code=202)
@@ -86,8 +93,9 @@ class McpServer:
             raise Unauthorized("Log in, or send your MCP token as: Authorization: Bearer <token>")
         row = db.scalars(select(McpToken).where(McpToken.token_hash == hash_token(token))).first()
         if row is None:
-            raise Unauthorized("This token is not valid. Make a new one in the panel under AI access (MCP).")
-        if row.expires_at is not None and row.expires_at < dt.datetime.now():
+            raise Unauthorized(f"This token is not valid. Make a new one in the panel under "
+                               f"{self.plugin.tokens_label()}.")
+        if row.expires_at is not None and row.expires_at < _now():
             raise Unauthorized("This token has expired. Use the refresh token to get a new one.")
         db.info["tungsten_panel"] = panel
         ctx = Context(panel, request, db)
@@ -97,15 +105,33 @@ class McpServer:
                 raise Unauthorized("The user of this token no longer exists or is switched off.")
             ctx.user = user
             if not panel.auth.allowed(ctx, user):
-                raise Unauthorized("The user of this token may not use the panel.")
+                raise Forbidden("The user of this token may not use the panel.")
+            ctx.user = self.load_user(ctx, user)
+            if ctx.user is None:
+                raise Forbidden("The user of this token may not use the panel.")
         if panel.tenancy.enabled and request.headers.get("x-tenant"):
             ctx.session[panel.tenancy.session_key] = request.headers["x-tenant"]
         ctx.tenant = panel.tenancy.resolve(ctx)
-        now = dt.datetime.now()
+        self.plugin.authenticated(ctx)
+        now = _now()
         if row.last_used_at is None or now - row.last_used_at > dt.timedelta(minutes=1):
             row.last_used_at = now
             db.commit()
         return ctx, row
+
+    def load_user(self, ctx: Context, user: Any) -> Any:
+        """Run the panel's own ``Auth.load_user`` for the token's user, so per-request setup an app does there
+        (e.g. in an ``Auth`` subclass) happens for MCP calls too. Nothing is kept in the session cookie."""
+        auth = ctx.panel.auth
+        session = ctx.session
+        saved = dict(session)
+        ctx.request.state.tw_token_auth = True  # no browser session behind this request
+        session[auth.session_key()] = auth.user_id(user)
+        try:
+            return auth.load_user(ctx)
+        finally:
+            session.clear()
+            session.update(saved)
 
     # ------------------------------------------------------------------ json-rpc
     def _handle_all(self, db: Any, request: Request, token: str | None, messages: list[dict]) -> list:
@@ -229,8 +255,16 @@ class McpServer:
             ctx.db.rollback()
             log.exception("MCP tool %s failed", name)
             return _result(id_, _tool_error(f"{name} failed on the server. The error is in the server log."))
-        return _result(id_, {"content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}],
-                             "structuredContent": result, "isError": False})
+        return _result(id_, self.tool_result(name, result))
+
+    def tool_result(self, name: str, result: Any) -> dict:
+        """A string goes back as its own text; anything else as JSON text. Only a dict is also sent as
+        ``structuredContent``, which MCP requires to be an object."""
+        text = result if isinstance(result, str) else self.tools.format_result(name, result)
+        out: dict[str, Any] = {"content": [{"type": "text", "text": text}], "isError": False}
+        if isinstance(result, dict):
+            out["structuredContent"] = result
+        return out
 
 
 def _tool_error(message: str, details: Any = None) -> dict:

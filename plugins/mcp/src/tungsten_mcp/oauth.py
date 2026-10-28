@@ -3,7 +3,7 @@
 An AI app (Claude, Cursor ...) finds the server's metadata, registers itself, sends the user
 to the panel's login and an "Allow" page, then swaps the one-time code (with PKCE) for an
 access token and a refresh token. Tokens are rows of :class:`McpToken`, so they show on the
-"AI access (MCP)" screen and can be revoked there.
+token screen ("AI access (MCP)" unless renamed) and can be revoked there.
 
 Endpoints (the panel at ``/admin``):
 
@@ -42,7 +42,9 @@ NO_STORE = {"Cache-Control": "no-store", "Pragma": "no-cache"}
 
 
 def _now() -> dt.datetime:
-    return dt.datetime.now()
+    from .models import _now as now
+
+    return now()
 
 
 def _plugin(ctx: Any) -> Any:
@@ -96,6 +98,8 @@ class OAuth:
         lets the challenge name any address, and the root ones stay registered for apps that build the
         address themselves.
         """
+        if self.plugin.public_path:
+            return self.plugin.base_url(request) + "/.well-known/oauth-protected-resource" + self.plugin.public_path
         return self.plugin.base_url(request) + self.plugin.panel.url(
             ".well-known/oauth-protected-resource", self.plugin.path.strip("/"))
 
@@ -143,6 +147,16 @@ class OAuth:
             app.add_api_route(path, resource, methods=["GET"], include_in_schema=False)
         for path in {f"/.well-known/oauth-authorization-server{prefix}", f"/.well-known/openid-configuration{prefix}"}:
             app.add_api_route(path, server, methods=["GET"], include_in_schema=False)
+
+    def public_resource_route(self, app: Any) -> None:
+        """The resource metadata for an endpoint at ``public_path`` (outside the panel)."""
+        oauth = self
+
+        async def resource(request: Request):
+            return JSONResponse(oauth.protected_resource(request))
+
+        app.add_api_route(f"/.well-known/oauth-protected-resource{self.plugin.public_path}", resource,
+                          methods=["GET"], include_in_schema=False)
 
     def routes(self, app: Any, panel: Any) -> None:
         self.well_known_routes(app)
@@ -350,8 +364,13 @@ class AuthorizePage(Page):
         pending = _pending(ctx)
         user = ctx.panel.auth.display_name(ctx.user) if ctx.user is not None else None
         host = urlparse(pending["redirect_uri"]).netloc or urlparse(pending["redirect_uri"]).scheme if pending else ""
+        plugin = _plugin(ctx)
+        from .resources import McpTokenResource
+
+        tokens = next((r for r in ctx.panel.get_resources() if issubclass(r, McpTokenResource)), McpTokenResource)
         return Markup(ctx.panel.renderer.render("tungsten_mcp/authorize.html", ctx=ctx, pending=pending, user=user,
-                                                host=host))
+                                                host=host, tokens_label=plugin.tokens_label(),
+                                                tokens_url=ctx.url(tokens.get_slug())))
 
     @classmethod
     def form(cls, form):
