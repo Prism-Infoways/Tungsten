@@ -181,6 +181,22 @@ class TwoFactor:
 
 # ---------------------------------------------------------------------- codes sent by email
 EMAIL_RESEND_SECONDS = 60
+EMAIL_CODE_TRIES = 5  # wrong guesses per user and purpose while a code is valid
+
+
+# The code itself lives in the signed session cookie, but a client can replay an old cookie. So the resend wait,
+# the wrong guesses and the used codes are also counted in ``Auth.throttle`` on the server, keyed by user and
+# purpose, where a replayed cookie cannot reset them (issue #122).
+def _sent_key(purpose: str, user_id: str) -> str:
+    return f"2fa-mail-sent|{purpose}|{user_id}"
+
+
+def _tries_key(purpose: str, user_id: str) -> str:
+    return f"2fa-mail-tries|{purpose}|{user_id}"
+
+
+def _used_key(digest: str) -> str:
+    return f"2fa-mail-used|{digest}"
 
 
 def _email_slot(purpose: str) -> str:
@@ -213,6 +229,9 @@ def send_email_code(ctx: "Context", user: Any, purpose: str = "login") -> bool:
     now = time.time()
     if slot.get("uid") == user_id and now - slot.get("sent", 0) < EMAIL_RESEND_SECONDS:
         return False
+    if auth.throttle.failures(_sent_key(purpose, user_id), EMAIL_RESEND_SECONDS) > 0:
+        return False  # sent less than a minute ago, from another (or an older) session cookie
+    auth.throttle.fail(_sent_key(purpose, user_id))
     code = str(secrets.randbelow(10 ** DIGITS)).zfill(DIGITS)
     expires = now + auth.two_factor_email_minutes * 60
     ctx.session[_email_slot(purpose)] = {"uid": user_id, "h": _email_digest(ctx, user_id, purpose, code, expires),
@@ -232,14 +251,29 @@ def email_code_sent(ctx: "Context", user: Any, purpose: str = "login") -> bool:
 
 
 def check_email_code(ctx: "Context", user: Any, code: str, purpose: str = "login") -> bool:
-    """True (and the code is used up) when ``code`` is the last one emailed for ``purpose``."""
+    """True (and the code is used up) when ``code`` is the last one emailed for ``purpose``.
+
+    After ``EMAIL_CODE_TRIES`` wrong guesses no code is taken for that user and purpose until the code's lifetime
+    has passed, even with a replayed session cookie.
+    """
+    auth = ctx.panel.auth
     slot = ctx.session.get(_email_slot(purpose)) or {}
-    user_id = ctx.panel.auth.user_id(user)
+    user_id = auth.user_id(user)
     code = (code or "").replace(" ", "").strip()
-    if slot.get("uid") != user_id or time.time() > slot.get("exp", 0) or not code.isdigit():
+    if slot.get("uid") != user_id or time.time() > slot.get("exp", 0):
         return False
-    if not hmac.compare_digest(_email_digest(ctx, user_id, purpose, code, slot["exp"]), slot.get("h", "")):
+    lifetime = auth.two_factor_email_minutes * 60
+    tries = _tries_key(purpose, user_id)
+    if auth.throttle.failures(tries, lifetime) >= EMAIL_CODE_TRIES:
         return False
+    digest = _email_digest(ctx, user_id, purpose, code, slot["exp"]) if code.isdigit() else ""
+    if not digest or not hmac.compare_digest(digest, slot.get("h", "")):
+        auth.throttle.fail(tries)
+        return False
+    if auth.throttle.failures(_used_key(digest), lifetime) > 0:
+        return False  # already used, sent again in a saved cookie
+    auth.throttle.fail(_used_key(digest))
+    auth.throttle.clear(tries)
     ctx.session.pop(_email_slot(purpose), None)
     return True
 
