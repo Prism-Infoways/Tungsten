@@ -53,7 +53,7 @@ def asset_version(name: str) -> str:
 UNTENANTED_PATHS = ("assets", "plugins", "storage", "login", "logout", "register", "forgot-password",
                     "reset-password", "two-factor", "email-verification", "email-change", "tenant/new")
 
-VERSION = "0.1.13"
+VERSION = "0.1.14"
 VENDOR_FILES = ("chart.umd.min.js", "trix.umd.min.js", "trix.css", "tom-select.complete.min.js", "tom-select.css",
                 "sortable.min.js", "qrcode.js")
 
