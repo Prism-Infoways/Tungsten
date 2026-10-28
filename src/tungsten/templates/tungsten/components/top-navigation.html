@@ -3,12 +3,12 @@
 <nav class="tw-pill-nav hidden shrink-0 overflow-visible lg:flex" aria-label="{{ __('Main') }}" data-tw-top-navigation>
   {% macro top_link(item) %}
   <a href="{{ item.url }}" {% if item.new_tab %}target="_blank"{% endif %} class="tw-pill-nav-item {{ 'tw-pill-nav-item-active' if item.active or item.expanded }}" {% if item.active %}aria-current="page"{% endif %}>
-    {{ icon(item.current_icon, 'h-4 w-4') }}<span class="truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
+    {{ icon(item.current_icon, 'h-4 w-4') }}<span class="truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color, item.badge_tooltip) }}{% endif %}
   </a>
   {% endmacro %}
   {% macro menu_link(item, indent=false) %}
   <a href="{{ item.url }}" {% if item.new_tab %}target="_blank"{% endif %} class="{{ ui.button_classes('gray', 'dropdown') }} {{ 'ps-8' if indent }} {{ '!text-primary-600 dark:!text-primary-400' if item.active }}" {% if item.active %}aria-current="page"{% endif %}>
-    {{ icon(item.current_icon, 'h-4 w-4') }}<span class="flex-1 truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
+    {{ icon(item.current_icon, 'h-4 w-4') }}<span class="flex-1 truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color, item.badge_tooltip) }}{% endif %}
   </a>
   {% endmacro %}
   {{ panel.hooks('topbar.nav.start', ctx) }}

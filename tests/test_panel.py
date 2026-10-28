@@ -286,7 +286,7 @@ def test_file_upload_through_refresh(admin, panel, tmp_path):
                                                    "_tw_record": "1"},
                           files={"images.__upload": ("evil.html", b"<script>", "text/html")},
                           headers={"HX-Request": "true", "X-CSRF-Token": admin.token})
-    assert "The file type is not allowed." in r.text
+    assert "The Product images field must be a file of type: images." in r.text
 
 
 # ---------------------------------------------------------------------- actions

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from markupsafe import Markup
 
 from ..i18n import maybe
 from ..support.component import Component
-from ..support.evaluate import evaluate
+from ..support.evaluate import call, evaluate
 from .base import SchemaComponentMixin
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -154,7 +154,7 @@ class Section(Layout):
             "description": maybe(evaluate(self._description, **ev)),
             "icon": self._icon,
             "collapsible": self._collapsible,
-            "collapsed": self._collapsed and not has_errors,
+            "collapsed": bool(evaluate(self._collapsed, **ev)) and not has_errors,
             "aside": self._aside,
             "compact": self._compact,
         }
@@ -282,12 +282,48 @@ class Tabs(Layout):
 
 
 class Step(Layout):
-    def __init__(self, label: Any, schema: list | None = None) -> None:
-        super().__init__(schema)
+    def __init__(self, label: Any, schema: Any = None) -> None:
+        super().__init__(None)
         self._label = label
         self._description: Any = None
         self._icon: str | None = None
         self._columns = 2
+        self._schema_fn: Callable | None = None
+        self._after_validation: list[Callable] = []
+        if schema is not None:
+            self.schema(schema)
+
+    def schema(self, components: Any) -> "Step":
+        """The step's fields, or a closure (``get``, ``record`` ...) that builds them from earlier steps' answers."""
+        if callable(components):
+            self._schema_fn = components
+            self._schema = []
+            return self
+        self._schema_fn = None
+        super().schema(components)
+        return self
+
+    def after_validation(self, fn: Callable) -> "Step":
+        """Runs when "Next" has validated this step (``get``, ``data``, ``form`` ...). Raise ``ValidationError``
+        (with field errors) or ``Halt`` to stay on the step, e.g. when an outside service refuses."""
+        self._after_validation.append(fn)
+        return self
+
+    def _resolve(self, form: "Form", base: str) -> None:
+        if self._schema_fn is not None and form is not None:
+            self._schema = list(evaluate(self._schema_fn, **form.ev(base)) or [])
+
+    def fill_state(self, form: "Form", base: str, record: Any) -> None:
+        self._resolve(form, base)
+        super().fill_state(form, base, record)
+
+    def load_state(self, form: "Form", formdata: Any, base: str) -> None:
+        self._resolve(form, base)
+        super().load_state(form, formdata, base)
+
+    def render(self, form: "Form", base: str) -> Markup:
+        self._resolve(form, base)
+        return super().render(form, base)
 
     def description(self, text: Any) -> "Step":
         self._description = text
@@ -342,11 +378,23 @@ class Wizard(Layout):
     def handle_ui_action(self, form: "Form", kind: str, arg: str) -> None:
         from .form import ValidationError
 
+        from ..actions.action import Halt
+
         step = self.current(form)
         if kind == "next":
+            current = self._schema[step]
             try:
-                form.validate(self._schema[step].child_components())
-            except ValidationError:
+                data = form.validate(current.child_components())
+                for fn in getattr(current, "_after_validation", []):
+                    call(fn, **form.ev(form.base, data=data))
+            except ValidationError as exc:
+                for path, messages in exc.errors.items():
+                    for message in (messages if isinstance(messages, (list, tuple)) else [messages]):
+                        if message not in form.errors.get(path, []):
+                            form.add_error(path, str(message))
+                form.ui[self._ui_key] = str(step)
+                return
+            except Halt:
                 form.ui[self._ui_key] = str(step)
                 return
             form.ui[self._ui_key] = str(min(step + 1, len(self._schema) - 1))

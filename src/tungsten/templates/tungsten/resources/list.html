@@ -1,6 +1,6 @@
 {% extends "tungsten/layout/app.html" %}
 {% block content %}
-{% set subheading = __(resource.description) if resource.description else none %}
+{% if not subheading %}{% set subheading = resource.get_description(ctx) %}{% endif %}
 {% include "tungsten/components/page-header.html" %}
 {% with columns = 4 %}{% include "tungsten/components/widgets.html" %}{% endwith %}
 {{ panel.hooks('resource.list.before-table', ctx, resource=resource, host=host, table=table) }}

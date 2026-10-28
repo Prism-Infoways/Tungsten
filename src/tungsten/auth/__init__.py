@@ -95,6 +95,8 @@ class Auth:
         throttle: ThrottleStore | None = None,
         sessions: "SessionStore | bool | None" = None,
         session_max_age: int | None = 14 * 24 * 3600,
+        email_placeholder: str | None = "you@company.com",
+        password_placeholder: str | None = "Enter your password",
     ) -> None:
         self.user_model = user_model
         self.email_field = email_field
@@ -125,6 +127,8 @@ class Auth:
                                           else email_change_verification)
         #: sign users out after this many minutes without activity (``None`` keeps them signed in)
         self.idle_timeout = idle_timeout
+        self.email_placeholder = email_placeholder  # the sign-in form's hints (None: no placeholder)
+        self.password_placeholder = password_placeholder
         #: personal API tokens (like Laravel Sanctum); ``api_abilities`` lists what a token may be allowed to do,
         #: as names or ``{name: label}``
         self.api_tokens = api_tokens

@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from ..i18n import translate as __
 from ..support.component import headline
+from ..support.evaluate import call
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..context import Context
@@ -98,6 +99,10 @@ class Resource:
 
     # pages: index, create, edit, view. A "simple" resource uses modals only.
     pages: ClassVar[tuple[str, ...]] = ("index", "create", "edit", "view")
+    #: more pages under this resource's address, e.g. ``{"generate": GenerateProducts}`` for
+    #: ``/products/generate`` (Filament's ``'generate' => Pages\GenerateThings::route('/generate')``).
+    #: Each is a :class:`~tungsten.Page`; only users who may list this resource can open it.
+    custom_pages: ClassVar[dict[str, Any]] = {}
     simple: ClassVar[bool] = False
 
     relations: ClassVar[list] = []
@@ -168,9 +173,34 @@ class Resource:
         return headline(_kebab(cls.model.__name__).replace("-", "_")).lower().capitalize() if cls.model else "Record"
 
     @classmethod
-    def get_plural_label(cls) -> str:
-        """The plural label, translated (``Products``)."""
+    def get_plural_label(cls, ctx: "Context | None" = None) -> str:
+        """The plural label, translated (``Products``). Override with a ``ctx`` argument to change it per user."""
         return __(cls.plural_label or _plural(cls._raw_label()))
+
+    @classmethod
+    def plural_label_for(cls, ctx: "Context | None") -> str:
+        """:meth:`get_plural_label` for this request (passes ``ctx`` when the override takes it)."""
+        return str(call(cls.get_plural_label, ctx=ctx, user=getattr(ctx, "user", None)))
+
+    @classmethod
+    def get_description(cls, ctx: "Context | None" = None) -> str | None:
+        """The line under the list (and create) page title: ``description``, or override per user."""
+        return __(cls.description) if cls.description else None
+
+    @classmethod
+    def get_navigation_group(cls, ctx: "Context | None" = None) -> str | None:
+        """The sidebar group: ``navigation_group``, or override to pick one per user."""
+        return cls.navigation_group
+
+    @classmethod
+    def page_title(cls, ctx: "Context", page: str, record: Any = None) -> str | None:
+        """Your own title for a page (``page`` is list, create, edit or view). None keeps the usual one."""
+        return None
+
+    @classmethod
+    def page_subheading(cls, ctx: "Context", page: str, record: Any = None) -> str | None:
+        """Your own line under a page's title. None keeps the usual one."""
+        return None
 
     @classmethod
     def get_slug(cls) -> str:
@@ -179,12 +209,18 @@ class Resource:
         return _plural(_kebab(cls.model.__name__)) if cls.model else _kebab(cls.__name__)
 
     @classmethod
-    def get_navigation_label(cls) -> str:
-        return __(cls.navigation_label) if cls.navigation_label else cls.get_plural_label()
+    def get_navigation_label(cls, ctx: "Context | None" = None) -> str:
+        """The menu label. Override with a ``ctx`` argument to change it per user."""
+        return __(cls.navigation_label) if cls.navigation_label else cls.plural_label_for(ctx)
 
     @classmethod
     def navigation_badge(cls, ctx: "Context") -> Any:
         """Return a value (e.g. a count) to show next to the menu item."""
+        return None
+
+    @classmethod
+    def navigation_badge_tooltip(cls, ctx: "Context") -> str | None:
+        """Hover text for the menu badge (e.g. "3 waiting for you")."""
         return None
 
     navigation_badge_color: ClassVar[str] = "primary"

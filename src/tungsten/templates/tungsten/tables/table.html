@@ -1,4 +1,13 @@
 {% import "tungsten/components/ui.html" as ui %}
+{% macro row_cell(table, row, c) %}
+{%- if row.action and not c.editable and not c._url -%}
+<button type="button" class="block w-full text-start" hx-{{ 'get' if row.action.modal else 'post' }}="{{ row.action.endpoint }}" hx-vals='{{ row.action.vals | tojson }}'
+        {% if row.action.modal %}hx-target="#tw-modal" hx-swap="innerHTML"{% else %}hx-swap="none"{% endif %}>{{ c.render_cell(table, row.record) }}</button>
+{%- elif row.url and not c.editable and not c._url -%}
+{#- the table's form sets hx-target/hx-swap; a boosted (SPA) link must not inherit them -#}
+<a href="{{ row.url }}" class="block" {% if row.new_tab %}target="_blank" rel="noopener" hx-boost="false"{% else %}hx-target="body" hx-swap="innerHTML show:window:top"{% endif %}>{{ c.render_cell(table, row.record) }}</a>
+{%- else %}{{ c.render_cell(table, row.record) }}{% endif -%}
+{% endmacro %}
 {% macro filter_fields(table, filters, deferred, close_on_apply=false) %}
   <div class="grid gap-5" {% if deferred %}data-tw-defer @keydown.enter="$refs.apply.value = '1'"{% endif %}>
     {% for f in filters %}
@@ -24,8 +33,10 @@
 <div id="{{ table.id }}" class="tw-card overflow-hidden" data-tw-table
      hx-get="{{ table.url() }}" hx-trigger="tw-refresh from:body{% if table._poll %}, every {{ table._poll }}{% endif %}" hx-swap="outerHTML"
      x-data="{ selected: [], collapsed: [], panel: {{ 'true' if table.param('_panel') else 'false' }}, keys: {{ tojson_attr(page_keys) }},
-               get allSelected() { return this.keys.length > 0 && this.keys.every(k => this.selected.includes(k)); },
-               toggleAll() { this.selected = this.allSelected ? [] : [...this.keys]; },
+               max: {{ table._max_selectable or 'null' }},
+               get allSelected() { return this.keys.length > 0 && (this.keys.every(k => this.selected.includes(k)) || (this.max && this.selected.length >= this.max)); },
+               toggleAll() { this.selected = this.allSelected ? [] : (this.max ? [...this.keys].slice(0, this.max) : [...this.keys]); },
+               full(k) { return this.max && this.selected.length >= this.max && !this.selected.includes(k); },
                closeFilters() { this.panel = false; {% if deferred %}this.$root.querySelector('form').reset();{% endif %} } }"
      @tw-deselect.window="selected = []">
   <form hx-get="{{ ctx.url('_tw', 'table') }}" hx-target="#{{ table.id }}" hx-swap="outerHTML" hx-sync="this:replace"
@@ -95,7 +106,7 @@
       {% else %}{{ filters_button }}{% endif %}
       {% endif %}
       <div class="ms-auto flex flex-wrap items-center gap-3">
-        {% if groups %}
+        {% if groups and not table._group_picker_hidden %}
         <select name="group" class="tw-input w-auto pe-9">
           <option value="none">{{ __('No grouping') }}</option>
           {% for g in groups %}<option value="{{ g.attribute }}" {% if group and group.attribute == g.attribute %}selected{% endif %}>{{ __('Group by :label', label=g.get_label() | lower) }}</option>{% endfor %}
@@ -165,15 +176,13 @@
         <div class="relative flex flex-col gap-3 rounded-3xl bg-white p-5 ring-1 ring-gray-950/5 transition hover:ring-gray-950/10 dark:bg-white/[0.03] dark:ring-white/10 {{ 'opacity-60' if row.trashed }} {{ row.classes }}"
              :class="selected.includes('{{ row.key }}') && '!ring-2 !ring-primary-500'" data-key="{{ row.key }}">
           {% if selectable %}
-          <input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox absolute end-4 top-4" data-tw-local x-model="selected" aria-label="{{ __('Select row') }}">
+          <input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox absolute end-4 top-4" data-tw-local x-model="selected" :disabled="full('{{ row.key }}')" aria-label="{{ __('Select row') }}">
           {% endif %}
           {% if layout %}<div class="flex flex-col gap-2 {{ 'pe-8' if selectable }}">{% for c in columns %}{{ c.render_cell(table, row.record) }}{% endfor %}</div>{% endif %}
           {% for c in columns if not layout %}
           <div class="min-w-0 {{ 'pe-8 text-base font-semibold text-gray-950 dark:text-white' if loop.first else '' }}">
             {% if not loop.first %}<p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ c.get_label() }}</p>{% endif %}
-            {% if row.url and not c.editable and not c._url %}
-            <a href="{{ row.url }}" class="block" hx-target="body" hx-swap="innerHTML show:window:top">{{ c.render_cell(table, row.record) }}</a>
-            {% else %}{{ c.render_cell(table, row.record) }}{% endif %}
+            {{ row_cell(table, row, c) }}
           </div>
           {% endfor %}
           {% if row_actions %}
@@ -273,19 +282,17 @@
               :class="selected.includes('{{ row.key }}') && '!bg-primary-50/60 dark:!bg-primary-500/10'" data-key="{{ row.key }}">
             {% if reordering %}<td class="w-1 px-4 py-3"><span class="tw-drag-handle cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing">{{ icon('grip-vertical', 'h-5 w-5') }}</span></td>{% endif %}
             {% if selectable %}
-            <td class="w-1 px-4 py-3 {{ 'max-md:absolute max-md:end-1 max-md:top-2' if stacked }}"><input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox" data-tw-local x-model="selected" aria-label="{{ __('Select row') }}"></td>
+            <td class="w-1 px-4 py-3 {{ 'max-md:absolute max-md:end-1 max-md:top-2' if stacked }}"><input type="checkbox" name="records" value="{{ row.key }}" class="tw-checkbox" data-tw-local x-model="selected" :disabled="full('{{ row.key }}')" aria-label="{{ __('Select row') }}"></td>
             {% endif %}
             {% if table._row_index %}<td class="px-3 py-3 text-sm text-gray-500 dark:text-gray-400 {{ 'max-md:hidden' if stacked }}">{{ row.index }}</td>{% endif %}
             {% if layout %}
             <td class="whitespace-normal px-4 py-3" data-tw-layout-cell><div class="flex flex-col gap-2">{% for c in columns %}{{ c.render_cell(table, row.record) }}{% endfor %}</div></td>
             {% endif %}
             {% for c in columns if not layout %}
-            <td class="px-3 py-3 {{ 'whitespace-normal' if c._wrap else 'whitespace-nowrap' }} {{ 'max-md:flex max-md:items-start max-md:justify-between max-md:gap-4 max-md:py-1.5 max-md:text-end max-md:before:shrink-0 max-md:before:text-start max-md:before:text-sm max-md:before:font-medium max-md:before:text-gray-500 max-md:before:content-[attr(data-label)] dark:max-md:before:text-gray-400' if stacked }}"
-                {% if stacked %}data-label="{{ c.get_label() }}"{% endif %}>
-              {% if row.url and not c.editable and not c._url %}
-              {#- the table's form sets hx-target/hx-swap; a boosted (SPA) link must not inherit them -#}
-              <a href="{{ row.url }}" class="block" hx-target="body" hx-swap="innerHTML show:window:top">{{ c.render_cell(table, row.record) }}</a>
-              {% else %}{{ c.render_cell(table, row.record) }}{% endif %}
+            {% set td = c.td_attributes(table, row.record) if c._cell_attributes is not none else {} %}
+            <td class="px-3 py-3 {{ td.pop('class', '') }} {{ 'whitespace-normal' if c._wrap else 'whitespace-nowrap' }} {{ 'max-md:flex max-md:items-start max-md:justify-between max-md:gap-4 max-md:py-1.5 max-md:text-end max-md:before:shrink-0 max-md:before:text-start max-md:before:text-sm max-md:before:font-medium max-md:before:text-gray-500 max-md:before:content-[attr(data-label)] dark:max-md:before:text-gray-400' if stacked }}"
+                {% if stacked %}data-label="{{ c.get_label() }}"{% endif %} {{ attrs(td) if td }}>
+              {{ row_cell(table, row, c) }}
             </td>
             {% endfor %}
             {% if row_actions %}

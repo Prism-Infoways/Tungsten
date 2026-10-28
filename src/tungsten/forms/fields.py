@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import datetime as dt
 import enum
 import hashlib
@@ -248,7 +249,8 @@ class Field(SchemaComponentMixin, Component):
         return value
 
     def hydrate(self, form: "Form", record: Any) -> Any:
-        value = getattr(record, self.name, None)
+        # "meta.title": a key inside a JSON column (or a related object's attribute)
+        value = get_path(record, self.name) if "." in self.name else getattr(record, self.name, None)
         if self._format_state is not None:
             return call(self._format_state, **{**form.ev(), "state": value, "record": record})
         return self.to_state(value)
@@ -345,10 +347,17 @@ class Field(SchemaComponentMixin, Component):
             return
         if self._dehydrate_state is not None:
             value = call(self._dehydrate_state, **{**form.ev(base), "state": value})
-        data[self.name] = value
+        if "." in self.name:  # "meta.title" -> {"meta": {"title": ...}}, like the form state
+            set_path(data, self.name, value)
+        else:
+            data[self.name] = value
 
     def fill_record(self, form: "Form", record: Any, data: dict) -> None:
-        if self.name in data and self._save_relationships_using is None and not getattr(self, "_is_relation_many", False):
+        if self._save_relationships_using is not None or getattr(self, "_is_relation_many", False):
+            return
+        if "." in self.name:
+            _fill_nested(record, self.name, data)
+        elif self.name in data:
             setattr(record, self.name, data[self.name])
 
     def save_relationships(self, form: "Form", record: Any, data: dict) -> None:
@@ -453,6 +462,22 @@ class TextInput(Field):
         self._same: str | None = None
         self._mask: Any = None
         self._strip: list[str] = []
+        self._read_only: Any = False
+
+    def read_only(self, condition: Any = True) -> "TextInput":
+        """Shown and sent with the form, but not editable (Filament's ``readOnly()``). Unlike ``disabled()`` the
+        value is still saved: the record's own value (or the default), never what the browser posts."""
+        self._read_only = condition
+        return self
+
+    def is_read_only(self, form: "Form", base: str = "") -> bool:
+        return bool(evaluate(self._read_only, **form.ev(base)))
+
+    def load_state(self, form: "Form", formdata: Any, base: str) -> None:
+        if self._read_only and self.is_read_only(form, base):
+            self.fill_state(form, base, form.record)
+            return
+        super().load_state(form, formdata, base)
 
     def type(self, value: str) -> "TextInput":
         self._type = value
@@ -646,6 +671,7 @@ class TextInput(Field):
                 "step": self._step,
                 "autocomplete": self._autocomplete,
                 "inputmode": "decimal" if self._numeric and not self._integer else ("numeric" if self._integer else None),
+                "readonly": bool(self._read_only) and self.is_read_only(form, base),
             }),
             "datalist": normalize_options(evaluate(self._datalist, **ev)) if self._datalist else None,
         })
@@ -1780,6 +1806,85 @@ class TagsInput(Field):
         return v
 
 
+_UNSET = object()
+
+
+class UploadedFile:
+    """A file from a ``FileUpload(...).store_files(False)`` field, waiting in the panel's storage."""
+
+    def __init__(self, path: str) -> None:
+        self.path = str(path)
+        self.name = self.path.rsplit("/", 1)[-1]  # the user's own file name (kept for these uploads)
+
+    def _storage(self) -> Any:
+        from ..context import current_context
+
+        ctx = current_context()
+        if ctx is None:
+            raise RuntimeError("UploadedFile needs a request (or read .path from your own storage)")
+        return ctx.panel.storage
+
+    @property
+    def local_path(self) -> Any:
+        """Where the file is on disk (local storage)."""
+        return self._storage().path(self.path)
+
+    def read(self) -> bytes:
+        storage = self._storage()
+        if hasattr(storage, "read"):
+            return storage.read(self.path)
+        return storage.path(self.path).read_bytes()
+
+    def delete(self) -> None:
+        self._storage().delete(self.path)
+
+    def __str__(self) -> str:
+        return self.path
+
+    def __repr__(self) -> str:
+        return f"UploadedFile({self.path!r})"
+
+
+def _fill_nested(record: Any, name: str, data: dict) -> None:
+    """Save a dotted field ("meta.title") into the record's JSON column ``meta`` (a fresh dict, so SQLAlchemy
+    sees the change), keeping the column's other keys."""
+    value = get_path(data, name, _UNSET)
+    if value is _UNSET:
+        return
+    root, rest = name.split(".", 1)
+    current = getattr(record, root, None)
+    if current is not None and not isinstance(current, dict):  # a related object: set its attribute
+        target = get_path(current, rest.rsplit(".", 1)[0]) if "." in rest else current
+        if target is not None:
+            setattr(target, rest.rsplit(".", 1)[-1], value)
+        return
+    merged = copy.deepcopy(current or {})
+    set_path(merged, rest, value)
+    setattr(record, root, merged)
+
+
+#: names people know for common upload types (``mimetypes`` guesses odd ones, e.g. ".xlb" for Excel)
+_MIME_EXTENSIONS = {
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "application/vnd.ms-powerpoint": "ppt",
+    "text/csv": "csv",
+    "text/plain": "txt",
+    "application/json": "json",
+    "application/zip": "zip",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "audio/mpeg": "mp3",
+    "video/mp4": "mp4",
+}
+
+
 class FileUpload(Field):
     """Upload files. Files are stored right away (to the panel storage) and the
     field state holds the stored path(s)."""
@@ -1796,6 +1901,19 @@ class FileUpload(Field):
         self._max_files: int | None = None
         self._avatar = False
         self._preserve_filenames = False
+        self._upload_hint: Any = None
+        self._upload_messages: dict[str, str] = {}
+        self._store_files = True
+
+    def store_files(self, condition: bool = True) -> "FileUpload":
+        """``store_files(False)``: the file is not saved to the record. Your action or ``save()`` gets an
+        :class:`UploadedFile` (``.name``, ``.read()``, ``.local_path``, ``.delete()``) to read, e.g. an import
+        sheet. It waits in the private ``tmp-uploads`` folder of the storage; delete it when done."""
+        self._store_files = condition
+        if not condition:
+            self._preserve_filenames = True
+            self._directory = self._directory or "tmp-uploads"
+        return self
 
     def preserve_filenames(self, condition: bool = True) -> "FileUpload":
         """Keep the user's file name: stored as ``<directory>/<random id>/<name>`` instead of ``<random id>.<ext>``."""
@@ -1831,6 +1949,47 @@ class FileUpload(Field):
     def max_files(self, n: int) -> "FileUpload":
         self._max_files = n
         return self
+
+    def upload_hint(self, text: Any) -> "FileUpload":
+        """The line under "Click to upload" (text or a closure). ``False`` hides it. Default: the allowed file
+        types as extensions and the size limit, e.g. "XLSX, CSV up to 20 MB"."""
+        self._upload_hint = text
+        return self
+
+    def validation_messages(self, messages: dict[str, str]) -> "FileUpload":
+        """Your own wording for upload errors: ``{"max": ..., "mimes": ...}`` (``:attribute``, ``:max`` and
+        ``:values`` are filled in), like Laravel's ``validationMessages``."""
+        self._upload_messages.update({("mimes" if k == "mimetypes" else k): v for k, v in messages.items()})
+        return self
+
+    def accepted_labels(self) -> list[str]:
+        """The allowed types the way people know them: "PDF", "XLSX", "Images"."""
+        labels: list[str] = []
+        for t in self._accepted or []:
+            t = t.strip()
+            if t.startswith("."):
+                label = t[1:].upper()
+            elif t.endswith("/*"):
+                label = __(headline(t[:-2]) + "s") if t[:-2] in ("image", "video") else \
+                    (__("Audio") if t[:-2] == "audio" else t)
+            else:
+                ext = _MIME_EXTENSIONS.get(t) or (mimetypes.guess_extension(t) or "").lstrip(".")
+                label = ext.upper() if ext else t
+            if label not in labels:
+                labels.append(label)
+        return labels
+
+    def size_label(self) -> str:
+        if not self._max_size:
+            return ""
+        if self._max_size >= 1024:
+            mb = self._max_size / 1024
+            return f"{mb:g} MB" if mb == int(mb) else f"{mb:.1f} MB"
+        return f"{self._max_size} KB"
+
+    def _upload_message(self, key: str, default: str, **params: Any) -> str:
+        label = __(headline(self.name)) if self._label is None or callable(self._label) else __(str(self._label))
+        return __(self._upload_messages.get(key) or default, attribute=label, **params)
 
     def blank_state(self) -> Any:
         return [] if self._multiple else ""
@@ -1889,12 +2048,20 @@ class FileUpload(Field):
 
     def cast(self, state: Any) -> Any:
         if self._multiple:
-            return list(state or [])
+            values = list(state or [])
+            return [UploadedFile(v) for v in values] if not self._store_files else values
+        if not self._store_files:
+            return UploadedFile(state) if state else None
         return state or None
+
+    def fill_record(self, form: "Form", record: Any, data: dict) -> None:
+        if self._store_files:
+            super().fill_record(form, record, data)
 
     def check_upload(self, filename: str, content_type: str, size: int) -> str | None:
         if self._max_size is not None and size > self._max_size * 1024:
-            return __("The file may not be greater than :max kilobytes.", max=self._max_size)
+            return self._upload_message("max", "The :attribute field must not be greater than :max kilobytes.",
+                                        max=self._max_size)
         if self._accepted:
             ok = False
             for t in self._accepted:
@@ -1905,7 +2072,8 @@ class FileUpload(Field):
                 elif t == content_type:
                     ok = True
             if not ok:
-                return __("The file type is not allowed.")
+                return self._upload_message("mimes", "The :attribute field must be a file of type: :values.",
+                                            values=", ".join(self.accepted_labels()).lower())
         return None
 
     def accept_upload(self, form: "Form", path: str, stored: str) -> None:
@@ -1957,8 +2125,14 @@ class FileUpload(Field):
              "name": names.get(f) or str(f).rsplit("/", 1)[-1]}
             for f in files
         ]
+        if self._upload_hint is None:
+            types = ", ".join(self.accepted_labels()) or __("Any file")
+            hint = f"{types} {__('up to')} {self.size_label()}" if self._max_size else types
+        else:
+            hint = evaluate(self._upload_hint, **form.ev(base))
         v.update(multiple=self._multiple, image=self._image, avatar=self._avatar,
-                 accept=",".join(self._accepted or []), max_size=self._max_size)
+                 accept=",".join(self._accepted or []), max_size=self._max_size,
+                 hint=__(str(hint)) if hint not in (None, False, "") else "")
         return v
 
 

@@ -1,7 +1,7 @@
 {% extends "tungsten/layout/app.html" %}
 {% import "tungsten/components/ui.html" as ui %}
 {% block content %}
-{% set subheading = (__(resource.description) if resource.description else none) if operation == 'create' else ({'edit': __('Update the details below and save your changes.'), 'view': None}[operation]) %}
+{% if not subheading %}{% set subheading = (resource.get_description(ctx) if operation == 'create' else none) if operation != 'edit' else __('Update the details below and save your changes.') %}{% endif %}
 {% set editable = operation in ('create', 'edit') and not trashed %}
 {% set back_url = cancel_url if cancel_url is defined and cancel_url else resource.get_url(ctx) %}
 {% set extra_actions %}

@@ -298,3 +298,14 @@ def form(cls, form):
 | `icon(icon)` | An icon instead of the step number. |
 | `columns(n)` | Grid columns inside the step (default `2`). |
 | `schema([...])` | The step's fields. |
+
+## Closures for Section.collapsed and wizard steps
+
+`Section("More").collapsible().collapsed(lambda record: record is not None)` starts closed only when the closure says so.
+
+A wizard step's schema can be a closure built from earlier answers, and `after_validation` runs once "Next" has validated the step:
+
+```python
+Step("Details", lambda get: [TextInput("gst")] if get("country") == "IN" else [TextInput("vat")])
+    .after_validation(lambda data: check_with_tax_office(data))   # raise ValidationError or Halt to stay
+```

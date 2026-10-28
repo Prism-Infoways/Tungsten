@@ -414,3 +414,15 @@ panel.user_menu_item("Help center", "https://help.example.com", icon="life-buoy"
 The profile link comes from `Auth(profile=True)`, which is the default. See [Authentication](authentication).
 
 For anything more than a link, use the `user-menu.items` render hook. The sidebar also has hooks: `sidebar.nav.start`, `sidebar.nav.end` and `sidebar.footer`. See [Plugins and hooks](plugins-and-hooks).
+
+## Badge tooltips
+
+`navigation_badge_tooltip(cls, ctx)` on a resource or page sets the hover text of its menu badge.
+
+## User menu
+
+```python
+panel.user_menu_item("Billing", lambda user: f"/billing/{user.id}", icon="credit-card",
+                     visible=lambda user: user.is_owner, new_tab=True)
+panel.user_role_label(lambda user: user.team.name)    # the line under the name; False hides it
+```

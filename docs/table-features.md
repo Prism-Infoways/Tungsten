@@ -258,3 +258,34 @@ table.header_actions([ImportAction(ProductImporter), ExportAction()])
 In a [relation manager](relation-managers), this is where `CreateAction()` and `AttachAction()` go. On a resource list page, the **Create** button is a page header action instead; change those with the resource's `header_actions(cls, ctx, page, record)` method.
 
 All the action options (modals, forms, confirmation, notifications) are on the [Actions](actions) page. Import and export are on [Import & export](import-export).
+
+## Defaults for every table
+
+```python
+from tungsten.tables import Table
+
+Table.configure_using(lambda table: table.stacked_on_mobile())
+```
+
+It runs before each resource's own `table()`, so a resource can still change anything.
+
+## Selecting rows
+
+`table.max_selectable_records(50)` lets people pick at most 50 rows for bulk actions (more is refused on the server too).
+
+## Row clicks
+
+- `table.record_url(lambda record: ..., new_tab=True)` opens the row link in a new tab.
+- `table.record_action("preview")` makes a row click open (or run) that row action instead of going to a page.
+
+## Groups
+
+`Group("month").order("desc")` puts the newest group first; `Group("status").order_query_using(lambda query, direction: query.order_by(...))` sets your own order. `table.hide_group_picker()` keeps the rows in the default group without a "Group by" menu.
+
+## Cell attributes
+
+`TextColumn("total").cell_attributes({"class": "keep-on-phone"})` (or a closure with `record` and `state`) puts attributes on the `<td>` itself.
+
+## Empty tables
+
+An empty table only says "Create one to get started." when it has a way to create a record (a create action or the resource's create page).

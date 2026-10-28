@@ -155,7 +155,7 @@ def test_pick_from_library_fills_the_field(admin, panel):
     assert stored_paths(r.text, "cover_image") == [logo]
     picked = signed_values(r.text, "cover_image")[0]
     r = admin.post("/admin/_tw/form", {**host, "_tw_ui_action": f"file.pick:cover_image:{pdf}"})
-    assert stored_paths(r.text, "cover_image") == [] and "not allowed" in r.text  # covers take images only
+    assert stored_paths(r.text, "cover_image") == [] and "must be a file of type" in r.text  # covers take images only
     r = admin.post("/admin/_tw/form", {**host, "_tw_ui_action": "file.pick:cover_image:imports/secret.csv"})
     assert stored_paths(r.text, "cover_image") == [] and "can&#39;t be used here" in r.text
     r = admin.post(f"/admin/{PostResource.get_slug()}/create", {"title": "With a library cover", "cover_image": picked,

@@ -47,6 +47,8 @@ def _safe_url(url: str) -> bool:
 #: content types of the rich editor's own Trix attachments (see :class:`tungsten.forms.RichEditor`)
 MENTION_TYPE = "application/vnd.tungsten.mention"
 BLOCK_TYPE = "application/vnd.tungsten.block"
+#: a class name made of safe characters (Tailwind's ``text-danger-600``, ``md:font-bold``)
+_PLAIN_CLASS = re.compile(r"^[A-Za-z0-9_:/.\-]{1,60}$")
 _CLASS_TOKEN = re.compile(r"^(attachment(--[a-z0-9-]+)?|attachment__[a-z-]+|tw-mention|tw-block)$")
 _BLOCK_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -116,6 +118,7 @@ class _Sanitizer(HTMLParser):
         self.skip = 0
         self.attachments = attachments
         self.content_for = content_for
+        self.classes = False  # keep plain class names (``sanitize(classes=True)``)
 
     def _attachment_attrs(self, tag: str, attrs_: list) -> list[str]:
         """Extra attributes the rich editor needs on its Trix attachments (``attachments=True``)."""
@@ -146,6 +149,12 @@ class _Sanitizer(HTMLParser):
         parts = [tag]
         if self.attachments:
             parts += self._attachment_attrs(tag, attrs_)
+        elif self.classes:
+            for k, v in attrs_:
+                if k == "class" and v:
+                    tokens = [t for t in v.split() if _PLAIN_CLASS.match(t)]
+                    if tokens:
+                        parts.append(f'class="{escape(" ".join(tokens))}"')
         for k, v in attrs_:
             if k in allowed and v is not None:
                 if k in ("href", "src") and not _safe_url(v):
@@ -169,7 +178,8 @@ class _Sanitizer(HTMLParser):
             self.out.append(escape(data))
 
 
-def sanitize(html: str | None, attachments: bool = False, content_for: Callable[[dict], str] | None = None) -> str:
+def sanitize(html: str | None, attachments: bool = False, content_for: Callable[[dict], str] | None = None,
+             classes: bool = False) -> str:
     """Strip any tags/attributes that are not on a small allow-list.
 
     ``attachments=True`` also keeps the rich editor's Trix attachments (images, files,
@@ -179,6 +189,7 @@ def sanitize(html: str | None, attachments: bool = False, content_for: Callable[
     if not html:
         return ""
     p = _Sanitizer(attachments, content_for)
+    p.classes = classes
     p.feed(str(html))
     p.close()
     return "".join(p.out)

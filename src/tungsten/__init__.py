@@ -22,7 +22,7 @@ Quick start::
 """
 
 from .auth import Auth, hash_password, verify_password
-from .context import Context
+from .context import Context, current_context
 from .i18n import __, translate
 from .navigation import NavigationGroup, NavigationItem
 from .notifications import Notification
@@ -64,5 +64,5 @@ __all__ = [
     "NavigationGroup", "NavigationItem", "Notification", "Page", "Panel", "Plugin", "ProgressItem", "ProgressListWidget",
     "QuickActionsWidget", "RelationManager", "Resource", "ScheduleWidget", "SecurityHeadersMiddleware", "Stat",
     "StatsOverviewWidget", "Storage", "TableWidget", "TeamWidget", "Tenancy", "Widget",
-    "__", "__version__", "hash_password", "translate", "verify_password",
+    "__", "__version__", "current_context", "hash_password", "translate", "verify_password",
 ]

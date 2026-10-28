@@ -281,3 +281,7 @@ Database notifications are stored as written, and the bell translates the title,
 | `send_to_mail(users, db_or_ctx, subject=None)` | Email it through the panel's mailer. |
 | `broadcast(users, db_or_ctx)` | Show as a toast now in the users' open tabs. |
 | `to_dict()` | The notification as a plain dict. |
+
+## Links in a new tab
+
+`Notification("Ready").action("Open", url, new_tab=True)` opens the link in a new tab.

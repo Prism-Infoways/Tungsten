@@ -326,3 +326,7 @@ panel = Panel(..., template_dirs=["templates"])
 ```
 
 See [Theming](theming) for more.
+
+## Page header hooks
+
+`page.header-actions.before` and `page.header-actions.after` add HTML next to a page's header buttons (they get `host` and `record`). The header has `id="tw-page-header"` and its buttons `id="tw-page-header-actions"`, so HTMX can swap them alone.

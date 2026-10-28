@@ -58,6 +58,18 @@ class Group(Component):
         self._label = label
         self._title: Callable | None = None
         self._collapsible = False
+        self._direction = "asc"
+        self._order_query: Callable | None = None
+
+    def order(self, direction: str = "asc") -> "Group":
+        """Groups in this order: ``"asc"`` (default) or ``"desc"`` (newest month first, ...)."""
+        self._direction = "desc" if str(direction).lower() == "desc" else "asc"
+        return self
+
+    def order_query_using(self, fn: Callable) -> "Group":
+        """Your own group order: ``fn(query, direction)`` returns the query with its ``order_by``."""
+        self._order_query = fn
+        return self
 
     def label(self, label: str) -> "Group":
         self._label = label
@@ -145,11 +157,15 @@ class Table(Component):
         self._search_placeholder: str | None = None
         self._groups: list[Group] = []
         self._default_group: str | None = None
+        self._group_picker_hidden = False
         self._empty_heading: Any = None
         self._empty_description: Any = None
         self._empty_icon: Any = "inbox"
         self._striped = False
         self._record_url: Any = None
+        self._record_url_new_tab = False
+        self._record_action: Any = None
+        self._max_selectable: int | None = None
         self._modify_query: Callable | None = None
         self._poll: str | None = None
         self._heading: Any = None
@@ -183,6 +199,22 @@ class Table(Component):
         self._joins: dict[str, Any] = {}
         self._has_more = False
         self._cursors: dict[str, str | None] = {}
+        for configure in Table._configurators:
+            configure(self)
+
+    #: functions run on every new table, before its resource sets it up (see :meth:`configure_using`)
+    _configurators: list[Callable[["Table"], Any]] = []
+
+    @classmethod
+    def configure_using(cls, fn: Callable[["Table"], Any]) -> Callable[["Table"], Any]:
+        """Defaults for every table in the app (Filament's ``Table::configureUsing``)::
+
+            Table.configure_using(lambda table: table.stacked_on_mobile().paginated([25, 50], 25))
+
+        It runs first, so a resource's own ``table()`` can still change anything. Returns ``fn`` so it works
+        as a decorator."""
+        cls._configurators.append(fn)
+        return fn
 
     # ------------------------------------------------------------------ config
     def columns(self, columns: list[Column | ColumnGroup]) -> "Table":
@@ -411,6 +443,11 @@ class Table(Component):
             self._default_group = default
         return self
 
+    def hide_group_picker(self, condition: bool = True) -> "Table":
+        """No "Group by" menu: rows stay in the default group (Filament's ``groupingSettingsHidden``)."""
+        self._group_picker_hidden = condition
+        return self
+
     def default_group(self, attribute: str) -> "Table":
         self._default_group = attribute
         return self
@@ -426,10 +463,34 @@ class Table(Component):
         self._striped = condition
         return self
 
-    def record_url(self, fn: Any) -> "Table":
-        """Where a row click goes: a closure, or ``False`` to disable."""
+    def record_url(self, fn: Any, new_tab: bool = False) -> "Table":
+        """Where a row click goes: a closure, or ``False`` to disable. ``new_tab=True`` opens it in a new tab."""
         self._record_url = fn
+        self._record_url_new_tab = new_tab
         return self
+
+    def max_selectable_records(self, n: int | None) -> "Table":
+        """At most ``n`` rows can be selected for bulk actions (Filament's ``maxSelectableRecords``)."""
+        self._max_selectable = int(n) if n else None
+        return self
+
+    def record_action(self, name: Any) -> "Table":
+        """A row click opens (or runs) this row action instead of going to a page (Filament's ``recordAction``).
+        ``name`` is a row action's name, or a closure (``record``) returning one or None."""
+        self._record_action = name
+        return self
+
+    def row_action_view(self, record: Any) -> dict | None:
+        """The button data for :meth:`record_action` on ``record``, or None."""
+        if self._record_action is None:
+            return None
+        name = evaluate(self._record_action, **{**self.ev(), "record": record})
+        action = self.find_action("row", name) if name else None
+        if action is None or not action.is_available(self.host, self.ctx, record) \
+                or action.is_disabled(self.host, self.ctx, record):
+            return None
+        view = action.view_data(self.ctx, self.host, record, table_id=self.id)
+        return None if view["url"] else view
 
     def modify_query_using(self, fn: Callable) -> "Table":
         """``fn(query)`` returns a changed query (extra WHERE, joins, eager loads)."""
@@ -477,6 +538,7 @@ class Table(Component):
         if self._advanced_filters is not None:
             self._expand_advanced_filters()
         for f in self._filters:
+            f._bound_table = self  # closures (``default``) get the table's arguments
             if hasattr(f, "bind_options"):
                 f.bind_options(self)
         restored = self._restore_persisted()
@@ -583,6 +645,7 @@ class Table(Component):
             "model": self.model,
             "host": self.host,
             "owner": getattr(self.host, "owner", None),
+            "owner_record": getattr(self.host, "owner", None),
         }
 
     @property
@@ -627,7 +690,7 @@ class Table(Component):
 
     @property
     def group(self) -> Group | None:
-        name = self.param("group", self._default_group)
+        name = self._default_group if self._group_picker_hidden else self.param("group", self._default_group)
         if name == "none":
             return None
         for g in self._groups:
@@ -730,12 +793,30 @@ class Table(Component):
                 defaults = f.default_data()
                 for k, v in defaults.items():
                     form.set(f"{base}.{k}", v)
+        if submitted:
+            self._filter_state_updated(form)
+        for f in self._filters:
+            base = f.base()
             data: dict[str, Any] = {}
             errors: dict[str, list] = {}
             for field in f.get_fields():
                 field.process(form, base, data, errors)
             filter_data[f.name] = data
         return form, filter_data
+
+    def _filter_state_updated(self, form: Form) -> None:
+        """Run ``after_state_updated`` of the filter field that just changed (the request's
+        ``HX-Trigger-Name``), so a dependent filter can be reset: State -> Location."""
+        request = getattr(self.ctx, "request", None)
+        changed = request.headers.get("HX-Trigger-Name") if request is not None else None
+        if not changed:
+            return
+        for f in self._filters:
+            base = f.base()
+            for field in f.get_fields():
+                if getattr(field, "_after_state_updated", None) and field.path(base) == changed:
+                    field.call_after_state_updated(form, changed, base)
+                    return
 
     def active_indicators(self) -> list[dict]:
         out = []
@@ -919,8 +1000,11 @@ class Table(Component):
             return query.order_by(getattr(self.model, self._reorder_column), self.host.primary_key())
         group = self.group
         if group is not None:
-            query, expr = self._sort_expression(query, group.attribute)
-            query = query.order_by(expr)
+            if group._order_query is not None:
+                query = call(group._order_query, query=query, direction=group._direction, model=self.model)
+            else:
+                query, expr = self._sort_expression(query, group.attribute)
+                query = query.order_by(expr.desc() if group._direction == "desc" else expr.asc())
         column, direction = self.sort
         if column:
             col = next((c for c in self._columns if c.name == column), None)
@@ -942,8 +1026,11 @@ class Table(Component):
         keys: list[tuple[Any, bool, Callable, bool]] = []
         group = self.group
         if group is not None:
+            if group._order_query is not None:
+                return query, None
             query, expr = self._sort_expression(query, group.attribute)
-            keys.append((expr, False, lambda r, p=group.attribute: read_path(r, p), _nullable(expr)))
+            keys.append((expr, group._direction == "desc", lambda r, p=group.attribute: read_path(r, p),
+                         _nullable(expr)))
         column, direction = self.sort
         if column:
             col = next((c for c in self._columns if c.name == column), None)
@@ -1208,6 +1295,8 @@ class Table(Component):
         for a in flatten_actions(pools.get(scope, [])):
             if a.name == name:
                 a.scope = "bulk" if scope == "bulk" else ("row" if scope == "row" else "table")
+                if scope == "bulk":
+                    a._max_selectable = self._max_selectable
                 return a
         return None
 
@@ -1268,6 +1357,8 @@ class Table(Component):
                 "key": self.host.record_key(record),
                 "index": start + i + 1,
                 "url": self.get_record_url(record),
+                "new_tab": self._record_url_new_tab and self._record_url not in (None, False),
+                "action": self.row_action_view(record),
                 "trashed": self.host.is_trashed(record),
                 "classes": call(self._record_classes, record=record) if self._record_classes else "",
             })
@@ -1319,11 +1410,22 @@ class Table(Component):
             or __("No :records", records=self.host.title().lower() or __("records")),
             "empty_description": maybe(evaluate(self._empty_description, **self.ev())) or (
                 __("Try a different search or filter.") if (self.search or self.column_searches or self.active_indicators())
-                else __("Create one to get started.")),
+                else __("Create one to get started.") if self.offers_create() else None),
             "empty_icon": self._empty_icon,
             "search_placeholder": maybe(self._search_placeholder)
             or __("Search :records...", records=self.host.title().lower() or __("records")),
         }
+
+    def offers_create(self) -> bool:
+        """True when an empty table has a way to add a record: a create action on it, or its resource's create page."""
+        from ..actions.prebuilt import CreateAction
+
+        if any(isinstance(a, CreateAction) for a in [*self._empty_actions, *self._header_actions]):
+            return True
+        try:
+            return bool(self.host.create_url(self.ctx)) and bool(self.host.can(self.ctx, "create"))
+        except Exception:  # noqa: BLE001 - a host without pages or abilities
+            return False
 
     def render(self) -> Markup:
         return self.renderer.render("tungsten/tables/table.html", **self.view_data())

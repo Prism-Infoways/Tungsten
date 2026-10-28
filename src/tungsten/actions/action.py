@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import threading
 import time
 from collections import deque
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Iterable
 
 from markupsafe import Markup
 
@@ -315,7 +316,9 @@ class Action(Component):
         """Open (or run) another action when this one succeeds, on the same record.
 
         ``next_action`` is an :class:`Action`, the name of one of the page's/table's actions, or a
-        closure returning either (or None to stop): ``then(lambda result: "notify" if result else None)``."""
+        closure returning either (or None to stop): ``then(lambda result: "notify" if result else None)``.
+        A name can also be an action higher up the chain this one was opened from (a "Back" step), or a
+        full path such as ``"import/map"``."""
         if isinstance(next_action, Action):
             self._add_nested(next_action)
         self._then = next_action
@@ -589,6 +592,23 @@ class Action(Component):
             "tungsten/actions/button.html",
             a=self.view_data(ctx, host, record, style=style, table_id=table_id),
         )
+
+
+def open_from_url(ctx: "Context", host: "Host | None", actions: Iterable[Any], record: Any = None,
+                  table_id: str | None = None) -> Markup:
+    """For ``?action=<name>`` in a page's address (Filament's ``?action=``): opens that action's modal as the
+    page loads, when it is one of ``actions`` and the user may run it."""
+    name = ctx.request.query_params.get("action") if ctx is not None and ctx.request is not None else None
+    if not name:
+        return Markup("")
+    for action in flatten_actions(list(actions)):
+        if action.name != name or not action.needs_modal() or not action.is_available(host, ctx, record) \
+                or action.is_disabled(host, ctx, record):
+            continue
+        a = action.view_data(ctx, host, record, table_id=table_id)
+        return Markup('<div hidden hx-get="{}" hx-vals="{}" hx-target="#tw-modal" hx-swap="innerHTML" '
+                      'hx-trigger="load"></div>').format(a["endpoint"], json.dumps(a["vals"]))
+    return Markup("")
 
 
 def modal_target(level: int) -> str:

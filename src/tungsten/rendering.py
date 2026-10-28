@@ -82,6 +82,7 @@ class Renderer:
             current_locale=current_locale,
             is_rtl=is_rtl,
             js_translations=js_translations,
+            open_action_from_url=_open_action_from_url,
         )
         self.env.filters["number"] = _format_number
         self.env.filters["attr_json"] = _tojson_attr
@@ -122,3 +123,9 @@ class Renderer:
 @lru_cache(maxsize=1)
 def default_renderer() -> Renderer:
     return Renderer()
+
+
+def _open_action_from_url(*args: Any, **kwargs: Any) -> Any:
+    from .actions.action import open_from_url
+
+    return open_from_url(*args, **kwargs)

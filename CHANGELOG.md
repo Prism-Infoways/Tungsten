@@ -17,6 +17,16 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 - **New `FileUpload(...).preserve_filenames()`:** keep the user's file name (issue #93).
 - **`tungsten-mcp` (issues #83, #84, #102):** string tool results are sent as plain text, and only dicts get `structuredContent` (`result_indent` for pretty JSON). New `run_stdio()` for apps that start MCP as a command, `public_path=` to keep an old address, `on_authenticated=` hook, and the panel's `Auth.load_user` runs for tokens. A user the panel refuses gets 403, not 401. Error messages name the token screen by its real label (`tokens_label=`).
 - **`tungsten-filament` (issues #94, #101):** `->searchable(['first', 'last'])` converts to `.searchable(columns=[...])`. Date formats with `%-d` / `%-I` now work on Windows and macOS too: `TextColumn.date()` handles them itself (new `tungsten.support.dates.format_date`), so converted apps need this tungsten-admin.
+- **Per-user labels (issue #88):** `get_navigation_label(ctx)`, `get_plural_label(ctx)`, new `get_navigation_group(ctx)` and `get_description(ctx)` can depend on the signed-in user; titles and breadcrumbs follow. New `tungsten.current_context()`.
+- **Pages under a resource (issue #89):** `Resource.custom_pages = {"generate": GeneratePage}` serves `/products/generate`.
+- **Wizard, tables, pages (issue #90):** `Step.after_validation()`, step schema as a closure, `table.max_selectable_records()`, `Group(...).order("desc")` / `order_query_using()`, `table.hide_group_picker()`, `after_state_updated` in filter forms, `Filter.default()` closures get `owner_record`, `Page.table()` with `table_model`, `Page.widgets_position = "below"`.
+- **Refusing a save (issue #91):** `ValidationError` or `Halt` from `save()`, `before_save` or `before_create` redraws the form with errors. `Resource.page_title()` / `page_subheading()`. The page header has ids for HTMX.
+- **Navigation and links (issue #92):** `user_menu_item(..., visible=, new_tab=)`, `?action=<name>` opens an action, `record_url(..., new_tab=True)`, `table.record_action()`, `Notification.action(..., new_tab=True)`, `navigation_badge_tooltip()`, `DownloadAction.link_lifetime()`.
+- **Forms and columns (issue #93):** `Section.collapsed()` closures work, dotted field names save into JSON columns, `TextColumn.html(keep_classes=True)`, `TextInput.read_only()`, `owner_record` in relation manager form closures, `FileUpload.store_files(False)`.
+- **Theming (issue #98):** `Table.configure_using()` for every table, `page.header-actions.before/after` render hooks, `panel.user_role_label()`, `Auth(email_placeholder=, password_placeholder=)`.
+- **Uploads and text (issue #100):** the upload hint shows extensions and "20 MB" and wraps (`upload_hint()`), Laravel 11 wording for size and type errors with `validation_messages()`, English `en.json` overrides work, `Column.cell_attributes()`.
+- **Empty tables (issue #110):** "Create one to get started." only shows when the table can create.
+- **Actions (issue #111):** `then()` can go back to an action higher up the chain (a "Back" step).
 - **Icon buttons** keep the action's label as `aria-label`; the tooltip is only the hover text (issue #97).
 
 ## 2026-10-28 · tungsten-admin 0.1.13: two security fixes
