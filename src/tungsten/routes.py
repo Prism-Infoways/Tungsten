@@ -90,6 +90,7 @@ def build_app(panel: "Panel") -> FastAPI:
         session_cookie=f"tungsten_{panel.id}",
         same_site="lax",
         https_only=panel.https_only_cookies,
+        max_age=panel.auth.session_max_age,
     )
     # compress pages, CSS and JS (a list page shrinks from ~130 KB to ~15 KB)
     app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)  # level 9 is ~2x slower for ~1% smaller pages
@@ -208,7 +209,7 @@ class Routes:
             if ctx.session.pop("tw_idle_out", None):
                 Notification("You were signed out").body(
                     "You were away for a while, so we signed you out to keep your account safe.").warning().send(ctx)
-            return ctx.go(panel.url("login", next=request.url.path if request.method == "GET" else None))
+            return ctx.go(panel.url("login", next=self._next_after_login(request)))
         path = request.url.path.rstrip("/")
         if panel.auth.email_verification and path != panel.url("email-verification", "prompt"):
             from .auth.verification import needs_verification
@@ -223,6 +224,24 @@ class Routes:
                     "Please set up two-factor authentication to continue.").warning().send(ctx)
                 return ctx.go(panel.url("two-factor"))
         return None
+
+    def _next_after_login(self, request: Request) -> str | None:
+        """The page to go back to after signing in: for an HTMX request (a lazy widget, a poll) the page it came
+        from, never the fragment itself (issue #109)."""
+        from urllib.parse import urlsplit
+
+        if request.headers.get("HX-Request") == "true":
+            current = urlsplit(request.headers.get("HX-Current-URL") or "")
+            if current.netloc and current.netloc != request.url.netloc:
+                return None
+            target = current.path + (f"?{current.query}" if current.query else "")
+        elif request.method == "GET":
+            target = request.url.path
+        else:
+            return None
+        if not target.startswith("/") or target.startswith("//") or "/_tw/" in target + "/":
+            return None
+        return target
 
     def _tenant_gate(self, ctx: Context, handler: Callable, public: bool) -> Response | None:
         """Tenant in the URL: check it, or send the user to a URL that has one; then the subscription check."""
@@ -381,10 +400,12 @@ class Routes:
 
     @staticmethod
     def action_available(action: Action, host: Host, ctx: Context, record: Any) -> bool:
-        """The action and every action whose modal it was opened from may be used."""
+        """The action and every action whose modal it was opened from may be used (visible, allowed, not disabled)."""
         current: Action | None = action
         while current is not None:
             if not current.is_available(host, ctx, record):
+                return False
+            if current.is_disabled(host, ctx, record if current.scope != "bulk" else None):
                 return False
             current = current._parent
         return True
@@ -703,6 +724,8 @@ class Routes:
         except (ValueError, AttributeError):
             return Response(status_code=404)
         if not full.is_file():
+            return Response(status_code=404)
+        if not self.panel.can_open_file(ctx, full.relative_to(storage.root.resolve()).as_posix()):
             return Response(status_code=404)
         return FileResponse(full, headers={"X-Content-Type-Options": "nosniff",
                                            "Content-Security-Policy": "sandbox"})
@@ -1965,7 +1988,7 @@ class Routes:
             if not getattr(upload, "filename", None):
                 continue
             owner = form.form_for(path)
-            found = owner.find(path)
+            found = owner.find_visible(path)  # a hidden field takes no files (issue #107)
             if found is None or not hasattr(found[0], "accept_upload"):
                 continue
             field = found[0]
@@ -1998,8 +2021,8 @@ class Routes:
         form = self._resolve_form(ctx, fd)
         form.load(fd)
         owner = form.form_for(fd.get("_tw_field") or "")
-        found = owner.find(fd.get("_tw_field") or "")
-        if found is None or not hasattr(found[0], "search_options"):
+        found = owner.find_visible(fd.get("_tw_field") or "")  # a hidden field has no options to give (issue #107)
+        if found is None or not hasattr(found[0], "search_options") or found[0].is_disabled(owner, found[2]):
             raise NotFound()
         options = found[0].search_options(owner, fd.get("q") or "")
         return JSONResponse([{"value": str(k), "text": label} for k, label in options])
@@ -2010,7 +2033,7 @@ class Routes:
         form.load(fd)
         path = fd.get("_tw_field") or ""
         owner = form.form_for(path)
-        found = owner.find(path)
+        found = owner.find_visible(path)
         field = found[0] if found else None
         if field is None or not hasattr(field, "check_attachment") or field.is_disabled(owner, found[2]) \
                 or not field.attachments_enabled(owner, found[2]):
@@ -2171,6 +2194,8 @@ class Routes:
             return None
 
         def check(db: Any) -> str | None:
+            if not auth.session_alive(db, websocket.session, raw):
+                return None
             user = auth.find_by_id(db, raw)
             return auth.user_id(user) if user is not None and auth.is_active(user) else None
 

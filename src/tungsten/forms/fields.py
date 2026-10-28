@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 import enum
+import hashlib
+import hmac
 import mimetypes
 import re
 from decimal import Decimal, InvalidOperation
@@ -898,13 +900,12 @@ class HasOptions(Field):
     def validate_value(self, form: "Form", base: str, value: Any) -> list[str]:
         label = self.get_label(form, base).lower()
         if self._relationship and self._options is None and getattr(self, "_searchable", False):
-            if form.ctx is not None and form.ctx.panel.tenancy.enabled:  # refuse another tenant's records
-                from sqlalchemy import func, select
-
+            if form.ctx is not None:
+                # the same query the options come from (tenant scope and modify_query included, issue #87)
                 _, target, pk = self._rel_info(form)
                 keys = {self._match_key(form, base, v) for v in (value if self._multiple else [value])}
-                query = select(func.count()).select_from(target).where(pk.in_(keys))
-                if form.ctx.db.scalar(form.ctx.panel.tenancy.scope(form.ctx, target, query)) < len(keys):
+                query = self.relationship_query(form).where(pk.in_(keys)).order_by(None).with_only_columns(pk)
+                if len(set(form.ctx.db.scalars(query).all())) < len(keys):
                     return [__("The selected :attribute is invalid.", attribute=label)]
             return []
         allowed = {str(k) for k, _ in self.get_options(form, base)}
@@ -1839,6 +1840,47 @@ class FileUpload(Field):
         value = formdata.get(path)
         return value if isinstance(value, str) else ""
 
+    # A stored path is only taken back from the browser with a signature made for this user when the form was
+    # drawn (or when it is the record's own saved value), so nobody can post another user's file path (issue #86).
+    @staticmethod
+    def _signature(form: "Form", stored: str) -> str:
+        ctx = form.ctx
+        if ctx is None:
+            return ""
+        user = ctx.user
+        user_id = ctx.panel.auth.user_id(user) if user is not None and ctx.panel.auth.enabled else ""
+        message = f"file|{user_id}|{stored}".encode()
+        return hmac.new(ctx.panel.secret_key.encode(), message, hashlib.sha256).hexdigest()[:32]
+
+    def sign(self, form: "Form", stored: str) -> str:
+        """The value the hidden input carries for ``stored``: ``path|signature``."""
+        signature = self._signature(form, stored)
+        return f"{stored}|{signature}" if signature else stored
+
+    def load_state(self, form: "Form", formdata: Any, base: str) -> None:
+        path = self.path(base)
+        raw = self.extract(formdata, path)
+        saved: set[str] = set()
+        if form.record is not None:
+            try:
+                current = self.hydrate(form, form.record)
+            except Exception:  # noqa: BLE001 - a record without this column
+                current = None
+            saved = {str(c) for c in (current if isinstance(current, list) else [current]) if c}
+        kept: list[str] = []
+        for value in (raw if isinstance(raw, list) else [raw]):
+            if not value:
+                continue
+            if value in saved:
+                kept.append(value)
+                continue
+            stored, _, signature = value.rpartition("|") if "|" in value else (value, "", "")
+            expected = self._signature(form, stored)
+            if (signature and expected and hmac.compare_digest(signature, expected)) or stored in saved \
+                    or form.ctx is None:
+                kept.append(stored)
+        set_path(form.state, path, kept if self._multiple else (kept[0] if kept else ""))
+
     def cast(self, state: Any) -> Any:
         if self._multiple:
             return list(state or [])
@@ -1905,7 +1947,8 @@ class FileUpload(Field):
         storage = form.ctx.panel.storage if form.ctx else None
         names = form.ctx.panel.file_names(form.ctx, files) if form.ctx and form.ctx.panel.file_name_lookups else {}
         v["files"] = [
-            {"path": f, "url": storage.url(f) if storage else f, "name": names.get(f) or str(f).rsplit("/", 1)[-1]}
+            {"path": f, "token": self.sign(form, f), "url": storage.url(f) if storage else f,
+             "name": names.get(f) or str(f).rsplit("/", 1)[-1]}
             for f in files
         ]
         v.update(multiple=self._multiple, image=self._image, avatar=self._avatar,

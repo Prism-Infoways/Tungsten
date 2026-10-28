@@ -271,8 +271,16 @@ def test_file_upload_through_refresh(admin, panel, tmp_path):
                                                    "_tw_record": "1", "name": "x"},
                           files={"images.__upload": ("pic.png", png, "image/png")},
                           headers={"HX-Request": "true", "X-CSRF-Token": admin.token})
-    stored = re.search(r'name="images" value="([^"]+\.png)"', r.text).group(1)
+    stored, signed = re.search(r'name="images" value="(([^"|]+\.png)\|[0-9a-f]+)"', r.text).group(2, 1)
     assert (tmp_path / "storage" / stored).exists()
+    # the signed value comes back; a bare path someone else uploaded is dropped (issue #86)
+    form = {"_tw_kind": "host", "_tw_host": "resource:products", "_tw_op": "edit", "_tw_record": "1"}
+    r = admin.client.post("/admin/_tw/form", data={**form, "images": signed},
+                          headers={"HX-Request": "true", "X-CSRF-Token": admin.token})
+    assert stored in r.text
+    r = admin.client.post("/admin/_tw/form", data={**form, "images": "uploads/someone-elses.png"},
+                          headers={"HX-Request": "true", "X-CSRF-Token": admin.token})
+    assert "someone-elses.png" not in r.text
     assert admin.get(f"/admin/storage/{stored}").headers["content-type"] == "image/png"
     r = admin.client.post("/admin/_tw/form", data={"_tw_kind": "host", "_tw_host": "resource:products", "_tw_op": "edit",
                                                    "_tw_record": "1"},

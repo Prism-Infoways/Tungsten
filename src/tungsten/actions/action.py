@@ -462,6 +462,10 @@ class Action(Component):
         ev = self.ev(ctx, record, host=host)
         return self.is_visible(**ev) and self.is_authorized(host, ctx, record)
 
+    def is_disabled(self, host: "Host | None", ctx: "Context", record: Any = None) -> bool:
+        """``disabled()`` is true for this record: the button is greyed out and posting it is refused."""
+        return bool(evaluate(self._disabled, **self.ev(ctx, record, host=host)))
+
     def get_url(self, ctx: "Context", record: Any = None) -> str | None:
         return evaluate(self._url, **self.ev(ctx, record)) if self._url is not None else None
 

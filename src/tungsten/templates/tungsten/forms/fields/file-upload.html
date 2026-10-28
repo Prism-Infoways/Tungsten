@@ -1,7 +1,7 @@
 {% from "tungsten/forms/macros.html" import wrapper, ui_action %}
 {% call wrapper(field, v) %}
 <div class="grid gap-3">
-  {% for f in v.files %}<input type="hidden" name="{{ v.path }}" value="{{ f.path }}">{% endfor %}
+  {% for f in v.files %}<input type="hidden" name="{{ v.path }}" value="{{ f.token }}">{% endfor %}
   {% if v.image %}
   <div class="flex flex-wrap gap-3">
     {% for f in v.files %}

@@ -226,6 +226,8 @@ class Panel:
         self.file_pick_checks: dict[str, Callable] = {}
         #: ``fn(ctx, paths) -> {path: name}``: the names file fields show for stored files (see on_file_names)
         self.file_name_lookups: dict[str, Callable] = {}
+        #: ``fn(ctx, path) -> bool | None`` that decides who may open a stored file at /storage (see on_file_access)
+        self.file_access_checks: dict[str, Callable] = {}
         self._app: Any = None
         self._booted = False
 
@@ -305,6 +307,27 @@ class Panel:
         """
         self.file_pick_checks[key] = fn
         return self
+
+    def on_file_access(self, key: str, fn: Callable) -> "Panel":
+        """Decide who may open a stored file at ``<panel>/storage/<path>``: ``fn(ctx, path)``.
+
+        Return False to refuse (the file answers 404), True to allow, or None to leave it to the other checks.
+        Any False wins. With no check (or only None answers), every signed-in user may open any stored file whose
+        path they know. The same ``key`` replaces ``fn``.
+        """
+        self.file_access_checks[key] = fn
+        return self
+
+    def can_open_file(self, ctx: "Context", path: str) -> bool:
+        """False when a file access check refuses ``path`` for this request (a failing check refuses too)."""
+        for key, fn in list(self.file_access_checks.items()):
+            try:
+                if call(fn, ctx=ctx, path=path, panel=self) is False:
+                    return False
+            except Exception:
+                logging.getLogger("tungsten").exception("File access check %r failed", key)
+                return False
+        return True
 
     def on_file_names(self, key: str, fn: Callable) -> "Panel":
         """Show friendly names in file fields: ``fn(ctx, paths)`` returns ``{path: "Team photo.png"}``.

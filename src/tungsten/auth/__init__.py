@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from sqlalchemy import func, select
 
 from ..support.aio import blocking
+from .sessions import DatabaseSessions, SessionStore
 from .throttle import MemoryThrottle, ThrottleStore
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -92,6 +93,8 @@ class Auth:
         reset_token_minutes: int = 60,
         max_login_attempts: int = 5,
         throttle: ThrottleStore | None = None,
+        sessions: "SessionStore | bool | None" = None,
+        session_max_age: int | None = 14 * 24 * 3600,
     ) -> None:
         self.user_model = user_model
         self.email_field = email_field
@@ -135,6 +138,11 @@ class Auth:
         #: where failed sign-ins are counted (in memory by default); pass a shared store when you run several
         #: server processes so the limit holds across them
         self.throttle: ThrottleStore = throttle if throttle is not None else MemoryThrottle()
+        #: sign-ins kept on the server, so signing out ends every copy of the session cookie (``False``: off)
+        self.sessions: SessionStore | None = (None if sessions is False
+                                              else DatabaseSessions() if sessions in (None, True) else sessions)
+        #: how long a sign-in lasts at most, in seconds (the cookie's lifetime too); ``None``: until the browser closes
+        self.session_max_age = session_max_age
 
     @property
     def enabled(self) -> bool:
@@ -181,9 +189,14 @@ class Auth:
         user_id = ctx.session.get(self.session_key())
         if user_id is None:
             return None
+        if not self.session_alive(ctx.db, ctx.session, user_id):
+            self.logout(ctx)  # signed out elsewhere (or too old): this copy of the cookie is dead
+            return None
         if self.idle_timeout:
             now = time.time()
-            seen = ctx.session.get("tw_seen", now)
+            seen = ctx.session.get("tw_seen")
+            if seen is None:  # a session from before idle_timeout was on: start counting now
+                seen = ctx.session["tw_seen"] = now
             if now - seen > self.idle_timeout * 60:
                 user = self.find_by_id(ctx.db, user_id)
                 self.logout(ctx)
@@ -240,13 +253,33 @@ class Auth:
         self.throttle.clear(key)
         return user
 
+    SESSION_ID_KEY = "tw_sid"
+
+    def session_alive(self, db: Any, session: Any, user_id: Any) -> bool:
+        """False when the server-side sign-in behind this cookie is gone (signed out) or too old."""
+        if self.sessions is None:
+            return True
+        alive = self.sessions.alive(db, str(session.get(self.SESSION_ID_KEY) or ""), str(user_id),
+                                    self.session_max_age)
+        return alive is not False
+
     def login(self, ctx: "Context", user: Any) -> None:
+        if self.sessions is not None:
+            old = ctx.session.pop(self.SESSION_ID_KEY, None)
+            if old:
+                self.sessions.end(ctx.db, str(old))  # a new sign-in in this browser replaces the old one
+            session_id = self.sessions.start(ctx.db, self.user_id(user))
+            if session_id:
+                ctx.session[self.SESSION_ID_KEY] = session_id
         ctx.session[self.session_key()] = self.user_id(user)
         ctx.session["tw_seen"] = time.time()
         ctx.session.pop("tw_idle_out", None)
         ctx.user = user
 
     def logout(self, ctx: "Context") -> None:
+        session_id = ctx.session.pop(self.SESSION_ID_KEY, None)
+        if session_id and self.sessions is not None:
+            self.sessions.end(ctx.db, str(session_id))
         ctx.session.pop(self.session_key(), None)
         ctx.session.pop("tw_tenant", None)
         ctx.session.pop("tw_seen", None)
