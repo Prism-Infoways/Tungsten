@@ -35,8 +35,11 @@ def _file(panel: Any, path: str, public: bool) -> dict:
     return {"name": name, "url": url}
 
 
-def conversation_items(panel: Any, db: Any, ticket: Ticket, public: bool = False) -> list[dict]:
-    """The description first, then every reply. ``public`` leaves out internal notes and events."""
+def conversation_items(panel: Any, db: Any, ticket: Ticket, public: bool = False,
+                       internal: bool | None = None) -> list[dict]:
+    """The description first, then every reply. ``public`` (the portal) leaves out internal notes and events and
+    only links public files; ``internal=False`` only leaves out notes and events."""
+    show_internal = not public if internal is None else internal and not public
     cache: dict = {}
     customer = ticket.requester_name or ticket.requester_email or "Customer"
     items = []
@@ -44,7 +47,7 @@ def conversation_items(panel: Any, db: Any, ticket: Ticket, public: bool = False
         items.append({"kind": "customer", "author": customer, "body": ticket.description,
                       "when": when(ticket.created_at), "attachments": []})
     for reply in ticket.replies:
-        if public and reply.is_internal:
+        if reply.is_internal and not show_internal:
             continue
         if reply.kind == "customer":
             author = reply.author_name or customer
@@ -55,8 +58,9 @@ def conversation_items(panel: Any, db: Any, ticket: Ticket, public: bool = False
     return items
 
 
-def render_conversation(ctx: Any, ticket: Ticket | None) -> Markup:
+def render_conversation(ctx: Any, ticket: Ticket | None, internal: bool = True) -> Markup:
+    """The conversation inside the panel. ``internal=False`` (a requester) leaves out notes and events."""
     if ticket is None:
         return Markup("")
-    items = conversation_items(ctx.panel, ctx.db, ticket)
+    items = conversation_items(ctx.panel, ctx.db, ticket, internal=internal)
     return Markup(ctx.panel.renderer.render("tungsten_tickets/conversation.html", items=items, show_tags=True))

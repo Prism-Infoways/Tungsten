@@ -350,3 +350,52 @@ def test_panel_without_auth_is_left_alone():
     panel.plugin(ImpersonatePlugin())
     panel.boot()
     assert panel.resource("impersonation-log") is None
+
+
+def test_log_screen_follows_who_may_impersonate(tmp_path):
+    """Issue #97: the log is not open to everyone."""
+    panel = build(tmp_path, can_impersonate=lambda user: user.email == "admin@example.com")
+    c = client_for(panel)
+    c.login("ravi@example.com")
+    assert c.get("/admin/impersonation-log").status_code == 403
+    c.client.post("/admin/logout", data={"_token": c.token})
+    c.login()
+    assert c.get("/admin/impersonation-log").status_code == 200
+    (tmp_path / "x").mkdir()
+    other = build(tmp_path / "x", can_view_log=lambda user: False)
+    o = client_for(other)
+    o.login()
+    assert o.get("/admin/impersonation-log").status_code == 403
+
+
+def test_reason_field_can_be_left_out(tmp_path):
+    panel = build(tmp_path, ask_reason=False)
+    c = client_for(panel)
+    c.login()
+    modal = c.client.get("/admin/_tw/action?_tw_host=resource:users&_tw_scope=row&_tw_name=impersonate&_tw_record=2",
+                         headers={"HX-Request": "true"}).text
+    assert "Why?" not in modal and "Log in as user" in modal
+
+
+def test_icon_button_keeps_its_label_for_screen_readers(panel):
+    a = {"name": "x", "label": "Log in as", "icon": "venetian-mask", "color": "gray", "style": "icon", "size": None,
+         "url": None, "new_tab": False, "modal": True, "endpoint": "/e", "vals": {}, "disabled": False,
+         "tooltip": "Become this user", "badge": None, "outlined": False, "keyboard": None, "hidden_label": False}
+    html = panel.renderer.render("tungsten/actions/button.html", a=a)
+    assert 'title="Become this user"' in html and 'aria-label="Log in as"' in html
+
+
+def test_times_use_the_panel_time_zone(tmp_path, monkeypatch):
+    panel = build(tmp_path)
+    panel.timezone = "Asia/Kolkata"
+    c = client_for(panel)
+    c.login()
+    c.get("/admin/users")
+    assert c.login_as(2).status_code == 204
+    with panel.db() as db:
+        entry = db.scalars(select(ImpersonationLog)).one()
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+
+    india = dt.datetime.now(ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
+    assert abs((entry.started_at - india).total_seconds()) < 60

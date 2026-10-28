@@ -1997,7 +1997,11 @@ class Routes:
             error = field.check_upload(upload.filename, upload.content_type or "", upload.size or 0)
             if error is None:
                 try:
-                    stored = blocking(self.panel.storage.save, upload.file, upload.filename, field._directory)
+                    if getattr(field, "_preserve_filenames", False):
+                        stored = blocking(self.panel.storage.save, upload.file, upload.filename, field._directory,
+                                          keep_name=True)
+                    else:
+                        stored = blocking(self.panel.storage.save, upload.file, upload.filename, field._directory)
                     if self.panel.upload_listeners:
                         stored = self.panel.uploaded(ctx, stored, upload.filename, upload.content_type or "",
                                                      upload.size or 0, field)

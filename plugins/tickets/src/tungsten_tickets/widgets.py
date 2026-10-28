@@ -16,6 +16,15 @@ class TicketStats(StatsOverviewWidget):
     lazy = False
 
     @classmethod
+    def can_view(cls, ctx):
+        """Only for agents (see ``TicketsPlugin(agent=...)``) who may list tickets."""
+        plugin = ctx.panel.get_plugin("tickets")
+        if plugin is None:
+            return True
+        resource = plugin.ticket_resource
+        return plugin.is_agent(ctx) and resource.can(ctx, "view_any")
+
+    @classmethod
     def stats(cls, db, ctx):
         def count(*where):
             return db.scalar(select(func.count()).select_from(Ticket).where(*where)) or 0

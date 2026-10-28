@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import re
 import uuid
 from pathlib import Path
 from typing import Any, BinaryIO
@@ -13,7 +14,8 @@ BLOCKED_EXTENSIONS = {".html", ".htm", ".xhtml", ".svg", ".js", ".mjs", ".php", 
 
 
 class Storage:
-    def save(self, file: BinaryIO, filename: str, directory: str = "") -> str:
+    def save(self, file: BinaryIO, filename: str, directory: str = "", keep_name: bool = False) -> str:
+        """Store ``file`` and return its path. ``keep_name``: keep the user's file name (in a folder of its own)."""
         raise NotImplementedError
 
     def url(self, path: str) -> str:
@@ -57,12 +59,23 @@ class LocalStorage(Storage):
             raise ValueError("This file type is not allowed.")
         return f"{uuid.uuid4().hex}{ext}"
 
-    def save(self, file: BinaryIO, filename: str, directory: str = "") -> str:
+    def kept_name(self, filename: str) -> str:
+        """The user's file name made safe for a path: no folders, no odd characters, at most 120 characters."""
+        name = re.sub(r"[^\w.\- ()]+", "_", os.path.basename((filename or "").replace("\\", "/"))).strip(" ._")
+        stem, ext = os.path.splitext(name)
+        self.safe_name(name)  # refuses blocked types
+        return (stem[: 120 - len(ext[:10])] or "file") + ext[:10].lower()
+
+    def save(self, file: BinaryIO, filename: str, directory: str = "", keep_name: bool = False) -> str:
         directory = directory.strip("/").replace("..", "")
         rel_dir = Path(directory) if directory else Path(dt.date.today().strftime("%Y/%m"))
+        if keep_name:
+            name = self.kept_name(filename)
+            rel_dir = rel_dir / uuid.uuid4().hex
+        else:
+            name = self.safe_name(filename)
         target_dir = self.root / rel_dir
         target_dir.mkdir(parents=True, exist_ok=True)
-        name = self.safe_name(filename)
         with open(target_dir / name, "wb") as out:
             while chunk := file.read(1024 * 1024):
                 out.write(chunk)

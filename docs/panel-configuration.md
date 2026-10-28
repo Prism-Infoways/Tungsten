@@ -104,6 +104,7 @@ See [Translations](translations).
 | --- | --- | --- |
 | `https_only_cookies` | `False` | Sends the session cookie only over HTTPS. Turn it on in production. |
 | `app_url` | `None` | The public address of your site, like `"https://admin.acme.example"` (without the panel path). Password reset and email verification links are built from it. Without it, they use the host of the request, which a visitor can fake, so set it in production. |
+| `timezone` | `None` | The app's time zone, like `"Asia/Kolkata"`. `panel.now()`, `since()` columns and plugin timestamps use it for naive datetimes. `None`: the server's clock. |
 
 See [Security](security).
 

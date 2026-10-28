@@ -47,8 +47,14 @@ TicketsPlugin(
     notify_agents=True,                                # bell notifications for agents
     mailer=None,                                       # defaults to Auth(mailer=...)
     navigation_group="Help desk",
+    agent=None,                                        # fn(user, ctx) -> bool: who works the desk
+    agents=None,                                       # fn(query, ctx) -> query: who is in the "Agent" lists
+    ticket_resource=None,                              # your own TicketResource subclass (and category_/saved_reply_)
 )
 ```
+
+With `agent`, everyone else only sees, raises and answers **their own** tickets (matched by the user id saved on the
+ticket, not by email), never internal notes, categories, saved replies or the stats widget.
 
 ## Open tickets from code
 

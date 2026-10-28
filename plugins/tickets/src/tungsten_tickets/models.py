@@ -56,6 +56,8 @@ class Ticket(TicketsBase):
     requester_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
     requester_email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     requester_phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    #: the panel user who raised the ticket (when signed in), so a reused email address never brings old tickets
+    requester_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     #: where the ticket came from: panel, portal, api, email, whatsapp...
     source: Mapped[str] = mapped_column(String(20), default="panel")
     tags: Mapped[list | None] = mapped_column(JSON, nullable=True)

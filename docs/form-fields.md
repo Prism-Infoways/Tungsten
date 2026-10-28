@@ -371,6 +371,7 @@ FileUpload("manual").accepted_file_types([".pdf", "application/pdf"]).directory(
 | `accepted_file_types([...])` | Allowed types: MIME types (`"application/pdf"`), wildcards (`"image/*"`) or extensions (`".csv"`). |
 | `max_size(kilobytes)` | Largest file size in KB. |
 | `max_files(n)` | Most files allowed with `multiple()`. |
+| `preserve_filenames()` | Keep the user's file name: stored as `<directory>/<random id>/<name>` instead of a random name. |
 
 ## RichEditor
 

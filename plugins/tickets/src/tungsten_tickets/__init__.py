@@ -56,6 +56,12 @@ class TicketsPlugin(Plugin):
     - ``email_requester`` emails the customer on new tickets, replies and when resolved, through
       ``mailer`` or the panel's ``Auth(mailer=...)``.
     - ``notify_agents`` puts new tickets and customer replies in the agent's notification bell.
+    - ``agent`` decides who works the desk: ``fn(user, ctx) -> bool``. Other signed-in users only see, raise and
+      answer their own tickets (matched by ``requester_id``), never the agent screens or the stats widget.
+      Without it the panel's permissions decide, as before.
+    - ``agents`` narrows the "Agent" lists (ticket form, filter, bulk "Assign to", category form):
+      ``fn(query, ctx) -> query`` on the user model.
+    - ``ticket_resource`` / ``category_resource`` / ``saved_reply_resource`` swap in your own subclasses.
     """
 
     id = "tickets"
@@ -66,7 +72,9 @@ class TicketsPlugin(Plugin):
                  priorities: dict[str, tuple[str, str]] | None = None, sla_hours: dict[str, Any] | None = None,
                  number_prefix: str = "TCK-", portal: bool = True, portal_path: str = "support",
                  api_token: str | None = None, email_requester: bool = True, notify_agents: bool = True,
-                 mailer: Any = None, dashboard_widget: bool = True, navigation_group: str = "Help desk") -> None:
+                 mailer: Any = None, dashboard_widget: bool = True, navigation_group: str = "Help desk",
+                 agent: Any = None, agents: Any = None, ticket_resource: Any = None, category_resource: Any = None,
+                 saved_reply_resource: Any = None) -> None:
         self.statuses = dict(statuses or DEFAULT_STATUSES)
         self.priorities = dict(priorities or DEFAULT_PRIORITIES)
         self.sla_hours = dict(DEFAULT_SLA_HOURS if sla_hours is None else sla_hours)
@@ -79,6 +87,11 @@ class TicketsPlugin(Plugin):
         self.mailer = mailer
         self.dashboard_widget = dashboard_widget
         self.navigation_group = navigation_group
+        self.agent = agent
+        self.agents = agents
+        self.ticket_resource = ticket_resource or TicketResource
+        self.category_resource = category_resource or TicketCategoryResource
+        self.saved_reply_resource = saved_reply_resource or SavedReplyResource
         self.panel: Any = None
         #: other plugins (WhatsApp, Slack...) hook in with the three methods below
         self.created_listeners: dict[str, Any] = {}
@@ -98,16 +111,43 @@ class TicketsPlugin(Plugin):
         """Run ``fn(db, ticket, old_status)`` after a ticket's status changes."""
         self.status_listeners[key] = fn
 
+    # ------------------------------------------------------------------ who works the desk
+    def is_agent(self, ctx: Any) -> bool:
+        """True when the signed-in user works the desk (always, without an ``agent`` check)."""
+        if ctx is None or getattr(ctx, "user", None) is None:
+            return False
+        if self.agent is None:
+            return True
+        cache = ctx.__dict__.setdefault("_tickets_is_agent", {})
+        if "v" not in cache:
+            cache["v"] = bool(call(self.agent, user=ctx.user, ctx=ctx, panel=self.panel))
+        return cache["v"]
+
+    def requesters_only(self, ctx: Any) -> bool:
+        """The signed-in user may only see their own tickets."""
+        return self.agent is not None and not self.is_agent(ctx)
+
     # ------------------------------------------------------------------ setup
     def register(self, panel: Any) -> None:
         self.panel = panel
-        for resource in (TicketResource, TicketCategoryResource, SavedReplyResource):
+        resources = [self.ticket_resource, self.category_resource, self.saved_reply_resource]
+        for resource in resources:
             resource.navigation_group = self.navigation_group
-        panel.resources([TicketResource, TicketCategoryResource, SavedReplyResource])
+        panel.resources(resources)
         panel.navigation_group(self.navigation_group, icon="life-buoy")
         if self.dashboard_widget:
             panel.widgets([TicketStats])
+        panel.on_file_access("tickets", self._file_access)
         panel.routes(self._routes)
+
+    def _file_access(self, ctx: Any, path: str) -> bool | None:
+        """Requesters only open attachments of their own tickets (agents: the panel decides)."""
+        if not str(path).startswith("tickets/") or not self.requesters_only(ctx):
+            return None
+        me = self.panel.auth.user_id(ctx.user)
+        rows = ctx.db.scalars(select(TicketReply.attachments).join(Ticket).where(
+            Ticket.requester_id == me, TicketReply.attachments.is_not(None))).all()
+        return any(path in (files or []) for files in rows)
 
     # ------------------------------------------------------------------ links
     def _absolute(self, ctx: Any, path: str) -> str | None:
@@ -125,7 +165,7 @@ class TicketsPlugin(Plugin):
         return self._absolute(ctx, self.portal_path_for(ticket)) if self.portal else None
 
     def agent_link(self, ticket: Ticket) -> str:
-        return self.panel.url(TicketResource.get_slug(), ticket.id)
+        return self.panel.url(self.ticket_resource.get_slug(), ticket.id)
 
     # ------------------------------------------------------------------ messages
     def notify_agent(self, db: Any, ticket: Ticket, title: str, body: str, ctx: Any = None) -> None:

@@ -26,13 +26,13 @@
       </div>
       <div class="mt-1 break-words text-sm text-gray-700 dark:text-gray-200" style="white-space: pre-line">{{ m.body }}</div>
       {% if m.attachments %}
-      <ul class="mt-3 flex flex-wrap gap-2">
+      <ul class="mt-3 flex min-w-0 flex-wrap gap-2">
         {% for f in m.attachments %}
-        <li>
+        <li class="min-w-0" style="max-width: 100%">
           {% if f.url %}
-          <a href="{{ f.url }}" target="_blank" rel="noopener" class="inline-flex items-center gap-x-1.5 rounded-full bg-white px-2 py-1 text-xs font-medium ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10 {{ colors.LINK.gray }}">{{ icon('paperclip', 'h-3.5 w-3.5') }}{{ f.name }}</a>
+          <a href="{{ f.url }}" target="_blank" rel="noopener" class="inline-flex max-w-full items-center gap-x-1.5 rounded-full bg-white px-2 py-1 text-xs font-medium ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/10 {{ colors.LINK.gray }}" style="max-width: 100%">{{ icon('paperclip', 'h-3.5 w-3.5 shrink-0') }}<span class="min-w-0" style="overflow-wrap: anywhere">{{ f.name }}</span></a>
           {% else %}
-          <span class="inline-flex items-center gap-x-1.5 rounded-full px-2 py-1 text-xs text-gray-500 ring-1 ring-gray-950/10 dark:ring-white/10">{{ icon('paperclip', 'h-3.5 w-3.5') }}{{ f.name }}</span>
+          <span class="inline-flex max-w-full items-center gap-x-1.5 rounded-full px-2 py-1 text-xs text-gray-500 ring-1 ring-gray-950/10 dark:ring-white/10" style="max-width: 100%">{{ icon('paperclip', 'h-3.5 w-3.5 shrink-0') }}<span class="min-w-0" style="overflow-wrap: anywhere">{{ f.name }}</span></span>
           {% endif %}
         </li>
         {% endfor %}

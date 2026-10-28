@@ -172,6 +172,7 @@ def start(plugin: Any, ctx: Any, target: Any, reason: str | None = None, back: s
     entry = ImpersonationLog(
         impersonator_id=auth.user_id(admin), impersonator_name=auth.display_name(admin)[:200],
         target_id=auth.user_id(target), target_name=auth.display_name(target)[:200], reason=reason,
+        started_at=panel.now(),
         ip=_client_ip(ctx, plugin.trust_proxy),
         user_agent=(ctx.request.headers.get("user-agent") or "")[:300] or None)
     db.add(entry)
@@ -197,7 +198,7 @@ def start(plugin: Any, ctx: Any, target: Any, reason: str | None = None, back: s
     return safe_back_url(panel, url or panel.url())
 
 
-def _close_log(db: Any, log_id: Any, reason: str) -> ImpersonationLog | None:
+def _close_log(db: Any, log_id: Any, reason: str, now: dt.datetime | None = None) -> ImpersonationLog | None:
     if not log_id:
         return None
     try:
@@ -205,7 +206,7 @@ def _close_log(db: Any, log_id: Any, reason: str) -> ImpersonationLog | None:
     except (TypeError, ValueError):
         return None
     if entry is not None and entry.ended_at is None:
-        entry.ended_at = dt.datetime.now()
+        entry.ended_at = now or dt.datetime.now()
         entry.end_reason = reason
         db.commit()
     return entry
@@ -218,7 +219,7 @@ def end(plugin: Any, ctx: Any, reason: str = "left", restore: bool = True) -> An
     if not isinstance(current, dict):
         return None
     try:
-        _close_log(ctx.db, current.get("log"), reason)
+        _close_log(ctx.db, current.get("log"), reason, ctx.panel.now())
     except Exception:  # a broken log must never trap anyone in someone else's account
         ctx.db.rollback()
         log.exception("Could not close impersonation log %s", current.get("log"))

@@ -24,6 +24,7 @@ from tungsten import Notification, Plugin
 from tungsten.actions import Action
 from tungsten.forms import Textarea
 from tungsten.routes import Routes
+from tungsten.support.evaluate import call
 
 from .models import ImpersonateBase, ImpersonationLog
 from .service import (
@@ -58,7 +59,9 @@ class ImpersonatePlugin(Plugin):
     - ``can_be_impersonated(user, target, ctx)``: an extra rule per user. Super admins are never
       allowed, and with ``no_more_access`` nobody can become a user with access they don't have.
     - ``max_minutes``: the admin is sent back to their own account after this long (``0``: no limit).
-    - ``require_reason``: ask why before logging in (saved in the log).
+    - ``require_reason``: ask why before logging in (saved in the log). ``ask_reason=False`` leaves the
+      optional "Why?" field out.
+    - ``can_view_log(user, ctx)``: who sees the impersonation log. Default: whoever may log in as others.
     - ``redirect_to``: page to open as the user (a path or ``fn(user, ctx)``). Default: the panel home.
     - ``users``: add the button to the resource of your user model.
     - ``link_plugins``: also add it to HR employees and help desk tickets when those plugins are installed.
@@ -74,11 +77,13 @@ class ImpersonatePlugin(Plugin):
                  redirect_to: Any = None, users: bool = True, link_plugins: bool = True, banner: bool = True,
                  log_resource: bool = True, trust_proxy: bool = False, on_start: Callable | None = None,
                  on_end: Callable | None = None, navigation_group: str = "Security",
-                 label: str = "Log in as") -> None:
+                 label: str = "Log in as", ask_reason: bool = True, can_view_log: Callable | None = None) -> None:
         self.can_impersonate = can_impersonate
         self.can_be_impersonated = can_be_impersonated
         self.max_minutes = max(0, int(max_minutes or 0))
         self.require_reason = require_reason
+        self.ask_reason = ask_reason
+        self.can_view_log = can_view_log
         self.no_more_access = no_more_access
         self.redirect_to = redirect_to
         self.users = users
@@ -264,9 +269,23 @@ class ImpersonatePlugin(Plugin):
         if self.require_reason:
             action.form([Textarea("reason").label("Why?").required().max_length(2000).rows(3)
                          .placeholder("e.g. Ticket TCK-00012: customer can't see their invoice")])
-        else:
+        elif self.ask_reason:
             action.form([Textarea("reason").label("Why? (optional)").max_length(2000).rows(2)])
         return action
+
+    @property
+    def asks_reason(self) -> bool:
+        return self.require_reason or self.ask_reason
+
+    def may_view_log(self, ctx: Any) -> bool:
+        """The signed-in user may open the impersonation log."""
+        if ctx is None or ctx.user is None:
+            return False
+        if self.can_view_log is not None:
+            return bool(call(self.can_view_log, user=ctx.user, ctx=ctx, panel=ctx.panel))
+        from .service import can_impersonate
+
+        return can_impersonate(self, ctx) or (ctx.panel.auth.enabled and ctx.panel.auth.is_super_admin(ctx))
 
     # ------------------------------------------------------------------ the bar on top
     def render_banner(self, ctx: Any) -> Markup:

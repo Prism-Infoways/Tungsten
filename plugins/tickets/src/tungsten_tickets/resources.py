@@ -75,11 +75,27 @@ def priority_options(ctx: Any) -> dict[str, str]:
 
 
 def user_options(ctx: Any) -> dict[str, str]:
-    """Panel users, for the "Agent" dropdowns."""
+    """The users tickets can be given to, for the "Agent" dropdowns.
+
+    ``TicketsPlugin(agents=fn)`` narrows the list (``fn(query, ctx)``); with an ``agent`` check only agents are
+    listed. The current tenant's users only, when users belong to tenants. Sorted by name.
+    """
+    from tungsten.support.evaluate import call
+
     auth = ctx.panel.auth
-    if auth.user_model is None:
+    model = auth.user_model
+    if model is None:
         return {}
-    users = ctx.db.scalars(select(auth.user_model).limit(500)).all()
+    query = ctx.panel.tenancy.scope(ctx, model, select(model))
+    plugin = _plugin(ctx)
+    if plugin is not None and plugin.agents is not None:
+        query = call(plugin.agents, query=query, ctx=ctx, model=model)
+    name = getattr(model, auth.name_field, None) if auth.name_field else None
+    if name is not None:
+        query = query.order_by(name)
+    users = ctx.db.scalars(query.limit(500)).all()
+    if plugin is not None and plugin.agent is not None and plugin.agents is None:
+        users = [u for u in users if call(plugin.agent, user=u, ctx=ctx, panel=ctx.panel)]
     return {auth.user_id(u): auth.display_name(u) for u in users}
 
 
@@ -114,7 +130,20 @@ def _use_saved_reply(state: Any, set: Any, db: Any) -> None:
 
 
 def _view_url(ctx: Any, record: Any) -> str:
-    return TicketResource.get_url(ctx, "view", record)
+    plugin = _plugin(ctx)
+    return (plugin.ticket_resource if plugin is not None else TicketResource).get_url(ctx, "view", record)
+
+
+def _agent(ctx: Any) -> bool:
+    """The signed-in user works the desk (see ``TicketsPlugin(agent=...)``)."""
+    plugin = _plugin(ctx)
+    return plugin.is_agent(ctx) if plugin is not None else ctx is not None and ctx.user is not None
+
+
+def _requester(ctx: Any) -> bool:
+    """The signed-in user only sees their own tickets."""
+    plugin = _plugin(ctx)
+    return plugin is not None and plugin.requesters_only(ctx)
 
 
 # ---------------------------------------------------------------------- actions
@@ -134,13 +163,37 @@ def reply_action() -> Action:
             *([Select("saved_reply").label("Use a saved reply").options(_saved_reply_options).native()
                .after_state_updated(_use_saved_reply)] if _saved_reply_options(ctx) else []),
             Textarea("body").label("Message").rows(7).required().max_length(20000),
-            FileUpload("attachments").multiple().directory("tickets").max_size(10240).max_files(5),
+            FileUpload("attachments").multiple().directory("tickets").max_size(10240).max_files(5)
+            .preserve_filenames(),
             Select("status").label("Then set status").options(status_options).native(),
         ])
         .fill_form(lambda record: {"status": "waiting" if record.status != "closed" else "open"})
         .modal_submit_action_label("Send reply")
         .action(run)
         .success_notification_title("Reply sent")
+        .success_redirect_url(_view_url)
+    )
+
+
+def customer_reply_action() -> Action:
+    """A requester answering on their own ticket (with ``TicketsPlugin(agent=...)``)."""
+
+    def run(record, data, db, ctx):
+        add_reply(db, record, data["body"], user_id=_me(ctx), author_name=_my_name(ctx), from_customer=True,
+                  attachments=data.get("attachments") or [], ctx=ctx)
+        db.commit()
+
+    return (
+        Action("message").label("Add a message").icon("reply").color("primary")
+        .modal_heading(lambda record: f"Message on {record.number}")
+        .form([
+            Textarea("body").label("Message").rows(6).required().max_length(20000),
+            FileUpload("attachments").multiple().directory("tickets").max_size(10240).max_files(5)
+            .preserve_filenames(),
+        ])
+        .modal_submit_action_label("Send")
+        .action(run)
+        .success_notification_title("Message sent")
         .success_redirect_url(_view_url)
     )
 
@@ -159,7 +212,8 @@ def note_action() -> Action:
         .modal_description("Only your team sees this. The customer is not told.")
         .form([
             Textarea("body").label("Note").rows(5).required().max_length(20000),
-            FileUpload("attachments").multiple().directory("tickets").max_size(10240).max_files(5),
+            FileUpload("attachments").multiple().directory("tickets").max_size(10240).max_files(5)
+            .preserve_filenames(),
         ])
         .modal_submit_action_label("Add note")
         .action(run)
@@ -210,11 +264,31 @@ class TicketResource(Resource):
     widgets = [TicketStats]
 
     @classmethod
-    def navigation_badge(cls, db):
+    def navigation_badge(cls, db, ctx):
+        if _requester(ctx):
+            return None
         return db.scalar(select(func.count()).select_from(Ticket).where(
             Ticket.status.notin_(CLOSED_STATUSES), Ticket.assigned_to.is_(None))) or None
 
     navigation_badge_color = "warning"
+
+    #: what a requester (not an agent) may do with their own tickets
+    requester_abilities = ("view_any", "view", "create")
+
+    @classmethod
+    def can(cls, ctx, ability, record=None):
+        if _requester(ctx):
+            if ability not in cls.requester_abilities:
+                return False
+            return record is None or (record.requester_id is not None and record.requester_id == _me(ctx))
+        return super().can(ctx, ability, record)
+
+    @classmethod
+    def query(cls, ctx):
+        query = super().query(ctx)
+        if _requester(ctx):
+            query = query.where(Ticket.requester_id == _me(ctx))
+        return query
 
     @classmethod
     def form(cls, form):
@@ -226,21 +300,25 @@ class TicketResource(Resource):
                     .visible(lambda operation: operation == "create"),
                     TagsInput("tags"),
                 ]),
-                Section("Customer").icon("user").schema([
+                Section("Customer").icon("user").visible(lambda ctx: not _requester(ctx)).schema([
                     TextInput("requester_name").label("Name").max_length(150),
                     TextInput("requester_email").label("Email").email().max_length(255).prefix_icon("mail"),
                     TextInput("requester_phone").label("Phone").tel().max_length(40).prefix_icon("phone"),
                 ]),
             ]).columns(1).column_span(2),
             Section("Details").icon("flag").column_span(1).columns(1).schema([
-                Select("status").options(status_options).default("open").required(),
+                Select("status").options(status_options).default("open").required()
+                .visible(lambda ctx: not _requester(ctx)),
                 Select("priority").options(priority_options).default("normal").required(),
                 Select("category_id").label("Category").relationship("category", "name").preload(),
-                Select("assigned_to").label("Agent").options(user_options).searchable()
-                .helper_text("Empty: the category's agent, if it has one."),
-                DateTimePicker("due_at").label("Due by")
-                .helper_text("Empty: set from the priority (the SLA)."),
-                Select("source").options(SOURCES).default("panel").visible(lambda operation: operation != "create"),
+                Group([
+                    Select("assigned_to").label("Agent").options(user_options).searchable()
+                    .helper_text("Empty: the category's agent, if it has one."),
+                    DateTimePicker("due_at").label("Due by")
+                    .helper_text("Empty: set from the priority (the SLA)."),
+                    Select("source").options(SOURCES).default("panel")
+                    .visible(lambda operation: operation != "create"),
+                ]).columns(1).visible(lambda ctx: not _requester(ctx)),
             ]),
         ])
 
@@ -255,7 +333,7 @@ class TicketResource(Resource):
         return infolist.columns(3).schema([
             Section("Conversation").icon("message-square").column_span(2).columns(1).schema([
                 Placeholder("conversation").hidden_label()
-                .content(lambda record, ctx: render_conversation(ctx, record)),
+                .content(lambda record, ctx: render_conversation(ctx, record, internal=not _requester(ctx))),
             ]),
             Group([
                 Section("Details").icon("flag").columns(1).schema([
@@ -289,6 +367,8 @@ class TicketResource(Resource):
     @classmethod
     def header_actions(cls, ctx, page, record=None):
         actions = super().header_actions(ctx, page, record)
+        if page == "view" and _requester(ctx):
+            return [customer_reply_action().button()]
         if page == "view":
             return [reply_action().button(), note_action().button(), resolve_action().button(),
                     take_action().button(), ActionGroup([EditAction(), DeleteAction()]).button()]
@@ -297,6 +377,12 @@ class TicketResource(Resource):
     # ------------------------------------------------------------------ save hooks
     @classmethod
     def after_create(cls, record, db, ctx):
+        if _requester(ctx) or (not record.requester_id and not record.requester_email and ctx.user is not None):
+            # raised by a signed-in user for themselves: keep who it is, not only their address
+            auth = ctx.panel.auth
+            record.requester_id = _me(ctx)
+            record.requester_name = record.requester_name or _my_name(ctx)
+            record.requester_email = record.requester_email or getattr(ctx.user, auth.email_field, None)
         prepare_new(db, record)
         db.flush()
         ticket_created(db, record, ctx)
@@ -306,14 +392,20 @@ class TicketResource(Resource):
 
     @classmethod
     def before_save(cls, record, ctx):
-        record.__dict__["_tw_before"] = (record.status, record.assigned_to)
+        record.__dict__["_tw_before"] = (record.status, record.assigned_to, record.priority)
 
     @classmethod
     def after_save(cls, record, db, ctx):
-        old_status, old_agent = record.__dict__.pop("_tw_before", (record.status, record.assigned_to))
+        old_status, old_agent, old_priority = record.__dict__.pop(
+            "_tw_before", (record.status, record.assigned_to, record.priority))
         plugin = _plugin(ctx)
         if record.status != old_status:
             status_changed(db, record, old_status, user_id=_me(ctx), by=_my_name(ctx), ctx=ctx)
+        if record.priority != old_priority:
+            names = priority_options(ctx)
+            text = (f"Priority changed from {names.get(old_priority, old_priority)} "
+                    f"to {names.get(record.priority, record.priority)}")
+            add_event(db, record, text + (f" by {_my_name(ctx)}" if _my_name(ctx) else ""), user_id=_me(ctx))
         if record.assigned_to != old_agent:
             who = user_name(ctx, record.assigned_to) if record.assigned_to else "nobody"
             add_event(db, record, f"Assigned to {who}" + (f" by {_my_name(ctx)}" if _my_name(ctx) else ""),
@@ -393,17 +485,20 @@ class TicketResource(Resource):
                 ListTab("all").label("All"),
             ])
             .actions([
-                reply_action().icon_button(),
+                reply_action().icon_button().visible(lambda ctx: not _requester(ctx)),
                 ActionGroup([ViewAction(), EditAction(), DeleteAction()]),
             ])
             .bulk_actions([
                 BulkAction("assign").label("Assign to").icon("user-check")
                 .form(lambda form: form.schema([Select("user").label("Agent").options(user_options).required()]))
-                .action(bulk_assign).success_notification_title("Tickets assigned"),
+                .action(bulk_assign).success_notification_title("Tickets assigned")
+                .visible(lambda ctx: not _requester(ctx)),
                 BulkAction("resolve").label("Resolve").icon("circle-check").color("success")
-                .action(bulk_status("resolved", "Resolved")).success_notification_title("Tickets resolved"),
+                .action(bulk_status("resolved", "Resolved")).success_notification_title("Tickets resolved")
+                .visible(lambda ctx: not _requester(ctx)),
                 BulkAction("close").label("Close").icon("lock").color("gray")
-                .action(bulk_status("closed", "Closed")).success_notification_title("Tickets closed"),
+                .action(bulk_status("closed", "Closed")).success_notification_title("Tickets closed")
+                .visible(lambda ctx: not _requester(ctx)),
                 ExportBulkAction(),
                 DeleteBulkAction(),
             ])
@@ -424,6 +519,10 @@ class TicketCategoryResource(Resource):
     label = "Ticket category"
     description = "Kinds of tickets, like Billing or Bug. New tickets of a category can go to one agent."
     simple = True
+
+    @classmethod
+    def can(cls, ctx, ability, record=None):
+        return not _requester(ctx) and super().can(ctx, ability, record)
 
     @classmethod
     def form(cls, form):
@@ -468,6 +567,10 @@ class SavedReplyResource(Resource):
     simple = True
 
     @classmethod
+    def can(cls, ctx, ability, record=None):
+        return not _requester(ctx) and super().can(ctx, ability, record)
+
+    @classmethod
     def form(cls, form):
         return form.columns(1).schema([
             TextInput("title").required().max_length(100).placeholder("Password reset steps"),
@@ -489,4 +592,5 @@ class SavedReplyResource(Resource):
         )
 
 
-__all__ = ["SavedReplyResource", "TicketCategoryResource", "TicketResource", "note_action", "reply_action"]
+__all__ = ["SavedReplyResource", "TicketCategoryResource", "TicketResource", "customer_reply_action", "note_action",
+           "reply_action"]

@@ -35,7 +35,7 @@ def status_of(ctx: Any, record: ImpersonationLog) -> tuple[str, str]:
         return END_REASONS.get(record.end_reason or "", ("Ended", "gray"))
     plugin = plugin_of(ctx)
     limit = plugin.max_minutes if plugin is not None else 0
-    if limit and record.started_at < dt.datetime.now() - dt.timedelta(minutes=limit):
+    if limit and record.started_at < ctx.panel.now() - dt.timedelta(minutes=limit):
         return ("Timed out", "gray")  # the browser never came back to close it
     return ("Active", "danger")
 
@@ -85,8 +85,9 @@ def pick_action() -> Action:
         .modal_description("See the panel exactly as they do. You can go back from the bar at the top.")
         .form(lambda ctx: [
             Select("user").label("User").options(lambda: _user_options(ctx)).searchable().required(),
-            Textarea("reason").label("Why?" if plugin_of(ctx).require_reason else "Why? (optional)")
-            .required(plugin_of(ctx).require_reason).max_length(2000).rows(2),
+            *([Textarea("reason").label("Why?" if plugin_of(ctx).require_reason else "Why? (optional)")
+               .required(plugin_of(ctx).require_reason).max_length(2000).rows(2)]
+              if plugin_of(ctx).asks_reason else []),
         ])
         .modal_submit_action_label("Log in as user")
         .action(lambda ctx, data: _pick(ctx, data))
@@ -111,6 +112,9 @@ class ImpersonationLogResource(Resource):
     def can(cls, ctx, ability, record=None):
         if ability != "view_any" and ability != "view":
             return False  # the log is read-only: nobody edits or deletes history
+        plugin = plugin_of(ctx)
+        if plugin is not None and not plugin.may_view_log(ctx):
+            return False
         return super().can(ctx, "view_any", record)
 
     @classmethod

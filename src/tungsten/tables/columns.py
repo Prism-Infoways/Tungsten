@@ -466,7 +466,7 @@ class TextColumn(Column):
         return self.date(fmt)
 
     def since(self) -> "TextColumn":
-        self._format = lambda state: humanize_since(state)
+        self._format = lambda state, ctx=None: humanize_since(state, ctx.panel.now() if ctx is not None else None)
         return self
 
     # resolving
@@ -954,12 +954,16 @@ class ViewColumn(Column):
             self.template = template
 
 
-def humanize_since(value: Any) -> str | None:
+def humanize_since(value: Any, now: dt.datetime | None = None) -> str | None:
+    """"3 hours ago" / "in 2 days". ``now`` (naive) is the panel's time (``panel.now()``) for naive values."""
     if value is None:
         return None
     if isinstance(value, dt.date) and not isinstance(value, dt.datetime):
         value = dt.datetime.combine(value, dt.time())
-    now = dt.datetime.now(value.tzinfo) if value.tzinfo else dt.datetime.now()
+    if value.tzinfo:
+        now = dt.datetime.now(value.tzinfo)
+    elif now is None:
+        now = dt.datetime.now()
     seconds = int((now - value).total_seconds())
     future = seconds < 0
     seconds = abs(seconds)
