@@ -227,6 +227,12 @@ class Form(Component):
                 return field, fpath, base
         return None
 
+    def find_visible(self, path: str) -> tuple["Field", str, str] | None:
+        """Like :meth:`find`, but None for a field that is hidden (or inside a hidden layout) right now."""
+        from .actions import _visible_fields
+
+        return next(((f, p, b) for f, p, b in _visible_fields(self, self.get_schema(), self.base) if p == path), None)
+
     # ------------------------------------------------------------------ validation
     def validate(self, components: list[Component] | None = None) -> dict[str, Any]:
         """Cast + validate visible fields. Returns clean data or raises ValidationError."""

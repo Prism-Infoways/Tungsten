@@ -186,3 +186,14 @@ class Job(TungstenBase):
     #: the process running it, and when it last said it is still working
     locked_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     heartbeat_at: Mapped[dt.datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class AuthSession(TungstenBase):
+    """One sign-in (see :mod:`tungsten.auth.sessions`). Signing out deletes the row, so saved copies of the
+    session cookie stop working. Only a SHA-256 hash of the id in the cookie is stored."""
+
+    __tablename__ = "tungsten_sessions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=_now)
