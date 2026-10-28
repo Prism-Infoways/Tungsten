@@ -104,6 +104,31 @@ desk.on_ticket_replied("slack", lambda db, ticket, reply: ...)        # reply.ki
 desk.on_status_changed("slack", lambda db, ticket, old_status: ...)
 ```
 
+## Agents and requesters
+
+By default the panel's permissions decide who opens the help desk. Tell the plugin who works the desk, and everyone
+else becomes a requester:
+
+```python
+TicketsPlugin(
+    agent=lambda user: user.role in ("support", "admin"),
+    agents=lambda query, model: query.where(model.role == "support"),  # who shows in the "Agent" lists
+)
+```
+
+- **Agents** see every ticket, the Categories and Saved replies screens and the stats widget.
+- **Requesters** only see, raise and answer their own tickets. A ticket keeps the id of the user who raised it
+  (`requester_id`), so a deleted user's email address given to someone new never brings their old tickets.
+  Requesters never see internal notes or the status history, and only open attachments of their own tickets.
+- The "Agent" lists only show the current tenant's users, sorted by name, narrowed by `agents` (or by `agent`).
+
+Swap in your own screens with `ticket_resource=`, `category_resource=` and `saved_reply_resource=` (subclasses of
+`TicketResource`, `TicketCategoryResource` and `SavedReplyResource`).
+
+Priority changes are written in the ticket's history, like status and agent changes. Attachments keep their file
+names (stored as `tickets/<id>/<name>`). After upgrading, run `panel.create_tables(engine)` once (it adds the
+`requester_id` column).
+
 ## Change the lists
 
 ```python

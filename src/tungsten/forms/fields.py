@@ -1795,6 +1795,12 @@ class FileUpload(Field):
         self._max_size: int | None = None  # kilobytes
         self._max_files: int | None = None
         self._avatar = False
+        self._preserve_filenames = False
+
+    def preserve_filenames(self, condition: bool = True) -> "FileUpload":
+        """Keep the user's file name: stored as ``<directory>/<random id>/<name>`` instead of ``<random id>.<ext>``."""
+        self._preserve_filenames = condition
+        return self
 
     def directory(self, path: str) -> "FileUpload":
         self._directory = path

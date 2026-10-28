@@ -71,6 +71,8 @@ ImpersonatePlugin(
     no_more_access=True,           # never become a user with permissions you don't have
     max_minutes=60,                # 0: no time limit
     require_reason=False,          # ask "Why?" before logging in (always saved when given)
+    ask_reason=True,               # False: no optional "Why?" field at all
+    can_view_log=None,             # fn(user, ctx) -> bool: who sees the log (default: who may log in as others)
     redirect_to=None,              # page to open as the user: "/admin/orders" or fn(user, ctx)
     users=True,                    # button on your user model's resource
     link_plugins=True,             # buttons in HR and the help desk, and a security audit check
@@ -83,6 +85,8 @@ ImpersonatePlugin(
     label="Log in as",
 )
 ```
+
+Start and end times in the log use the panel's time zone: `Panel(timezone="Asia/Kolkata")`.
 
 ## Your own button
 

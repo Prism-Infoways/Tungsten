@@ -11,6 +11,11 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 - **Security fix (issue #95):** new `panel.on_file_access(key, fn)` decides who may open a stored file at `/storage`.
 - **Security fix (issue #107):** a hidden field gives no options, takes no uploads and no rich editor attachments.
 - **Fix (issue #109):** signing in after a session ended on an open page goes back to that page, not to a bare widget.
+- **`tungsten-tickets` (issues #96, #99, #108):** new `TicketsPlugin(agent=...)`: other users only see, raise and answer their own tickets (no notes, no agent screens, no stats widget, only their own attachments). `agents=` narrows the "Agent" lists (also scoped to the tenant and sorted). Tickets keep a `requester_id`. Priority changes are in the history. Attachments keep their file names, and long names wrap on phones. Swap screens with `ticket_resource=` and friends. Run `panel.create_tables(engine)` once.
+- **`tungsten-impersonate` (issue #97):** the log screen follows who may log in as others (or `can_view_log=`); `ask_reason=False` drops the "Why?" field; times use the panel's time zone.
+- **New `Panel(timezone=...)` and `panel.now()`:** the app's time zone for naive datetimes. `since()` columns use it (issue #93).
+- **New `FileUpload(...).preserve_filenames()`:** keep the user's file name (issue #93).
+- **Icon buttons** keep the action's label as `aria-label`; the tooltip is only the hover text (issue #97).
 
 ## 2026-10-28 · tungsten-admin 0.1.13: two security fixes
 

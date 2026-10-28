@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+
 import hashlib
 import logging
 import secrets
@@ -119,8 +121,12 @@ class Panel:
         locales: Iterable[str] | None = None,
         lang_dirs: Iterable[str | Path] = (),
         theme_stylesheet: str | Path | None = None,
+        timezone: str | None = None,
     ) -> None:
         Panel._instances.add(self)
+        #: the app's time zone (e.g. ``"Asia/Kolkata"``) for "now" in naive datetimes: :meth:`now`, ``since()``
+        #: columns and plugin timestamps. None: the server's clock.
+        self.timezone = timezone
         self.id = id
         self.path = "/" + path.strip("/") if path.strip("/") else ""
         if session_factory is None and engine is not None:
@@ -501,6 +507,14 @@ class Panel:
         return next((w for w in self.all_widgets() if w.get_id() == widget_id), None)
 
     # ------------------------------------------------------------------ urls
+    def now(self) -> dt.datetime:
+        """The current time in the panel's ``timezone`` (naive, like the datetimes apps usually store)."""
+        if not self.timezone:
+            return dt.datetime.now()
+        from zoneinfo import ZoneInfo
+
+        return dt.datetime.now(ZoneInfo(self.timezone)).replace(tzinfo=None)
+
     def url(self, *parts: Any, **query: Any) -> str:
         path = "/".join(str(p).strip("/") for p in parts if p not in (None, ""))
         slug = current_url_slug()
