@@ -142,7 +142,7 @@ auth = Auth(User, throttle=RedisThrottle())
 
 ### Signing out
 
-The user menu has a **Sign out** button. It sends a POST to `<panel path>/logout`.
+The user menu has a **Sign out** button. It sends a POST to `<panel path>/logout`. Signing out ends the sign-in on the server too, so old copies of the session cookie stop working. See [Security](security#signing-out-ends-the-session-everywhere).
 
 ## Sign-up
 

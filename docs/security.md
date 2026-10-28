@@ -37,9 +37,21 @@ About the cookie:
 | Name | `tungsten_<panel id>` (`tungsten_admin` by default) |
 | `SameSite` | `Lax`: the browser doesn't send it with posts from other sites |
 | `Secure` | Only with `https_only_cookies=True` (then it is sent over HTTPS only) |
-| Lifetime | 14 days |
+| Lifetime | 14 days (`Auth(session_max_age=...)`, in seconds) |
 
 The cookie is signed, not encrypted. Tungsten only stores small things in it (the user id, the CSRF token, the chosen language and tenant). Don't put secrets in `ctx.session` yourself.
+
+### Signing out ends the session everywhere
+
+Each sign-in is also kept on the server, in the `tungsten_sessions` table (made by `panel.create_tables(engine)`). The cookie carries its id. Signing out deletes the row, so a saved or stolen copy of the cookie stops working right away. A sign-in also ends after `session_max_age`, whatever the cookie says.
+
+```python
+Auth(User, session_max_age=8 * 3600)    # sign-ins last at most 8 hours
+Auth(User, sessions=MyRedisSessions())  # keep sign-ins somewhere else (see tungsten.auth.sessions.SessionStore)
+Auth(User, sessions=False)              # cookie only, as before
+```
+
+After upgrading, run `panel.create_tables(engine)` once. Until the table exists, sessions work as before and a warning is logged. Users signed in before the table existed sign in again once.
 
 ## CSRF protection
 
@@ -120,6 +132,7 @@ Uploads are checked when they arrive:
 - **No path tricks.** Paths with `..` are cleaned, and reading a file outside the storage folder is refused.
 - **Safe serving.** Stored files are served with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`, so the browser won't run them as a page.
 - **Signed-in users only.** The panel only serves stored files to signed-in users. Others are sent to the login page.
+- **Only your own uploads.** A file field only takes back a stored path that the panel signed for this user when it drew the form (or the record's saved file). Posting someone else's file path is ignored.
 
 Limit size and type on each field:
 
@@ -131,7 +144,18 @@ FileUpload("invoice").accepted_file_types([".pdf", "application/pdf"]).max_size(
 `max_size` is in kilobytes. There is no size limit unless you set one. The type check uses the file name and the type the browser reports, so treat it as a convenience, not proof of what the file contains.
 
 > [!NOTE]
-> Files in the default `LocalStorage` are served at `<panel path>/storage/...` to signed-in users. The panel doesn't check *which* user uploaded a file, so any signed-in user who has the link can open it. The random names make links impossible to guess. Use your own `Storage` class if files need stricter rules.
+> Files in the default `LocalStorage` are served at `<panel path>/storage/...` to signed-in users. By itself the panel doesn't check *which* user uploaded a file, so any signed-in user who has the link can open it. The random names make links impossible to guess. Add a file access check for stricter rules.
+
+Decide who may open a stored file with `panel.on_file_access(key, fn)`. `fn(ctx, path)` returns False to refuse (the file answers 404), True to allow, or None to leave it to other checks:
+
+```python
+def only_own_tenant(ctx, path):
+    if path.startswith("invoices/"):
+        return db_has_invoice_file(ctx.db, ctx.tenant, path)  # your own lookup
+    return None
+
+panel.on_file_access("invoices", only_own_tenant)
+```
 
 If files must be visible without signing in (for example product photos on a public shop), make the storage public:
 

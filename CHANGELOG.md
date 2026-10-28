@@ -2,6 +2,16 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## Unreleased
+
+- **Security fix (issue #103): signing out ends the session everywhere.** Each sign-in is now kept on the server (table `tungsten_sessions`); signing out deletes it, so a saved copy of the cookie stops working. New `Auth(session_max_age=...)` (seconds, 14 days by default) and `Auth(sessions=...)` to use another store or `False` to turn it off. Sessions from before `idle_timeout` was turned on now idle out too. **Run `panel.create_tables(engine)` once**; users sign in again once.
+- **Security fix (issue #85):** a disabled action (`.disabled(...)`) no longer runs when its form is posted.
+- **Security fix (issue #86):** a `FileUpload` field only takes back stored paths the panel signed for this user (or the record's saved file), so nobody can post another user's file path.
+- **Security fix (issue #87):** a searchable `Select(...).relationship(..., modify_query=...)` now checks submitted ids against the same modified query.
+- **Security fix (issue #95):** new `panel.on_file_access(key, fn)` decides who may open a stored file at `/storage`.
+- **Security fix (issue #107):** a hidden field gives no options, takes no uploads and no rich editor attachments.
+- **Fix (issue #109):** signing in after a session ended on an open page goes back to that page, not to a bare widget.
+
 ## 2026-10-28 · tungsten-admin 0.1.13: two security fixes
 
 - **`tungsten-admin` 0.1.13** is on PyPI: `pip install -U tungsten-admin`. No database changes. Plugins work as before.

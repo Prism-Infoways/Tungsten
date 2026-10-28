@@ -42,8 +42,13 @@ def post_form(admin) -> dict:
     return {"_tw_kind": "host", "_tw_host": f"resource:{PostResource.get_slug()}", "_tw_op": "create"}
 
 
-def stored_paths(html: str, field: str) -> list[str]:
+def signed_values(html: str, field: str) -> list[str]:
+    """What the hidden inputs carry and the browser posts back: "path|signature" (see FileUpload.sign)."""
     return re.findall(rf'name="{re.escape(field)}" value="([^"]+)"', html)
+
+
+def stored_paths(html: str, field: str) -> list[str]:
+    return [v.split("|")[0] for v in signed_values(html, field)]
 
 
 def test_pages_load(admin):
@@ -54,13 +59,13 @@ def test_pages_load(admin):
 
 def test_library_upload_records_details_and_folder(admin, panel):
     r = upload(admin, LIBRARY_UPLOAD, "files", "Team photo.png", png(3, 2), "image/png")
-    path = stored_paths(r.text, "files")[0]
+    path, signed = stored_paths(r.text, "files")[0], signed_values(r.text, "files")[0]
     assert path.startswith("media/") and path.endswith(".png")
     (item,) = items(panel)
     assert (item.name, item.kind, item.mime, item.width, item.height) == ("Team photo.png", "image", "image/png", 3, 2)
     assert item.size > 0 and len(item.checksum) == 64 and item.uploaded_by == "1"
     r = admin.post("/admin/_tw/action", {**{k: v for k, v in LIBRARY_UPLOAD.items() if k != "_tw_kind"},
-                                         "files": path, "folder": " Team / Photos "})
+                                         "files": signed, "folder": " Team / Photos "})
     assert r.status_code in (200, 204), r.text
     assert items(panel)[0].folder == "team/photos"
     page = admin.get("/admin/media").text
@@ -148,11 +153,12 @@ def test_pick_from_library_fills_the_field(admin, panel):
     host = post_form(admin)
     r = admin.post("/admin/_tw/form", {**host, "title": "Hi", "_tw_ui_action": f"file.pick:cover_image:{logo}"})
     assert stored_paths(r.text, "cover_image") == [logo]
+    picked = signed_values(r.text, "cover_image")[0]
     r = admin.post("/admin/_tw/form", {**host, "_tw_ui_action": f"file.pick:cover_image:{pdf}"})
     assert stored_paths(r.text, "cover_image") == [] and "not allowed" in r.text  # covers take images only
     r = admin.post("/admin/_tw/form", {**host, "_tw_ui_action": "file.pick:cover_image:imports/secret.csv"})
     assert stored_paths(r.text, "cover_image") == [] and "can&#39;t be used here" in r.text
-    r = admin.post(f"/admin/{PostResource.get_slug()}/create", {"title": "With a library cover", "cover_image": logo,
+    r = admin.post(f"/admin/{PostResource.get_slug()}/create", {"title": "With a library cover", "cover_image": picked,
                                                                  "status": "draft"})
     assert r.status_code in (200, 204, 303), r.text
     with panel.db() as db:
