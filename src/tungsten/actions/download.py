@@ -14,6 +14,7 @@ minutes and only for the same user, and the file is built there.
 
 from __future__ import annotations
 
+import datetime as dt
 import inspect
 import json
 import mimetypes
@@ -30,7 +31,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..context import Context
     from ..hosts import Host
 
-#: how long a download link works, in seconds
+#: how long a download link works, in seconds (change it app-wide, or per action with ``link_lifetime()``)
 TOKEN_MAX_AGE = 300
 
 
@@ -50,10 +51,14 @@ def read_token(panel: Any, token: str) -> dict | None:
     if not token:
         return None
     try:
-        payload = _serializer(panel).loads(token, max_age=TOKEN_MAX_AGE)
+        payload, signed_at = _serializer(panel).loads(token, return_timestamp=True)
     except BadSignature:
         return None
-    return payload if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return None
+    lifetime = payload.get("ttl") or TOKEN_MAX_AGE  # signed with the payload, so it can't be stretched
+    age = (dt.datetime.now(dt.timezone.utc) - signed_at).total_seconds()
+    return payload if age <= lifetime else None
 
 
 def _json_safe(data: dict) -> dict:
@@ -76,6 +81,7 @@ class DownloadMixin:
         self._filename: Any = None
         self._mime: Any = None
         self._inline = False
+        self._link_lifetime: int | None = None
         self._icon = self._icon or "download"
         self._deselect_after = False
 
@@ -101,6 +107,11 @@ class DownloadMixin:
         self._mime = mime
         return self
 
+    def link_lifetime(self, seconds: int) -> Any:
+        """How long the download link works (default ``TOKEN_MAX_AGE``, 5 minutes)."""
+        self._link_lifetime = int(seconds)
+        return self
+
     def open_in_browser(self, condition: bool = True) -> Any:
         """Show the file in the browser (PDFs, images) instead of saving it."""
         self._inline = condition
@@ -119,6 +130,8 @@ class DownloadMixin:
             "arguments": _json_safe(self.arguments),
             "user": ctx.panel.auth.user_id(ctx.user) if ctx.user is not None else None,
         }
+        if self._link_lifetime:
+            payload["ttl"] = self._link_lifetime
         ctx.redirect(ctx.url("_tw", "download", token=make_token(ctx.panel, payload)))
         return None
 

@@ -228,7 +228,9 @@ class ResourceHost(Host):
         return self.resource.can(ctx, ability, record)
 
     def title(self) -> str:
-        return self.resource.get_plural_label()
+        from .context import current_context
+
+        return self.resource.plural_label_for(current_context())
 
     def model_label(self) -> str:
         return self.resource.get_label()
@@ -395,11 +397,13 @@ class RelationHost(Host):
 
         blank = Form().model(self.model)
         blank.operation, blank.record = operation, record
+        blank.closure_values = {"owner_record": self.owner, "owner": self.owner}
         if self.related_resource is not None and not self._defines("form"):
             form = self.related_resource.form(blank)
         else:
             form = self.manager.form(blank)
         form.model(self.model)
+        form.closure_values = {**form.closure_values, "owner_record": self.owner, "owner": self.owner}
         return form
 
     def infolist(self, ctx: "Context", record: Any) -> "Form | None":

@@ -78,9 +78,12 @@ class Notification:
     def persistent(self) -> "Notification":
         return self.duration(None)
 
-    def action(self, label: str, url: str, color: str = "primary") -> "Notification":
-        """A link button inside the notification."""
-        self._actions.append({"label": label, "url": url, "color": color})
+    def action(self, label: str, url: str, color: str = "primary", new_tab: bool = False) -> "Notification":
+        """A link button inside the notification. ``new_tab=True`` opens it in a new tab."""
+        item = {"label": label, "url": url, "color": color}
+        if new_tab:
+            item["new_tab"] = True
+        self._actions.append(item)
         return self
 
     def to_dict(self, translate: bool = False) -> dict[str, Any]:

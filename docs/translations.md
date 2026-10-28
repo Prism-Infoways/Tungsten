@@ -218,3 +218,7 @@ print(sorted(panel.translator.missing))
 ```python
 Panel(..., locales=["en", "hi", "gu"], lang_dirs=["lang"])
 ```
+
+## Changing Tungsten's English text
+
+An `en.json` in your `lang_dirs` is used for English too, so you can reword Tungsten's own messages without a second language.

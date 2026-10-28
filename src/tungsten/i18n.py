@@ -83,11 +83,10 @@ class Translator:
             return text
         text = str(text)
         locale = locale or current_locale() or self.default
-        if locale != "en":
-            found = self.messages(locale).get(text)
-            if not found and self.missing is not None and re.search(r"[A-Za-z]{2,}", text):
-                self.missing.add(text)
-            text = found or text
+        found = self.messages(locale).get(text)  # English too: an app's en.json can reword Tungsten's own text
+        if locale != "en" and not found and self.missing is not None and re.search(r"[A-Za-z]{2,}", text):
+            self.missing.add(text)
+        text = found or text
         if params:
             text = _PLACEHOLDER.sub(lambda m: str(params[m.group(1)]) if m.group(1) in params else m.group(0), text)
         return text

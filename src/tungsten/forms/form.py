@@ -38,6 +38,8 @@ class Form(Component):
 
     def __init__(self, schema: list | None = None) -> None:
         super().__init__()
+        #: extra closure arguments, e.g. ``owner_record`` in a relation manager's forms
+        self.closure_values: dict[str, Any] = {}
         self._schema: list[Component] = list(schema or [])
         self._columns: int = 2
         self._model: Any = None
@@ -164,6 +166,8 @@ class Form(Component):
             "db": ctx.db if ctx else None,
             "tenant": ctx.tenant if ctx else None,
         }
+        if self.closure_values:
+            data.update(self.closure_values)
         data.update(extra)
         return data
 

@@ -410,3 +410,35 @@ class ProductResource(Resource):
     model = Product
     extra_permissions = ["publish"]   # adds products.publish
 ```
+
+## Labels, groups and titles per user
+
+The menu label, the plural label, the sidebar group and the list description can depend on who is signed in. Give the method a `ctx` argument:
+
+```python
+class RunResource(Resource):
+    @classmethod
+    def get_navigation_label(cls, ctx=None):
+        return "Test runs" if ctx and ctx.user.is_staff else "Runs"
+
+    @classmethod
+    def get_navigation_group(cls, ctx=None):
+        return "Admin" if ctx and ctx.user.is_staff else "Work"
+```
+
+`get_plural_label(ctx)` and `get_description(ctx)` work the same way, and the page titles and breadcrumbs use the same values. Code that is not handed `ctx` can read it with `tungsten.current_context()`.
+
+Your own page titles: `page_title(ctx, page, record=None)` and `page_subheading(ctx, page, record=None)` (`page` is `list`, `create`, `edit` or `view`). Return `None` to keep the usual text.
+
+## Extra pages under a resource
+
+```python
+class ProductResource(Resource):
+    custom_pages = {"generate": GenerateProducts}   # a Page class, served at /products/generate
+```
+
+Only users who may list the resource can open it. It is not in the menu unless the page sets `show_in_navigation = True`.
+
+## Refusing a save
+
+`before_save`, `before_create`, `mutate_form_data_before_save` (and a page's `save()`) can raise `ValidationError({"field": ["message"]})` or `Halt()`. The change is rolled back and the form is drawn again with the errors, instead of an error page. Handy when saving goes through an outside service that can say no.

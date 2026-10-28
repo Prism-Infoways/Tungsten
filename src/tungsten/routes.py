@@ -23,6 +23,7 @@ from .actions.action import MAX_MODAL_LEVEL, Action, BulkAction, Halt, flatten_a
 from .context import Context
 from .forms.form import Form, ValidationError
 from .hosts import Host, RelationHost
+from .pages import PageHost
 from .i18n import maybe, reset_locale, set_locale
 from .i18n import translate as __
 from .notifications import Notification
@@ -676,6 +677,13 @@ class Routes:
         async def view(request: Request, slug: str, key: str):
             return await r.run(request, r.record_page, slug=slug, key=key, operation="view")
 
+        @p("/{slug}/{key}")
+        async def view_post(request: Request, slug: str, key: str):  # a resource's custom page form
+            page = r.panel.page(f"{slug}/{key}")
+            if page is None or page.resource is None:
+                return Response("Method Not Allowed", status_code=405, headers={"Allow": "GET"})
+            return await r.run(request, r.record_page, read_form=True, slug=slug, key=key, operation="view")
+
         @g("/{slug}/{key}/edit")
         async def edit(request: Request, slug: str, key: str):
             return await r.run(request, r.record_page, slug=slug, key=key, operation="edit")
@@ -754,10 +762,10 @@ class Routes:
             forgot = Markup('<a href="{}" class="font-medium {}">{}</a>').format(
                 panel.url("forgot-password"), colors.LINK["primary"], translate("Forgot password?"))
         form = self._auth_form(ctx, [
-            TextInput("email").label("Email address").email().required().placeholder("you@company.com").autofocus()
-            .autocomplete("username").prefix_icon("mail"),
+            TextInput("email").label("Email address").email().required().placeholder(panel.auth.email_placeholder)
+            .autofocus().autocomplete("username").prefix_icon("mail"),
             TextInput("password").label("Password").password().revealable().required().autocomplete("current-password")
-            .placeholder("Enter your password").prefix_icon("lock").hint(forgot),
+            .placeholder(panel.auth.password_placeholder).prefix_icon("lock").hint(forgot),
         ])
         error = None
         if fd is not None:
@@ -1239,7 +1247,10 @@ class Routes:
                     data = form.validate()
                 except ValidationError:
                     return ctx.html(form.render())
-                result = host.save(ctx, data)
+                try:
+                    result = host.save(ctx, data)
+                except (ValidationError, Halt) as exc:
+                    return self._refused(ctx, form, exc)
                 if isinstance(result, Response):
                     return result
                 Notification("Saved").success().send(ctx)
@@ -1251,17 +1262,30 @@ class Routes:
         actions = flatten_actions(host.page_actions(ctx))
         for a in actions:
             a.scope = "page"
+        table = host.get_table(ctx) if isinstance(host, PageHost) else None
+        if table is not None:
+            table.bind(ctx, host)
         return ctx.render(
             page.template,
             page=page,
             host=host,
             form=form,
+            table=table,
             title=page.get_title(),
             subheading=page.get_subheading(ctx),
             content=page.content(ctx),
             widgets=page.get_widgets(ctx),
             header_actions=host.page_actions(ctx),
         )
+
+    def _refused(self, ctx: Context, form: Form, exc: Exception) -> Response:
+        """App code refused a save (a ``ValidationError`` with field errors, or ``Halt``): undo it and draw the
+        form again with the errors, instead of an error page."""
+        ctx.db.rollback()
+        for path, messages in (getattr(exc, "errors", None) or {}).items():
+            for message in (messages if isinstance(messages, (list, tuple)) else [messages]):
+                form.add_error(path, str(message))
+        return ctx.html(form.render())
 
     def index(self, ctx: Context, fd: Any, slug: str) -> Response:
         resource = self.panel.resource(slug)
@@ -1284,6 +1308,7 @@ class Routes:
             raise Forbidden()
         host = resource.host()
         table = host.get_table(ctx).bind(ctx, host)
+        plural = resource.plural_label_for(ctx)
         actions = host.page_actions(ctx, None, "list")
         for a in flatten_actions(actions):
             a.scope = "page"
@@ -1294,8 +1319,9 @@ class Routes:
             table=table,
             header_actions=actions,
             widgets=[w for w in resource.header_widgets(ctx, "list") if w.can_view(ctx)],
-            title=resource.get_plural_label(),
-            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)), (__("List"), None)],
+            title=resource.page_title(ctx, "list") or plural,
+            subheading=resource.page_subheading(ctx, "list"),
+            breadcrumbs=[(plural, resource.get_url(ctx)), (__("List"), None)],
         )
 
     def create(self, ctx: Context, fd: Any, slug: str) -> Response:
@@ -1315,7 +1341,10 @@ class Routes:
                 data = form.validate()
             except ValidationError:
                 return ctx.html(form.render())
-            record = host.create(ctx, data, form)
+            try:
+                record = host.create(ctx, data, form)
+            except (ValidationError, Halt) as exc:
+                return self._refused(ctx, form, exc)
             Notification("Created").body(__(":label was created.", label=resource.get_label())).success().send(ctx)
             if fd.get("_another"):
                 return ctx.go(resource.get_url(ctx, "create"))
@@ -1333,13 +1362,20 @@ class Routes:
             operation="create",
             header_actions=actions,
             relations=[],
-            title=__("Create :label", label=resource.get_label().lower()),
-            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)), (__("Create"), None)],
+            title=resource.page_title(ctx, "create") or __("Create :label", label=resource.get_label().lower()),
+            subheading=resource.page_subheading(ctx, "create"),
+            breadcrumbs=[(resource.plural_label_for(ctx), resource.get_url(ctx)), (__("Create"), None)],
         )
 
     def record_page(self, ctx: Context, fd: Any, slug: str, key: str, operation: str) -> Response:
         resource = self.panel.resource(slug)
         if resource is None:
+            raise NotFound()
+        if operation == "view":
+            page = self.panel.page(f"{slug}/{key}")
+            if page is not None and page.resource is resource:  # a custom page under the resource (issue #89)
+                return self.custom_page(ctx, fd, page)
+        if fd is not None and operation == "view":
             raise NotFound()
         if operation == "view" and not resource.has_page("view"):
             if resource.has_page("edit"):
@@ -1368,7 +1404,10 @@ class Routes:
                 data = form.validate()
             except ValidationError:
                 return ctx.html(form.render())
-            host.update(ctx, record, data, form)
+            try:
+                host.update(ctx, record, data, form)
+            except (ValidationError, Halt) as exc:
+                return self._refused(ctx, form, exc)
             Notification("Saved").body("Your changes were saved.").success().send(ctx)
             ctx.db.refresh(record)
             form = host.form(ctx, operation, record)
@@ -1403,8 +1442,10 @@ class Routes:
             header_actions=actions,
             relations=relations,
             trashed=host.is_trashed(record),
-            title=(__("Edit :label", label=resource.get_label().lower()) if operation == "edit" else title_record),
-            breadcrumbs=[(resource.get_plural_label(), resource.get_url(ctx)),
+            title=resource.page_title(ctx, operation, record)
+            or (__("Edit :label", label=resource.get_label().lower()) if operation == "edit" else title_record),
+            subheading=resource.page_subheading(ctx, operation, record),
+            breadcrumbs=[(resource.plural_label_for(ctx), resource.get_url(ctx)),
                          (title_record, None) if operation == "view" else (__("Edit"), None)],
         )
 
@@ -1437,7 +1478,7 @@ class Routes:
 
     def _owner_crumbs(self, ctx: Context, host: RelationHost) -> list:
         resource, owner = host.resource, host.owner
-        return [(resource.get_plural_label(), resource.get_url(ctx)),
+        return [(resource.plural_label_for(ctx), resource.get_url(ctx)),
                 (resource.get_record_title(owner), self.record_url(ctx, resource, owner))]
 
     def relation_page(self, ctx: Context, fd: Any, slug: str, key: str, relation: str) -> Response:
@@ -1651,6 +1692,9 @@ class Routes:
         keys: list[str] = []
         if scope == "bulk":
             keys = [k for k in dict.fromkeys(src.getlist("records")) if k]
+            limit = getattr(action, "_max_selectable", None)
+            if limit and len(keys) > limit:  # the page stops this; a hand-made request gets refused
+                raise Forbidden()
             if lazy_records and getattr(action, "_chunk_size", None):
                 pass  # loaded a chunk at a time when the action runs
             else:
@@ -1666,6 +1710,9 @@ class Routes:
         if form is None:
             return None
         operation = getattr(action, "operation", "create")
+        owner = getattr(host, "owner", None)
+        if owner is not None:  # a relation manager's action: closures can ask for the owner record
+            form.closure_values = {**form.closure_values, "owner_record": owner, "owner": owner}
         form.bind(ctx, operation=operation, record=record, id=form_id or "tw-action-form",
                   source={"kind": "action", "host": host.key, "scope": scope, "name": action.path,
                           "record": host.record_key(record) if record is not None else ""})
@@ -1879,7 +1926,7 @@ class Routes:
             else:
                 nxt.scope = action.scope
         if nxt is None:
-            nxt = action.find_nested(str(target))
+            nxt = action.find_nested(str(target)) or self._ancestor_action(ctx, host, action, str(target), record)
             if nxt is not None:
                 nxt.scope = action.scope
             else:
@@ -1911,6 +1958,24 @@ class Routes:
         if note is not None:
             note.send(ctx)
         return self._chain(ctx, host, nxt, record, records, scope, keys, level, outcome, depth + 1)
+
+    def _ancestor_action(self, ctx: Context, host: Host, action: Action, name: str, record: Any) -> Action | None:
+        """For ``then("name")``: an action higher up the chain this one was opened from, or one beside it there
+        (a "Back" step). ``"root/child"`` names one by its full path."""
+        if "/" in name:
+            try:
+                return self.find_action(ctx, host, action.scope, name, record)
+            except NotFound:
+                return None
+        parent = action._parent
+        while parent is not None:
+            if parent.name == name:
+                return parent
+            sibling = parent.find_nested(name)
+            if sibling is not None:
+                return sibling
+            parent = parent._parent
+        return None
 
     def _bulk_in_background(self, ctx: Context, fd: Any, host: Host, action: Action, record: Any, scope: str,
                             keys: list, level: int) -> Response:
@@ -2100,7 +2165,7 @@ class Routes:
                         "image": resource.global_search_image(rec),
                         "url": url or resource.get_url(ctx),
                     })
-                groups.append({"label": resource.get_plural_label(), "icon": resource.icon, "entries": items})
+                groups.append({"label": resource.plural_label_for(ctx), "icon": resource.icon, "entries": items})
         html = self.panel.renderer.render("tungsten/components/search-results.html", q=q, groups=groups,
                                           pages=pages[:6], ctx=ctx)
         return ctx.html(html)

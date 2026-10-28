@@ -340,3 +340,7 @@ A dropdown. Options work like a [Select field](form-fields#select): a dict, list
 ```python
 SelectColumn("status").options(OrderStatus)
 ```
+
+## HTML with classes
+
+`TextColumn("status_html").html(keep_classes=True)` keeps `class` attributes, so your own code can colour parts of the text (`<span class="text-danger-600">`). Leave it off for text that users typed.

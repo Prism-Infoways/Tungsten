@@ -536,3 +536,22 @@ ReplicateAction(excluded=["sku"]).before_replica_saved(
     lambda replica: setattr(replica, "name", f"{replica.name} (copy)")
 )
 ```
+
+## Going back a step
+
+`then()` can name an action higher up the chain it was opened from, so a confirm step can have a "Back" button:
+
+```python
+Action("pick").form([...]).then(
+    Action("confirm").form([...]).then(lambda result: "pick" if result == "back" else None))
+```
+
+A full path such as `"import/pick"` works too.
+
+## Opening an action from the address
+
+`/admin/orders?action=export` opens that header action's modal as the page loads (Filament's `?action=`), when the user may run it.
+
+## Download links
+
+`DownloadAction("report").link_lifetime(900)` keeps the link working for 15 minutes (5 by default; `tungsten.actions.download.TOKEN_MAX_AGE` changes it app-wide).

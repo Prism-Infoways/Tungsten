@@ -567,5 +567,10 @@
   "Numbered list": "क्रमांकित सूची",
   "Task list": "कार्य सूची",
   "Table": "तालिका",
-  "Divider": "विभाजक"
+  "Divider": "विभाजक",
+  "The :attribute field must not be greater than :max kilobytes.": ":attribute फ़ाइल :max किलोबाइट से बड़ी नहीं हो सकती।",
+  "The :attribute field must be a file of type: :values.": ":attribute फ़ाइल इनमें से किसी प्रकार की होनी चाहिए: :values।",
+  "Images": "चित्र",
+  "Videos": "वीडियो",
+  "Audio": "ऑडियो"
 }

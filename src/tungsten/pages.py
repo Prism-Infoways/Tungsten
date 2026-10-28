@@ -15,6 +15,7 @@ from .support.evaluate import call
 if TYPE_CHECKING:  # pragma: no cover
     from .context import Context
     from .forms.form import Form
+    from .tables.table import Table
 
 
 def _kebab(name: str) -> str:
@@ -57,8 +58,14 @@ class Page:
     content_template: ClassVar[str | None] = None
     widgets: ClassVar[list] = []
     widget_columns: ClassVar[int] = 4
+    #: where the page's widgets go: ``"above"`` the form (default) or ``"below"`` it (and below its table)
+    widgets_position: ClassVar[str] = "above"
     save_label: ClassVar[str] = "Save changes"
+    #: the model of the page's own table (see :meth:`table`)
+    table_model: ClassVar[Any] = None
     permission: ClassVar[str | None] = None
+    #: set for a page that lives under a resource (``Resource.custom_pages``): its users need that resource
+    resource: ClassVar[Any] = None
 
     @classmethod
     def get_slug(cls) -> str:
@@ -69,17 +76,29 @@ class Page:
         return __(cls.title or headline(_kebab(cls.__name__).replace("-", "_")))
 
     @classmethod
-    def get_navigation_label(cls) -> str:
+    def get_navigation_label(cls, ctx: "Context | None" = None) -> str:
         return __(cls.navigation_label) if cls.navigation_label else cls.get_title()
 
     @classmethod
+    def get_navigation_group(cls, ctx: "Context | None" = None) -> str | None:
+        """The sidebar group: ``navigation_group``, or override to pick one per user."""
+        return cls.navigation_group
+
+    @classmethod
     def navigation_badge(cls, ctx: "Context") -> Any:
+        return None
+
+    @classmethod
+    def navigation_badge_tooltip(cls, ctx: "Context") -> str | None:
+        """Hover text for the menu badge (e.g. "3 waiting for you")."""
         return None
 
     navigation_badge_color: ClassVar[str] = "primary"
 
     @classmethod
     def can_access(cls, ctx: "Context") -> bool:
+        if cls.resource is not None and not cls.resource.can(ctx, "view_any"):
+            return False
         if cls.permission:
             return ctx.can(cls.permission)
         return True
@@ -98,6 +117,25 @@ class Page:
     @classmethod
     def form(cls, form: "Form") -> "Form | None":
         return None
+
+    @classmethod
+    def table(cls, table: "Table") -> "Table | None":
+        """A full table on the page (search, filters, actions), like a resource list. Set ``table_model``::
+
+            table_model = Order
+
+            @classmethod
+            def table(cls, table):
+                return table.columns([TextColumn("number"), TextColumn("total").money("INR")])
+        """
+        return None
+
+    @classmethod
+    def table_query(cls, ctx: "Context") -> Any:
+        """The records of :meth:`table` (override to narrow them)."""
+        from sqlalchemy import select
+
+        return select(cls.table_model)
 
     @classmethod
     def mount(cls, ctx: "Context") -> dict[str, Any]:
@@ -194,6 +232,19 @@ class PageHost(Host):
     def __init__(self, page: type[Page]) -> None:
         self.page = page
         self.key = f"page:{page.get_slug() or '_dashboard'}"
+        self.model = page.table_model
+
+    def get_table(self, ctx: "Context") -> "Table | None":
+        if self.page.table_model is None:
+            return None
+        from .tables.table import Table
+
+        table = Table()
+        table.ctx = ctx
+        return self.page.table(table)
+
+    def base_query(self, ctx: "Context") -> Any:
+        return call(self.page.table_query, ctx=ctx, db=ctx.db, user=ctx.user)
 
     def form(self, ctx: "Context", operation: str = "edit", record: Any = None) -> "Form | None":
         from .forms.form import Form

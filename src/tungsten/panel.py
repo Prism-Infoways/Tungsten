@@ -222,6 +222,7 @@ class Panel:
         ]
         self._nav_items: list[NavigationItem] = []
         self._user_menu_items: list[dict] = []
+        self._role_label: Any = None
         self._hooks: dict[str, list[Callable]] = {}
         self._record_actions: list[dict] = []
         self._plugins: list[Plugin] = []
@@ -242,7 +243,19 @@ class Panel:
         for r in resources:
             if r not in self._resources:
                 self._resources.append(r)
+                self._resource_pages(r)
         return self
+
+    def _resource_pages(self, resource: type[Resource]) -> None:
+        """Register a resource's ``custom_pages`` at ``/<resource slug>/<name>``."""
+        for name, page in (getattr(resource, "custom_pages", None) or {}).items():
+            page.resource = resource
+            if not page.__dict__.get("slug"):
+                page.slug = f"{resource.get_slug()}/{str(name).strip('/')}"
+            if "show_in_navigation" not in page.__dict__:
+                page.show_in_navigation = False  # reached from the resource's buttons, like Filament's
+            if page not in self._pages:
+                self._pages.append(page)
 
     def pages(self, pages: Iterable[type[Page]]) -> "Panel":
         for p in pages:
@@ -265,9 +278,29 @@ class Panel:
         self._nav_groups.append(NavigationGroup(label, icon=icon, collapsible=collapsible, collapsed=collapsed))
         return self
 
-    def user_menu_item(self, label: str, url: str, icon: str | None = None) -> "Panel":
-        self._user_menu_items.append({"label": label, "url": url, "icon": icon})
+    def user_menu_item(self, label: str, url: Any, icon: str | None = None, visible: Any = True,
+                       new_tab: bool = False) -> "Panel":
+        """A link in the user menu. ``url`` and ``visible`` can be closures (``user``, ``ctx``)."""
+        self._user_menu_items.append({"label": label, "url": url, "icon": icon, "visible": visible,
+                                      "new_tab": new_tab})
         return self
+
+    def user_role_label(self, label: Any) -> "Panel":
+        """The line under the user's name in the user menu: text, a closure (``user``, ``ctx``) or ``False``
+        to show nothing. Default: their first roles (with RBAC) or a ``role`` attribute."""
+        self._role_label = label
+        return self
+
+    def _visible_user_menu_items(self, ctx: "Context") -> list[dict]:
+        if ctx.user is None and self.auth.enabled:
+            return []
+        out = []
+        for item in self._user_menu_items:
+            ev = {"ctx": ctx, "user": ctx.user, "panel": self}
+            if not evaluate(item.get("visible", True), **ev):
+                continue
+            out.append({**item, "url": evaluate(item["url"], **ev)})
+        return out
 
     def render_hook(self, name: str, fn: Callable) -> "Panel":
         """Inject HTML at a named spot, e.g. ``"head.end"``, ``"sidebar.nav.end"``, ``"content.start"``."""
@@ -444,18 +477,20 @@ class Panel:
         for r in self._resources:
             if r.cluster is cluster and r.show_in_navigation and r.can(ctx, "view_any"):
                 url = r.get_url(ctx)
-                items.append(NavigationItem(r.get_navigation_label(), url, r.icon, sort=r.navigation_sort,
-                                            group=r.navigation_group,
+                items.append(NavigationItem(self._nav_label(r, ctx), url, r.icon, sort=r.navigation_sort,
+                                            group=self._nav_group(r, ctx),
                                             badge=call(r.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user),
                                             badge_color=r.navigation_badge_color, active_icon=r.active_icon,
+                                            badge_tooltip=self._badge_tooltip(r, ctx),
                                             active=current == url or current.startswith(url + "/")))
         for p in self._pages:
             if p.cluster is cluster and p.show_in_navigation and p.can_access(ctx):
                 url = p.get_url(ctx)
-                items.append(NavigationItem(p.get_navigation_label(), url, p.icon, sort=p.navigation_sort,
-                                            group=p.navigation_group,
+                items.append(NavigationItem(self._nav_label(p, ctx), url, p.icon, sort=p.navigation_sort,
+                                            group=self._nav_group(p, ctx),
                                             badge=call(p.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user),
                                             badge_color=p.navigation_badge_color,
+                                            badge_tooltip=self._badge_tooltip(p, ctx),
                                             active=current == url or current.startswith(url + "/")))
         return sorted(items, key=lambda i: (i.sort, i.label))
 
@@ -634,8 +669,9 @@ class Panel:
                 continue
             url = r.get_url(ctx)
             badge = call(r.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user)
-            items.append(NavigationItem(r.get_navigation_label(), url, r.icon, r.navigation_group, r.navigation_sort,
-                                        badge=badge, badge_color=r.navigation_badge_color, parent=r.navigation_parent,
+            items.append(NavigationItem(self._nav_label(r, ctx), url, r.icon, self._nav_group(r, ctx),
+                                        r.navigation_sort, badge=badge, badge_color=r.navigation_badge_color,
+                                        badge_tooltip=self._badge_tooltip(r, ctx), parent=r.navigation_parent,
                                         active=current == url or current.startswith(url + "/"),
                                         active_icon=r.active_icon))
         for p in self._pages:
@@ -643,8 +679,9 @@ class Panel:
                 continue
             url = p.get_url(ctx)
             badge = call(p.navigation_badge, ctx=ctx, db=ctx.db, user=ctx.user)
-            items.append(NavigationItem(p.get_navigation_label(), url, p.icon, p.navigation_group, p.navigation_sort,
-                                        badge=badge, badge_color=p.navigation_badge_color, parent=p.navigation_parent,
+            items.append(NavigationItem(self._nav_label(p, ctx), url, p.icon, self._nav_group(p, ctx),
+                                        p.navigation_sort, badge=badge, badge_color=p.navigation_badge_color,
+                                        badge_tooltip=self._badge_tooltip(p, ctx), parent=p.navigation_parent,
                                         active=current == url or current.startswith(url + "/"),
                                         active_icon=getattr(p, "active_icon", None)))
         for cluster in self.get_clusters():
@@ -725,7 +762,7 @@ class Panel:
             "tenant_menu": self._tenant_menu(ctx),
             "tenant_register_url": self.url("tenant", "new")
             if self.tenancy.enabled and self.tenancy.registration is not None and ctx.user is not None else None,
-            "user_menu_items": self._user_menu_items,
+            "user_menu_items": self._visible_user_menu_items(ctx),
             "version": VERSION,
         }
 
@@ -743,9 +780,28 @@ class Panel:
                         "url": self.url("tenant", "billing")})
         return out
 
+    @staticmethod
+    def _nav_label(item: Any, ctx: "Context") -> str:
+        return str(call(item.get_navigation_label, ctx=ctx, user=ctx.user))
+
+    @staticmethod
+    def _nav_group(item: Any, ctx: "Context") -> str | None:
+        getter = getattr(item, "get_navigation_group", None)
+        return call(getter, ctx=ctx, user=ctx.user) if getter is not None else item.navigation_group
+
+    @staticmethod
+    def _badge_tooltip(item: Any, ctx: "Context") -> str | None:
+        getter = getattr(item, "navigation_badge_tooltip", None)
+        tip = call(getter, ctx=ctx, db=ctx.db, user=ctx.user) if getter is not None else None
+        return __(str(tip)) if tip else None
+
     def _user_role_label(self, ctx: "Context") -> str:
         if ctx.user is None:
             return ""
+        label = getattr(self, "_role_label", None)
+        if label is not None:
+            value = evaluate(label, ctx=ctx, user=ctx.user, panel=self)
+            return "" if value in (None, False) else __(str(value))
         if self.auth.rbac:
             roles = self.auth.roles(ctx)
             if roles:

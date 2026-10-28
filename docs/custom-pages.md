@@ -256,3 +256,25 @@ class ShopDashboard(Dashboard):
 
 panel = Panel(..., dashboard=ShopDashboard)
 ```
+
+## A table on a page
+
+```python
+class Report(Page):
+    table_model = Order
+    widgets_position = "below"      # widgets under the form and table ("above" by default)
+
+    @classmethod
+    def table(cls, table):
+        return table.columns([TextColumn("number"), TextColumn("total").money("INR")])
+
+    @classmethod
+    def table_query(cls, ctx):      # optional: narrow the records
+        return select(Order).where(Order.paid.is_(True))
+```
+
+It has search, sort, filters and actions like a resource list. Its actions are allowed whenever the page is.
+
+## Refusing a save
+
+`save()` can raise `ValidationError({"field": "message"})` or `Halt()`: the form stays open with the errors and nothing says "Saved".

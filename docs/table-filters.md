@@ -240,3 +240,16 @@ Each filter builds its own chip text. Change it with `indicate_using()`:
 ```python
 Filter("big_orders").query(...).indicate_using(lambda data: "Big orders only")
 ```
+
+## Filters that depend on each other
+
+`after_state_updated` runs inside filter forms too, so changing one filter can reset another:
+
+```python
+Filter("place").form([
+    Select("state").options(states).after_state_updated(lambda set: set("city", None)),
+    Select("city").options(lambda get: cities(get("state"))),
+])
+```
+
+`Filter.default(fn)` closures get the table's arguments, such as `owner_record` in a relation manager, `user` and `ctx`.

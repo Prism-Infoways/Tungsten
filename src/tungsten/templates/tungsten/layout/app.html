@@ -44,7 +44,7 @@
               <a href="{{ item.url }}" {% if item.new_tab %}target="_blank"{% endif %}
                  class="tw-nav-item flex-1 {{ 'tw-nav-item-active' if item.active }}" {% if item.active %}aria-current="page"{% endif %} title="{{ __(item.label) }}">
                 {{ icon(item.current_icon, 'h-5 w-5 shrink-0') }}<span class="tw-sb-label flex-1 truncate">{{ __(item.label) }}</span>
-                {% if item.badge is not none and item.badge != '' %}<span class="tw-sb-label contents">{{ ui.count_pill(item.badge, item.badge_color) }}</span>
+                {% if item.badge is not none and item.badge != '' %}<span class="tw-sb-label contents">{{ ui.count_pill(item.badge, item.badge_color, item.badge_tooltip) }}</span>
                 {% elif item.active and not item.children %}<span class="tw-sb-label text-primary-400 rtl:rotate-180">{{ icon('chevron-right', 'h-4 w-4') }}</span>{% endif %}
               </a>
               {% if item.children %}
@@ -131,7 +131,7 @@
           </div>
           <div class="py-1">
             {% if panel.auth.profile %}<a href="{{ panel.url('profile') }}" class="{{ ui.button_classes('gray', 'dropdown') }}">{{ icon('user', 'h-4 w-4') }}{{ __('My profile') }}</a>{% endif %}
-            {% for item in user_menu_items %}<a href="{{ item.url }}" class="{{ ui.button_classes('gray', 'dropdown') }}">{{ icon(item.icon, 'h-4 w-4') }}{{ __(item.label) }}</a>{% endfor %}
+            {% for item in user_menu_items %}<a href="{{ item.url }}"{% if item.new_tab %} target="_blank" rel="noopener"{% endif %} class="{{ ui.button_classes('gray', 'dropdown') }}">{{ icon(item.icon, 'h-4 w-4') }}{{ __(item.label) }}</a>{% endfor %}
             {{ panel.hooks('user-menu.items', ctx) }}
           </div>
           {% if panel.locales | length > 1 %}
@@ -168,7 +168,7 @@
           <nav class="tw-pill-nav self-start" aria-label="{{ sub_navigation.heading }}">
             {% for item in sub_navigation['items'] %}
             <a href="{{ item.url }}" class="tw-pill-nav-item {{ 'tw-pill-nav-item-active' if item.active }}" {% if item.active %}aria-current="page"{% endif %}>
-              {{ icon(item.current_icon, 'h-4 w-4') }}{{ __(item.label) }}{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
+              {{ icon(item.current_icon, 'h-4 w-4') }}{{ __(item.label) }}{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color, item.badge_tooltip) }}{% endif %}
             </a>
             {% endfor %}
           </nav>
@@ -179,7 +179,7 @@
             <ul class="space-y-0.5">
               {% for item in sub_navigation['items'] %}
               <li><a href="{{ item.url }}" class="flex items-center gap-2.5 rounded-full px-3.5 py-2 text-sm font-medium transition {{ 'bg-gray-950 text-white dark:bg-white dark:text-gray-950' if item.active else 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white' }}" {% if item.active %}aria-current="page"{% endif %}>
-                {{ icon(item.current_icon, 'h-4 w-4 shrink-0') }}<span class="flex-1 truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color) }}{% endif %}
+                {{ icon(item.current_icon, 'h-4 w-4 shrink-0') }}<span class="flex-1 truncate">{{ __(item.label) }}</span>{% if item.badge is not none and item.badge != '' %}{{ ui.count_pill(item.badge, item.badge_color, item.badge_tooltip) }}{% endif %}
               </a></li>
               {% endfor %}
             </ul>

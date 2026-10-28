@@ -91,6 +91,10 @@ class Filter(Component):
         return f"filters.{self.name}"
 
     def get_default(self) -> Any:
+        """The default value. A closure gets the table's arguments (``owner_record``, ``user``, ``ctx`` ...)."""
+        table = getattr(self, "_bound_table", None)
+        if table is not None and callable(self._default) and getattr(table, "ctx", None) is not None:
+            return evaluate(self._default, **table.ev())
         return evaluate(self._default)
 
     def default_data(self) -> dict[str, Any]:

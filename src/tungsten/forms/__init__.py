@@ -24,6 +24,7 @@ from .fields import (
     TextInput,
     TimePicker,
     Toggle,
+    UploadedFile,
 )
 from .components import Actions, Callout, Flex, FusedGroup, Html, Icon, Image, Split, Text, UnorderedList, View, ViewField
 from .editors import CodeEditor, MarkdownEditor
@@ -40,5 +41,5 @@ __all__ = [
     "Checkbox", "CheckboxList", "ColorPicker", "DatePicker", "DateTimePicker", "Field", "Fieldset",
     "FileUpload", "Form", "Grid", "Group", "Hidden", "KeyValue", "Layout", "Placeholder", "Radio",
     "Repeater", "RichEditor", "Section", "Select", "Step", "Tab", "Tabs", "TagsInput", "Textarea",
-    "TextInput", "TimePicker", "Toggle", "ValidationError", "Wizard",
+    "TextInput", "TimePicker", "Toggle", "UploadedFile", "ValidationError", "Wizard",
 ]

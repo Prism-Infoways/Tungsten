@@ -47,9 +47,9 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 </span>
 {% endmacro %}
 
-{% macro count_pill(n, color='primary') %}
+{% macro count_pill(n, color='primary', tooltip=none) %}
 {% if n is not none and n != '' %}
-<span class="ms-auto inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold {{ colors.pick(colors.BUTTON, color) }}">{{ n }}</span>
+<span{% if tooltip %} title="{{ tooltip }}"{% endif %} class="ms-auto inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold {{ colors.pick(colors.BUTTON, color) }}">{{ n }}</span>
 {% endif %}
 {% endmacro %}
 

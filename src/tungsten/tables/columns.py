@@ -83,6 +83,7 @@ class Column(Component):
         self._wrap = False
         self._tooltip: Any = None
         self._extra_classes: Any = None
+        self._cell_attributes: Any = None
         self._grow = True
         self._visible_from: str | None = None
 
@@ -189,6 +190,21 @@ class Column(Component):
     def extra_classes(self, value: Any) -> "Column":
         self._extra_classes = value
         return self
+
+    def cell_attributes(self, value: Any) -> "Column":
+        """Attributes for the table cell (``<td>``) itself: a dict or a closure (``record``, ``state``)
+        returning one, e.g. ``{"class": "keep-on-phone", "data-kind": "total"}``. Filament's
+        ``extraCellAttributes``."""
+        self._cell_attributes = value
+        return self
+
+    def td_attributes(self, table: "Table", record: Any) -> dict[str, Any]:
+        if self._cell_attributes is None:
+            return {}
+        ev = self.cell_ev(table, record)
+        if callable(self._cell_attributes):
+            ev["state"] = self.get_state(record, ev)
+        return dict(evaluate(self._cell_attributes, **ev) or {})
 
     def grow(self, condition: bool = True) -> "Column":
         """Inside a :class:`~tungsten.tables.Split`: take the free space (default) or only what is needed."""
@@ -332,6 +348,7 @@ class TextColumn(Column):
         self._size: str = "sm"
         self._copyable = False
         self._html = False
+        self._html_classes = False
         self._list = False
         self._separator: str | None = None
         self._prefix: Any = None
@@ -402,8 +419,11 @@ class TextColumn(Column):
         self._copyable = condition
         return self
 
-    def html(self, condition: bool = True) -> "TextColumn":
+    def html(self, condition: bool = True, keep_classes: bool = False) -> "TextColumn":
+        """Show the value as (cleaned) HTML. ``keep_classes=True`` keeps ``class`` attributes, e.g. coloured
+        ``<span class="text-danger-600">`` from your own code; leave it off for text users typed."""
         self._html = condition
+        self._html_classes = keep_classes
         return self
 
     def list(self, condition: bool = True) -> "TextColumn":
@@ -529,7 +549,7 @@ class TextColumn(Column):
                 if self._limit and len(text) > self._limit:
                     text = text[: self._limit].rstrip() + "…"
             elif text is not None and self._html:
-                text = Markup(sanitize(str(text)))
+                text = Markup(sanitize(str(text), classes=self._html_classes))
             prefix = evaluate(self._prefix, **iev)
             suffix = evaluate(self._suffix, **iev)
             out.append({

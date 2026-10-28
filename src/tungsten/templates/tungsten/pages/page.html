@@ -4,7 +4,7 @@
 {% set filters_form = page.build_filters_form(ctx) %}
 {% set extra_actions %}{% if filters_form %}{% include "tungsten/components/page-filters.html" %}{% endif %}{% endset %}
 {% include "tungsten/components/page-header.html" %}
-{% with columns = page.widget_columns %}{% include "tungsten/components/widgets.html" %}{% endwith %}
+{% if page.widgets_position != 'below' %}{% with columns = page.widget_columns %}{% include "tungsten/components/widgets.html" %}{% endwith %}{% endif %}
 {% if content %}<div class="mb-6">{{ content }}</div>{% endif %}
 {% if form %}
 <form data-tw-unsaved hx-post="{{ page.get_url(ctx) }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" class="grid gap-6">
@@ -16,4 +16,6 @@
   {% endif %}
 </form>
 {% endif %}
+{% if table %}<div class="{{ 'mt-6' if form else '' }}">{{ table.render() }}</div>{% endif %}
+{% if page.widgets_position == 'below' %}<div class="mt-6">{% with columns = page.widget_columns %}{% include "tungsten/components/widgets.html" %}{% endwith %}</div>{% endif %}
 {% endblock %}

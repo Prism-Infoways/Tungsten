@@ -85,6 +85,11 @@ class ItemResource(Resource):
                           .action(lambda record, data: calls.append(("share", record.name, data["to"])))),
                     Action("first").action(lambda: "ok").then(lambda result: "second" if result == "ok" else None),
                     Action("second").action(lambda record: calls.append(("second", record.name))),
+                    Action("start").action(lambda: None)
+                    .then(Action("pick").form([TextInput("choice").required()]).action(lambda data: data["choice"])
+                          .then(Action("check").form([TextInput("ok")])
+                                .action(lambda data: "back" if data.get("ok") == "no" else None)
+                                .then(lambda result: "pick" if result == "back" else None))),
                     Action("setup").steps([
                         Step("One").schema([TextInput("a").required()]),
                         Step("Two").schema([TextInput("b")]),
@@ -213,6 +218,19 @@ def test_then_with_a_closure_runs_a_named_action(env):
     c = client(app)
     c.post(ACTION, row("first", record="2"))
     assert calls == [("second", "Item 2")]
+
+
+def test_then_goes_back_to_an_earlier_step(env):
+    app, _, _ = env
+    c = client(app)
+    r = c.post(ACTION, row("start"))
+    assert 'value="start/pick"' in r.text
+    r = c.post(ACTION, row("start/pick", choice="a"))
+    assert 'value="start/pick/check"' in r.text
+    r = c.post(ACTION, row("start/pick/check", ok="no"))  # "Back": pick opens again in the same modal
+    assert r.status_code == 200 and 'value="start/pick"' in r.text and r.headers["HX-Retarget"] == "#tw-modal"
+    r = c.post(ACTION, row("start/pick/check", ok="yes"))
+    assert 'value="start/pick"' not in r.text
 
 
 # ---------------------------------------------------------------------- wizard, sticky, hooks, rate limit

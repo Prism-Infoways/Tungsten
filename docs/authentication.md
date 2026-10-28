@@ -396,3 +396,7 @@ See [Roles and permissions](roles-and-permissions) for the full guide. In short:
 - `panel.rbac()` adds a **Roles & Permissions** screen.
 - `Auth(User, gate=...)` lets one function decide every permission.
 - `policy = OrderPolicy()` on a resource decides per record.
+
+## Sign-in placeholders
+
+`Auth(email_placeholder="name@company.in", password_placeholder=None)` changes (or removes) the hints in the sign-in form.

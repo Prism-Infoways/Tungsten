@@ -719,3 +719,22 @@ Other hooks: `blank_state()` (empty value), `extract(formdata, path)` (read a su
 
 To show something that is not a value at all, use `View("myapp/notice.html")`, or the [content blocks](form-layouts#text-html-and-callout).
 
+## Read-only text inputs
+
+`TextInput("code").read_only()` shows the value and sends it with the form, but nobody can change it: the saved value is the record's own (or the default), never what the browser posts. `disabled()` instead leaves the value out.
+
+## Fields inside a JSON column
+
+A field named `"meta.title"` reads and saves the `title` key of the `meta` JSON column (other keys are kept). `form.validate()` returns `{"meta": {"title": ...}}`, like the form state.
+
+## Upload hints and messages
+
+The line under "Click to upload" shows the allowed types as extensions and the size limit ("XLSX, CSV up to 20 MB"). `.upload_hint("Your bank statement")` sets your own text, `.upload_hint(False)` hides it. Error messages follow Laravel 11 ("The Sheet field must not be greater than 20480 kilobytes."), and `.validation_messages({"max": "...", "mimes": "..."})` sets your own (`:attribute`, `:max` and `:values` are filled in).
+
+## Files you only read
+
+`FileUpload("sheet").store_files(False)` does not save the file to the record. Your action or `save()` gets an `UploadedFile` with `.name`, `.read()`, `.local_path` and `.delete()`. It waits in the private `tmp-uploads` folder of the storage; delete it when you are done.
+
+## Relation manager forms
+
+Form closures in a relation manager (and its actions) can ask for `owner_record`, the record the relation belongs to.

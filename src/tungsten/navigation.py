@@ -16,6 +16,7 @@ class NavigationItem:
     sort: int = 0
     badge: Any = None
     badge_color: str = "primary"
+    badge_tooltip: str | None = None
     active: bool = False
     parent: str | None = None
     #: path prefix that marks this item active (defaults to its url)

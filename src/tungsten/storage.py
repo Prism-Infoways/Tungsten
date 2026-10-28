@@ -34,7 +34,7 @@ class LocalStorage(Storage):
     """
 
     #: folders that always need a signed-in user, even when ``public=True``
-    private_directories: tuple[str, ...] = ("imports", "exports")
+    private_directories: tuple[str, ...] = ("imports", "exports", "tmp-uploads")
 
     def __init__(self, root: str | Path = "storage/tungsten", base_url: str | None = None,
                  public: bool = False) -> None:

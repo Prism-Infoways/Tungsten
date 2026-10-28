@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -13,6 +14,14 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from .notifications import Notification
     from .panel import Panel
+
+
+_current: contextvars.ContextVar["Context | None"] = contextvars.ContextVar("tungsten_context", default=None)
+
+
+def current_context() -> "Context | None":
+    """The :class:`Context` of the request being handled (None outside one), for code that is not handed it."""
+    return _current.get()
 
 
 class Context:
@@ -30,6 +39,7 @@ class Context:
         #: the custom page (or dashboard) being drawn; its ``filters_form`` feeds ``filters``
         self.page: Any = None
         self._permissions: set[str] | None = None
+        _current.set(self)
 
     @property
     def tenant(self) -> Any:
