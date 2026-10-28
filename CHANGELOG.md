@@ -2,7 +2,9 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
-## Unreleased
+## 2026-10-28 · tungsten-admin 0.1.14: every open GitHub issue fixed
+
+Also released: `tungsten-tickets` 0.2.0, `tungsten-impersonate` 0.1.1, `tungsten-mcp` 0.1.4 and `tungsten-filament` 0.1.1 (all need tungsten-admin 0.1.14). After upgrading, **run `panel.create_tables(engine)` once**.
 
 - **Security fix (issue #103): signing out ends the session everywhere.** Each sign-in is now kept on the server (table `tungsten_sessions`); signing out deletes it, so a saved copy of the cookie stops working. New `Auth(session_max_age=...)` (seconds, 14 days by default) and `Auth(sessions=...)` to use another store or `False` to turn it off. Sessions from before `idle_timeout` was turned on now idle out too. **Run `panel.create_tables(engine)` once**; users sign in again once.
 - **Security fix (issue #85):** a disabled action (`.disabled(...)`) no longer runs when its form is posted.
