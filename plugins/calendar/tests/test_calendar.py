@@ -324,8 +324,9 @@ def test_other_plugins_show_on_the_calendar(linked):
     c = client_for(linked)
     assert c.login().status_code == 303
     page = c.get("/admin/calendar?date=2026-10-12").text
+    # "Scheduled" or "Published" depending on today's date
     for text in ("Amit Shah on leave (Sick)", "Birthday: Amit Shah", "Follow up: Neha Gupta", "Due: TCK-00001",
-                 "Scheduled: Launch post", "Invoice INV-00001 due · Acme Ltd", "Bill BILL-00001 due"):
+                 ": Launch post", "Invoice INV-00001 due · Acme Ltd", "Bill BILL-00001 due"):
         assert text in page, text
     for text in ("Old Timer", "Closed Deal", "Already fixed", "Draft idea", "INV-00002", "Couldn"):
         assert text not in page, text

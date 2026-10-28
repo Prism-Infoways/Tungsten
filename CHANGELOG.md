@@ -2,8 +2,10 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
-## Unreleased
+## 2026-10-28 · tungsten-admin 0.1.13: two security fixes
 
+- **`tungsten-admin` 0.1.13** is on PyPI: `pip install -U tungsten-admin`. No database changes. Plugins work as before.
+- **Security fix: hidden `javascript:` links.** The HTML cleaner (used by the rich editor, HTML table columns, `Text` components and blog posts) now also blocks links like `java&#9;script:...` that hide a tab or new line inside `javascript:`. Browsers drop those characters and would run the link. Nothing to change in your code.
 - **Security fix (issue #122)**: emailed sign-in codes can no longer be guessed without limit by sending a saved session cookie again. The wrong guesses (5 per code), the one-minute resend wait and used codes are now also counted on the server, in the same store as the login throttle (`Auth(throttle=...)`). After 5 wrong guesses the code stops working; ask for a new one after a minute. Nothing to change in your code.
 
 ## 2026-10-26 · tungsten-admin 0.1.12: modern design and new components
