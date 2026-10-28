@@ -2,6 +2,10 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## Unreleased
+
+- **Security fix (issue #122)**: emailed sign-in codes can no longer be guessed without limit by sending a saved session cookie again. The wrong guesses (5 per code), the one-minute resend wait and used codes are now also counted on the server, in the same store as the login throttle (`Auth(throttle=...)`). After 5 wrong guesses the code stops working; ask for a new one after a minute. Nothing to change in your code.
+
 ## 2026-10-26 · tungsten-admin 0.1.12: modern design and new components
 
 - **`tungsten-admin` 0.1.12** is on PyPI: `pip install -U tungsten-admin`. No database changes.
