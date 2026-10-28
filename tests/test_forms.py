@@ -135,6 +135,17 @@ def test_rich_editor_is_sanitized():
     assert data["body"] == "<p>Hi <a>l</a></p>"
 
 
+def test_sanitize_blocks_hidden_javascript_links():
+    from tungsten.support.html import sanitize
+
+    # browsers drop tabs, new lines and control characters from the scheme, so these still run script
+    for href in ("java&#x09;script:x", "java&#10;script:x", "&#x0D;javascript:x", " JaVa\tScRiPt:x",
+                 "vb&#9;script:x", "da&#9;ta:text/html,x"):
+        assert sanitize(f'<a href="{href}">l</a>') == "<a>l</a>", href
+    assert sanitize('<img src="java&#9;script:x" alt="a">') == '<img alt="a">'
+    assert sanitize('<a href="https://example.com/a b">l</a>') == '<a href="https://example.com/a b">l</a>'
+
+
 def test_dependent_fields_visibility_and_options():
     cities = {"gj": ["Surat"], "mh": ["Pune"]}
     form = make([
