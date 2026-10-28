@@ -35,8 +35,12 @@ def attrs(values: dict[str, Any] | None) -> Markup:
     return Markup(" ".join(out))
 
 
+#: tabs, new lines, spaces and control characters: browsers drop them from a URL's scheme
+_URL_JUNK = re.compile(r"[\x00-\x20\x7f]+")
+
+
 def _safe_url(url: str) -> bool:
-    u = url.strip().lower()
+    u = _URL_JUNK.sub("", url).lower()
     return not (u.startswith("javascript:") or u.startswith("vbscript:") or u.startswith("data:text"))
 
 
