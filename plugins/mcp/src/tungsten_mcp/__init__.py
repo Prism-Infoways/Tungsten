@@ -59,6 +59,13 @@ class McpPlugin(Plugin):
     - ``tools``: a :class:`Tools` subclass, to add tools of your own beside the record ones.
     - ``documents``: :class:`McpResource` items the AI can read (MCP "resources", e.g. a format guide).
     - ``prompts``: :class:`McpPrompt` items, ready-made workflows the AI app offers.
+    - ``public_path``: serve MCP at this address of the main app instead of under the panel (e.g. ``"/mcp/x"``
+      to keep an old address). Needs ``panel.mount(app)``.
+    - ``tokens_label``: what messages call the token screen. Default: its menu label ("AI access (MCP)").
+    - ``on_authenticated(ctx)``: runs for every MCP request after the token's user is loaded (the panel's
+      ``Auth.load_user`` runs too).
+
+    For apps that start a server as a command, :meth:`run_stdio` serves MCP over stdin/stdout.
     """
 
     id = "mcp"
@@ -70,8 +77,12 @@ class McpPlugin(Plugin):
                  name: str | None = None, instructions: str | None = None, public_url: str | None = None,
                  oauth: bool = True, allow_registration: bool = True, token_minutes: int = 60,
                  tools: type[Tools] = Tools, documents: Iterable[McpResource] = (),
-                 prompts: Iterable[McpPrompt] = ()) -> None:
+                 prompts: Iterable[McpPrompt] = (), public_path: str | None = None, tokens_label: str | None = None,
+                 on_authenticated: Any = None) -> None:
         self.path = "/" + path.strip("/")
+        self.public_path = "/" + public_path.strip("/") if public_path else None
+        self._tokens_label = tokens_label
+        self.on_authenticated = on_authenticated
         self.read_only = read_only
         self.only = {_slug(r) for r in resources} if resources is not None else None
         self.exclude = {_slug(r) for r in exclude} | {McpTokenResource.get_slug()}
@@ -92,7 +103,11 @@ class McpPlugin(Plugin):
         self.oauth = OAuth(self)
 
     def register(self, panel: Any) -> None:
+        from .models import set_clock
+
         self.panel = panel
+        if hasattr(panel, "now"):
+            set_clock(panel.now)  # token times in the panel's time zone
         panel.resources([McpTokenResource])
         panel.routes(self._routes)
         if self.oauth_enabled:
@@ -108,15 +123,23 @@ class McpPlugin(Plugin):
         if self.oauth_enabled and panel.path:
             self.oauth.well_known_routes(app, prefix=panel.path)
             self.oauth.well_known_routes(app)  # older apps drop the path
+        if self.public_path:
+            self._endpoint_routes(app, self.public_path)
+            if self.oauth_enabled:
+                self.oauth.public_resource_route(app)
 
     def _routes(self, app: Any, panel: Any) -> None:
+        if not self.public_path:
+            self._endpoint_routes(app, self.path)
+
+    def _endpoint_routes(self, app: Any, path: str) -> None:
         server = self.server
 
-        @app.post(self.path)
+        @app.post(path)
         async def mcp(request: Request):
             return await server.handle_http(request)
 
-        @app.get(self.path)
+        @app.get(path)
         async def mcp_get(request: Request):
             # no server-sent events stream: clients fall back to plain POSTs
             return JSONResponse({"error": "Use POST for MCP messages."}, status_code=405, headers={"Allow": "POST"})
@@ -146,7 +169,39 @@ class McpPlugin(Plugin):
         return base.rstrip("/")
 
     def endpoint_url(self, request: Request) -> str:
+        if self.public_path:
+            return self.base_url(request) + self.public_path
         return self.base_url(request) + self.panel.url(self.path.strip("/"))
+
+    def tokens_label(self) -> str:
+        """What messages call the token screen: ``tokens_label``, or the screen's menu label."""
+        if self._tokens_label:
+            return self._tokens_label
+        resource = next((r for r in self.panel.get_resources() if issubclass(r, McpTokenResource)), None) \
+            if self.panel is not None else None
+        try:
+            return str(resource.get_navigation_label()) if resource is not None else McpTokenResource.navigation_label
+        except Exception:  # noqa: BLE001 - a label that needs a request
+            return McpTokenResource.navigation_label
+
+    def authenticated(self, ctx: Any) -> None:
+        if self.on_authenticated is not None:
+            from tungsten.support.evaluate import call
+
+            call(self.on_authenticated, ctx=ctx, user=ctx.user, panel=self.panel)
+
+    def run_stdio(self, user: Any = None, *, can_write: bool = False, stdin: Any = None, stdout: Any = None,
+                  tenant: Any = None) -> None:
+        """Serve MCP over stdin/stdout (one JSON message per line) as ``user`` (an id or a user), until stdin
+        closes. For apps that start the server as a command::
+
+            # app/mcp_stdio.py
+            from app.admin import panel
+            panel.get_plugin("mcp").run_stdio(user=1, can_write=True)
+        """
+        from .stdio import serve
+
+        serve(self, user, can_write=can_write, stdin=stdin, stdout=stdout, tenant=tenant)
 
     def server_title(self) -> str:
         return self.name or f"{self.panel.brand_name} admin"

@@ -15,6 +15,8 @@ All notable changes to Tungsten (`tungsten-admin`) and its official plugins. New
 - **`tungsten-impersonate` (issue #97):** the log screen follows who may log in as others (or `can_view_log=`); `ask_reason=False` drops the "Why?" field; times use the panel's time zone.
 - **New `Panel(timezone=...)` and `panel.now()`:** the app's time zone for naive datetimes. `since()` columns use it (issue #93).
 - **New `FileUpload(...).preserve_filenames()`:** keep the user's file name (issue #93).
+- **`tungsten-mcp` (issues #83, #84, #102):** string tool results are sent as plain text, and only dicts get `structuredContent` (`result_indent` for pretty JSON). New `run_stdio()` for apps that start MCP as a command, `public_path=` to keep an old address, `on_authenticated=` hook, and the panel's `Auth.load_user` runs for tokens. A user the panel refuses gets 403, not 401. Error messages name the token screen by its real label (`tokens_label=`).
+- **`tungsten-filament` (issues #94, #101):** `->searchable(['first', 'last'])` converts to `.searchable(columns=[...])`. Date formats with `%-d` / `%-I` now work on Windows and macOS too: `TextColumn.date()` handles them itself (new `tungsten.support.dates.format_date`), so converted apps need this tungsten-admin.
 - **Icon buttons** keep the action's label as `aria-label`; the tooltip is only the hover text (issue #97).
 
 ## 2026-10-28 · tungsten-admin 0.1.13: two security fixes

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any
 import hashlib
 import secrets
 
@@ -13,8 +14,17 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 TOKEN_PREFIX = "tgmcp_"
 
 
+#: what "now" is for token times; ``McpPlugin`` points it at ``panel.now`` (the panel's time zone)
+_clock: Any = dt.datetime.now
+
+
+def set_clock(fn: Any) -> None:
+    global _clock
+    _clock = fn
+
+
 def _now() -> dt.datetime:
-    return dt.datetime.now()
+    return _clock()
 
 
 def new_token() -> str:

@@ -173,8 +173,34 @@ McpPlugin(
     tools=Tools,                      # a Tools subclass with tools of your own
     documents=[],                     # McpResource items the AI can read
     prompts=[],                       # McpPrompt items the AI app offers
+    public_path=None,                 # e.g. "/mcp/shop": answer at this address of the main app instead
+    tokens_label=None,                # what error messages call the token screen (default: its menu label)
+    on_authenticated=None,            # lambda ctx, user: ... runs on every MCP request after sign-in
 )
 ```
+
+Every MCP request also runs your panel's `Auth.load_user`, so checks you put there (banned users, tenant setup) apply to tokens too. A user the panel refuses (`can_access`) gets **403 Forbidden**.
+
+### Tool results
+
+A tool that returns a string sends that text as it is. Lists and other values are sent as JSON text; only dicts are also sent as `structuredContent`. Set `result_indent = 2` on your `Tools` subclass for pretty JSON, or override `format_result(name, result)`.
+
+### Run as a command (stdio)
+
+Some AI apps start the MCP server as a command instead of calling a URL. Make a small script and point the app at it:
+
+```python
+# app/mcp_stdio.py
+from app.admin import panel
+
+panel.get_plugin("mcp").run_stdio(user=1, can_write=True)
+```
+
+```json
+{"mcpServers": {"shop": {"command": "python", "args": ["-m", "app.mcp_stdio"]}}}
+```
+
+It reads one JSON message per line and answers as that user, with the same tools and permission checks.
 
 Columns whose names contain *password*, *secret*, *token*, *api_key* or *otp* are never sent, whatever the options.
 
