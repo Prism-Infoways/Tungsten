@@ -11,6 +11,6 @@
     {% endif %}
   </header>
   {% if columns %}
-  <div class="mt-auto">{{ ui.columns(columns, w.color, w.height) }}</div>
+  <div class="flex flex-1 flex-col">{{ ui.columns(columns, w.color, w.height, fill=true) }}</div>
   {% else %}<p class="py-10 text-center text-sm text-gray-500">{{ __('No data yet.') }}</p>{% endif %}
 </section>

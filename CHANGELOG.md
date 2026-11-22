@@ -23,7 +23,7 @@ Needs a release: `tungsten-admin` (core), `tungsten-tickets`, `tungsten-imperson
 Small visual fixes found by checking every panel screen (and every plugin demo) in light and dark mode, on desktop and phone.
 
 - **Dashboard cards line up.** All card headings now sit 24px from the top and side, table widgets fill their row (no short card next to taller ones) and their first column lines up with the heading. Widget tables no longer cut off the last column.
-- **Column chart:** the value bubble above the tallest bar no longer covers the card title on a phone. Chart and column cards move their period picker under the title when space is short, so the title is not cut to "Revenue o…".
+- **Column chart:** the bars grow with a taller card (no empty gap above them), and the value bubble above the tallest bar no longer covers the card title on a phone. Chart and column cards move their period picker under the title when space is short, so the title is not cut to "Revenue o…".
 - **Chart legends:** small round dots with more space between items.
 - **Rich editor toolbar:** soft round buttons that fit on one row on desktop and look right in dark mode (no more grey boxes).
 - **Tag chips** in a searchable select lose the odd divider before the ×. A read-only searchable select is grey like the other read-only fields.

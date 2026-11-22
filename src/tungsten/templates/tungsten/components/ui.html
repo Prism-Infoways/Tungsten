@@ -360,8 +360,9 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {% endmacro %}
 
 {# Rounded columns, one highlighted. columns: list of dicts {label, display, height (0-100), active}. #}
-{% macro columns(cols, color='primary', height='12rem') %}
-<div class="flex items-end gap-2 pt-9 sm:gap-3" style="height: {{ height }}">
+{% macro columns(cols, color='primary', height='12rem', fill=false) %}
+{#- fill: grow with a flex-column parent (a taller card), never shorter than height -#}
+<div class="flex items-end gap-2 pt-9 sm:gap-3 {{ 'flex-1' if fill }}" style="{{ 'min-height' if fill else 'height' }}: {{ height }}">
   {% for col in cols %}
   <div class="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
     <div class="relative flex w-full flex-1 items-end justify-center">
