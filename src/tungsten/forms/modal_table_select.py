@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from markupsafe import Markup
 
+from ..i18n import lower_label
 from ..i18n import translate as __
 from ..support.component import headline
 from ..support.evaluate import evaluate
@@ -79,7 +80,7 @@ class ModalTableSelect(Select):
         picker = _TablePicker("pick", self)
         select = (Action("select_records").label(lambda: str(evaluate(self._select_label) or __("Select")))
                   .icon("table").color("gray").form([picker]).modal_width(self._modal_width)
-                  .modal_heading(lambda: str(evaluate(self._modal_heading) or __("Select :label", label=self.get_label().lower())))
+                  .modal_heading(lambda: str(evaluate(self._modal_heading) or __("Select :label", label=lower_label(self.get_label()))))
                   .modal_submit_label(__("Select"))
                   .fill_form(lambda state: {"pick": state})
                   .action(self._apply_pick))

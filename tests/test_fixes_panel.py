@@ -98,7 +98,7 @@ def test_dark_logo_and_tagline(client, panel):
     panel.brand_tagline = "Run your shop"
     page = client.get("/admin/login").text
     assert 'src="/logo-light.svg"' in page and "dark:hidden" in page
-    assert re.search(r'<img src="/logo-dark.svg"[^>]*class="hidden h-8 w-auto dark:block"', page)
+    assert re.search(r'<img src="/logo-dark.svg"[^>]*class="tw-sb-logo hidden h-8 w-auto dark:block"', page)
     assert "Run your shop" in page
     panel.brand_logo = None  # only a dark logo: used everywhere
     page = client.get("/admin/login").text

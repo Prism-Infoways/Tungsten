@@ -14,7 +14,12 @@
       disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500
       dark:bg-white/5 dark:text-white dark:ring-white/10 dark:placeholder:text-gray-500 dark:focus:ring-primary-500 dark:disabled:bg-transparent dark:disabled:text-gray-400;
   }
+  /* one height for text inputs, native selects and searchable selects side by side (#141) */
+  input.tw-input, select.tw-input { min-height: 2.5rem; }
   .tw-input-error { @apply ring-danger-600 dark:ring-danger-500 focus:ring-danger-600; }
+  /* a searchable select or a file drop zone with a mistake gets the same red as the inputs (#141) */
+  .tw-ts-error .ts-wrapper.tw-ts .ts-control { @apply ring-danger-600 dark:ring-danger-500; }
+  .tw-dropzone-error { @apply border-danger-600 dark:border-danger-500 !important; }
   .tw-checkbox {
     @apply h-4 w-4 rounded border-0 bg-white text-primary-600 shadow-sm ring-1 ring-inset ring-gray-950/10
       focus:ring-2 focus:ring-primary-600 focus:ring-offset-0 checked:ring-0 disabled:opacity-60
@@ -133,9 +138,16 @@
   trix-toolbar .trix-button-group { @apply border-gray-200 dark:border-white/10 !important; }
   trix-toolbar .trix-button { @apply dark:bg-white/80 !important; }
   .ts-wrapper.tw-ts .ts-control {
-    @apply min-h-[38px] rounded-xl border-0 bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-inset ring-gray-950/10
+    @apply min-h-[2.5rem] items-center rounded-xl border-0 bg-white px-3 py-1.5 text-sm shadow-sm ring-1 ring-inset ring-gray-950/10
       dark:bg-white/5 dark:text-white dark:ring-white/10;
   }
+  /* a down arrow on a single searchable select, like the native one */
+  .ts-wrapper.tw-ts.single .ts-control {
+    padding-inline-end: 2.25rem;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.6rem center; background-repeat: no-repeat; background-size: 1.25em 1.25em;
+  }
+  [dir="rtl"] .ts-wrapper.tw-ts.single .ts-control { background-position: left 0.6rem center; }
   .ts-wrapper.tw-ts.focus .ts-control { @apply ring-2 ring-primary-500 shadow-sm; }
   .ts-wrapper.tw-ts .ts-control input { @apply text-sm dark:text-white; }
   .ts-wrapper.tw-ts.multi .ts-control > div.item {
@@ -169,12 +181,26 @@
   .tw-range-dual .tw-range::-moz-range-thumb { pointer-events: auto; }
 }
 
+/* A sticky bar above the page (impersonation, data-tw-top-banner): the floating sidebar starts below it (#132).
+   tungsten.js keeps --tw-banner-h at the bars' height. */
+@media (min-width: 1024px) {
+  .tw-sb-aside { top: calc(0.75rem + var(--tw-banner-h, 0px)); }
+}
+@media (max-width: 1023px) {
+  .tw-sb-aside { top: var(--tw-banner-h, 0px); }
+}
+
 /* Desktop sidebar collapsed to icons (toggled with twToggleSidebar()). */
 @media (min-width: 1024px) {
   .tw-sidebar-collapsed .tw-sb-aside { width: 5rem; }
   .tw-sidebar-collapsed .tw-sb-main { padding-inline-start: 6.5rem; }
   .tw-sidebar-collapsed .tw-sb-label { display: none !important; }
   .tw-sidebar-collapsed .tw-sb-brand span { display: none; }
+  /* collapsed: the brand mark (Panel(brand_mark=...)) in place of the wide logo, or the logo's start (#143) */
+  .tw-sidebar-collapsed .tw-sb-brand { margin-inline: auto; }
+  .tw-sidebar-collapsed .tw-sb-brand .tw-sb-logo { max-width: 2.5rem; object-fit: cover; object-position: left center; }
+  .tw-sidebar-collapsed .tw-sb-brand:has(.tw-sb-mark) .tw-sb-logo { display: none !important; }
+  .tw-sidebar-collapsed .tw-sb-brand .tw-sb-mark { display: block; }
   .tw-sidebar-collapsed .tw-nav-item { justify-content: center; padding-left: 0; padding-right: 0; }
   .tw-sidebar-collapsed .tw-sb-aside nav > div { margin-top: 0.5rem; }
 }

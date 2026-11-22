@@ -9,8 +9,22 @@ from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Tex
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
+# the panel's clock (``Panel.now()``, its ``timezone``); set by the plugin's register(). The server's own clock
+# is off by the gap between its TZ and the panel's timezone (issue #131).
+_clock: list = []
+
+
+def set_clock(now) -> None:
+    _clock[:] = [now]
+
+
+def now() -> dt.datetime:
+    """The current time in the panel's timezone (naive, like the stored times)."""
+    return _clock[0]() if _clock else dt.datetime.now()
+
+
 def _now() -> dt.datetime:
-    return dt.datetime.now()
+    return now()
 
 
 def new_access_key() -> str:
@@ -83,7 +97,7 @@ class Ticket(TicketsBase):
 
     @property
     def is_overdue(self) -> bool:
-        return bool(self.is_open and self.due_at and self.due_at < dt.datetime.now())
+        return bool(self.is_open and self.due_at and self.due_at < now())
 
     def __str__(self) -> str:
         return f"{self.number or '#' + str(self.id)} {self.subject}"

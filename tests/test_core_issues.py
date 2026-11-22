@@ -405,10 +405,15 @@ def test_upload_hint_and_messages():
         ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".csv"]).max_size(20 * 1024)
     assert field.accepted_labels() == ["XLSX", "CSV"] and field.size_label() == "20 MB"
     assert field.check_upload("a.pdf", "application/pdf", 10) == "The Sheet field must be a file of type: xlsx, csv."
+    # the picked file's name and size, and the limit in words (#136)
     assert field.check_upload("a.csv", "text/csv", 30 * 1024 * 1024) == \
-        "The Sheet field must not be greater than 20480 kilobytes."
+        '"a.csv" is 30 MB. The biggest file you can upload here is 20 MB.'
     field.validation_messages({"max": "Too big (max :max KB)."})
     assert field.check_upload("a.csv", "text/csv", 30 * 1024 * 1024) == "Too big (max 20480 KB)."
+    field.validation_messages({"max": ":name (:size) is over :limit."})
+    assert field.check_upload("a.csv", "text/csv", 23 * 1024 * 1024 + 400 * 1024) == "a.csv (23.4 MB) is over 20 MB."
+    # the browser gets the same words with the file's name and size left open, and the limit in bytes
+    assert field.too_big_message() == "{name} ({size}) is over 20 MB."
 
 
 def test_english_overrides_are_used(tmp_path):

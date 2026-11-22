@@ -1,9 +1,12 @@
 {% if panel.brand_logo and panel.brand_logo_dark %}
-<img src="{{ panel.brand_logo }}" alt="{{ panel.brand_name }}" class="h-8 w-auto dark:hidden">
-<img src="{{ panel.brand_logo_dark }}" alt="{{ panel.brand_name }}" class="hidden h-8 w-auto dark:block">
+<img src="{{ panel.brand_logo }}" alt="{{ panel.brand_name }}" class="tw-sb-logo h-8 w-auto dark:hidden">
+<img src="{{ panel.brand_logo_dark }}" alt="{{ panel.brand_name }}" class="tw-sb-logo hidden h-8 w-auto dark:block">
 {% elif panel.brand_logo or panel.brand_logo_dark %}
-<img src="{{ panel.brand_logo or panel.brand_logo_dark }}" alt="{{ panel.brand_name }}" class="h-8 w-auto">
-{% else %}
+<img src="{{ panel.brand_logo or panel.brand_logo_dark }}" alt="{{ panel.brand_name }}" class="tw-sb-logo h-8 w-auto">
+{% endif %}
+{% if (panel.brand_logo or panel.brand_logo_dark) and panel.brand_mark %}
+<img src="{{ panel.brand_mark }}" alt="{{ panel.brand_name }}" class="tw-sb-mark hidden h-8 w-8 object-contain">
+{% elif not (panel.brand_logo or panel.brand_logo_dark) %}
 {# unique gradient id: the brand can appear twice on a page (e.g. hidden hero + mobile header) #}
 {% set gid = 'tw-brand-g-' ~ (range(1, 1000000) | random) %}
 <svg viewBox="0 0 32 32" class="h-8 w-8" aria-hidden="true">

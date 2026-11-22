@@ -6,7 +6,7 @@
 {% set back_url = cancel_url if cancel_url is defined and cancel_url else resource.get_url(ctx) %}
 {% set extra_actions %}
   {% if editable and not form.has_wizard %}
-  <a href="{{ back_url }}" class="{{ ui.button_classes('gray') }}">{{ __('Cancel') }}</a>
+  <a href="{{ back_url }}" hx-target="body" hx-swap="innerHTML show:window:top" class="{{ ui.button_classes('gray') }}">{{ __('Cancel') }}</a>
   <button type="submit" form="tw-record-form-el" data-tw-keys="mod+s" title="{{ __('Save (Ctrl+S)') }}" class="{{ ui.button_classes('primary') }}">{{ icon('save', 'h-4 w-4') }}<span>{{ __('Create') if operation == 'create' else __('Save changes') }}</span></button>
   {% endif %}
 {% endset %}
@@ -26,7 +26,7 @@
     {% if operation == 'create' %}
     <button type="submit" name="_another" value="1" class="{{ ui.button_classes('gray') }}">{{ __('Create & create another') }}</button>
     {% endif %}
-    <a href="{{ back_url }}" class="{{ ui.button_classes('gray', 'link') }} px-2">{{ __('Cancel') }}</a>
+    <a href="{{ back_url }}" hx-target="body" hx-swap="innerHTML show:window:top" class="{{ ui.button_classes('gray', 'link') }} px-2">{{ __('Cancel') }}</a>
   </div>
   {% endif %}
 </form>

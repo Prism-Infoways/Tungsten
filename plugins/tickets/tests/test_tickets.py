@@ -222,3 +222,20 @@ def test_hooks(panel):
     assert json.dumps(seen)
     with panel.db() as db:
         assert db.scalars(select(TicketReply)).first() is not None
+
+
+def test_times_use_the_panels_timezone(panel):
+    """Ticket times follow the panel's clock, not the server's (#131)."""
+    import datetime as dt
+
+    from tungsten_tickets import models
+
+    panel.timezone = "Asia/Kolkata"
+    try:
+        want = panel.now()
+        got = models.now()
+        assert abs((got - want).total_seconds()) < 5
+        utc = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+        assert abs((got - utc).total_seconds() - 5.5 * 3600) < 5
+    finally:
+        panel.timezone = None

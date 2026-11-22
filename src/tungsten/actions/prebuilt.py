@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ..i18n import lower_label
 from ..i18n import translate as __
 from ..support.evaluate import call
 from .action import Action, BulkAction
@@ -76,7 +77,7 @@ class CreateAction(RecordFormAction):
 
     def get_label(self, ev: dict | None = None) -> str:
         if self._label is None and ev and ev.get("host") is not None:
-            return __("New :label", label=ev["host"].model_label().lower())
+            return __("New :label", label=lower_label(ev["host"].model_label()))
         return super().get_label(ev)
 
     def view_data(self, ctx, host, record=None, **kw):  # type: ignore[override]
@@ -169,10 +170,10 @@ class DeleteAction(Action):
         self._modal_width = "md"
 
     def get_modal_heading(self, host: "Host | None") -> str:
-        return __("Delete :label", label=host.model_label().lower()) if host else __("Delete")
+        return __("Delete :label", label=lower_label(host.model_label())) if host else __("Delete")
 
     def get_modal_description(self, host: "Host | None") -> str:
-        label = host.model_label().lower() if host else __("record")
+        label = lower_label(host.model_label()) if host else __("record")
         return __("Are you sure you want to delete this :label? This action cannot be undone.", label=label)
 
     def is_available(self, host, ctx, record=None) -> bool:  # type: ignore[override]

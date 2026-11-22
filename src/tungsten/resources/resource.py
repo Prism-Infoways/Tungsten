@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy import select
 
+from ..i18n import lower_label
 from ..i18n import translate as __
 from ..support.component import headline
 from ..support.evaluate import call
@@ -149,7 +150,7 @@ class Resource:
         from ..actions import CreateAction, DeleteAction, EditAction, ForceDeleteAction, RestoreAction
 
         if page in ("list", "index"):
-            return [CreateAction().label(lambda: __("Create :label", label=cls.get_label().lower()))]
+            return [CreateAction().label(lambda: __("Create :label", label=lower_label(cls.get_label())))]
         if page == "edit":
             return [DeleteAction().outlined(), RestoreAction().button(), ForceDeleteAction().outlined()]
         if page == "view":

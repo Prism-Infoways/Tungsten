@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from tungsten import Stat, StatsOverviewWidget
 
 from .models import Ticket
+from .models import now as clock_now
 from .service import CLOSED_STATUSES
 
 
@@ -30,7 +31,7 @@ class TicketStats(StatsOverviewWidget):
             return db.scalar(select(func.count()).select_from(Ticket).where(*where)) or 0
 
         is_open = Ticket.status.notin_(CLOSED_STATUSES)
-        now = dt.datetime.now()
+        now = clock_now()
         week_ago = now - dt.timedelta(days=7)
         overdue = count(is_open, Ticket.due_at < now)
         return [

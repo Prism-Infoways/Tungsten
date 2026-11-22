@@ -2,11 +2,13 @@
 {% set key = v.key %}
 <div class="tw-card {{ 'md:grid md:grid-cols-4' if v.vertical }}">
   <input type="hidden" name="_tw_ui.{{ key }}" value="{{ v.current }}">
-  <ol class="{{ 'flex gap-1 overflow-x-auto border-b border-gray-100 p-3 dark:border-white/10 md:flex-col md:border-b-0 md:border-e md:p-4' if v.vertical else 'flex gap-1 overflow-x-auto border-b border-gray-100 p-3 dark:border-white/10' }}">
+  <ol x-data x-init="$nextTick(() => { const c = $el.querySelector('[aria-current=step]'); if (c && $el.scrollWidth > $el.clientWidth) $el.scrollTo({ left: c.closest('li').offsetLeft - ($el.clientWidth - c.closest('li').offsetWidth) / 2 }); })"
+      class="relative {{ 'flex gap-1 overflow-x-auto border-b border-gray-100 p-3 dark:border-white/10 md:flex-col md:border-b-0 md:border-e md:p-4' if v.vertical else 'flex gap-1 overflow-x-auto border-b border-gray-100 p-3 dark:border-white/10' }}">
     {% for s in v.steps %}
     {% set state = 'done' if s.index < v.current else ('current' if s.index == v.current else 'todo') %}
     <li class="shrink-0">
       <button type="button" {% if v.skippable or s.index < v.current %}hx-post="{{ form.refresh_url }}" hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form" hx-vals='{"_tw_ui_action": "wizard.goto:{{ key }}:{{ s.index }}"}'{% else %}disabled{% endif %}
+              {% if state == 'current' %}aria-current="step"{% endif %}
               class="flex w-full items-center gap-x-3 rounded-full px-3 py-2 pe-4 text-start text-sm transition {{ 'bg-primary-50 dark:bg-primary-500/10' if state == 'current' }}">
         <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold
                      {{ 'bg-primary-600 text-white' if state == 'current' else ('bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300' if state == 'done' else 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400') }}
@@ -15,7 +17,7 @@
         </span>
         <span class="grid">
           <span class="font-medium {{ 'text-primary-700 dark:text-primary-400' if state == 'current' else 'text-gray-700 dark:text-gray-300' }}">{{ s.label }}</span>
-          {% if s.description %}<span class="text-xs text-gray-500 dark:text-gray-400">{{ s.description }}</span>{% endif %}
+          {% if s.description %}<span class="{{ '' if v.vertical else 'hidden sm:block' }} text-xs text-gray-500 dark:text-gray-400">{{ s.description }}</span>{% endif %}
         </span>
       </button>
     </li>

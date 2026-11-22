@@ -1,6 +1,6 @@
 {% from "tungsten/forms/macros.html" import wrapper, ui_action %}
 {% call wrapper(field, v) %}
-<div class="grid gap-3">
+<div class="grid gap-3" style="grid-template-columns: minmax(0, 1fr)" data-tw-upload-field>
   {% for f in v.files %}<input type="hidden" name="{{ v.path }}" value="{{ f.token }}">{% endfor %}
   {% if v.image %}
   <div class="flex flex-wrap gap-3">
@@ -13,10 +13,11 @@
     </div>
     {% endfor %}
     {% if not v.disabled and (v.multiple or not v.files) %}
-    <label class="flex {{ 'h-24 w-24 rounded-full' if v.avatar else 'h-24 w-24 rounded-2xl' }} cursor-pointer flex-col items-center justify-center gap-1 border-2 border-dashed border-gray-300 text-gray-400 transition hover:border-primary-500 hover:text-primary-500 dark:border-white/20">
+    <label data-tw-dropzone class="flex {{ 'h-24 w-24 rounded-full' if v.avatar else 'h-24 w-24 rounded-2xl' }} cursor-pointer flex-col items-center justify-center gap-1 border-2 border-dashed {{ 'border-danger-600 dark:border-danger-500' if v.errors else 'border-gray-300 dark:border-white/20' }} text-gray-400 transition hover:border-primary-500 hover:text-primary-500">
       {{ icon('plus', 'h-6 w-6') }}
       <input type="file" class="sr-only" name="{{ v.path }}.__upload" {% if v.accept %}accept="{{ v.accept }}"{% endif %}
-             hx-post="{{ form.refresh_url }}" hx-encoding="multipart/form-data" hx-trigger="change"
+             {% if v.max_bytes %}data-max-size="{{ v.max_bytes }}" data-too-big="{{ v.too_big }}"{% endif %}
+           hx-post="{{ form.refresh_url }}" hx-encoding="multipart/form-data" hx-trigger="change"
              hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form">
     </label>
     {% endif %}
@@ -25,26 +26,29 @@
   {% if v.files %}
   <ul class="divide-y divide-gray-100 rounded-2xl ring-1 ring-gray-950/10 dark:divide-white/5 dark:ring-white/10">
     {% for f in v.files %}
-    <li class="flex items-center justify-between gap-x-3 px-3 py-2 text-sm">
-      <a href="{{ f.url }}" target="_blank" class="flex items-center gap-x-2 truncate {{ colors.LINK.primary }}">{{ icon('paperclip', 'h-4 w-4') }}{{ f.name }}</a>
+    <li class="flex min-w-0 items-center justify-between gap-x-3 px-3 py-2 text-sm">
+      <a href="{{ f.url }}" target="_blank" rel="noopener" hx-boost="false" title="{{ f.name }}" class="flex min-w-0 items-center gap-x-2 {{ colors.LINK.primary }}">{{ icon('paperclip', 'h-4 w-4 shrink-0') }}<span class="truncate">{{ f.name }}</span></a>
       {% if not v.disabled %}{{ ui_action(form, 'file.remove:' ~ v.path ~ ':' ~ loop.index0, __('Remove'), 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}{% endif %}
     </li>
     {% endfor %}
   </ul>
   {% endif %}
   {% if not v.disabled and (v.multiple or not v.files) %}
-  <label class="flex cursor-pointer items-center gap-x-4 rounded-2xl border-2 border-dashed border-gray-300 px-4 py-4 transition hover:border-primary-500 dark:border-white/20">
-    <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-100 text-gray-500 dark:bg-white/5">{{ icon('upload', 'h-5 w-5') }}</span>
-    <span class="grid min-w-0 text-sm">
-      <span class="font-medium text-gray-950 dark:text-white">{{ __('Click to upload') }}</span>
-      {% if v.hint %}<span class="text-gray-500 dark:text-gray-400" style="overflow-wrap: anywhere">{{ v.hint }}</span>{% endif %}
+  <label data-tw-dropzone class="flex min-w-0 cursor-pointer items-center gap-x-4 rounded-2xl border-2 border-dashed {{ 'border-danger-600 dark:border-danger-500' if v.errors else 'border-gray-300 dark:border-white/20' }} px-4 py-4 transition hover:border-primary-500">
+    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-500 dark:bg-white/5">{{ icon('upload', 'h-5 w-5') }}</span>
+    <span class="grid min-w-0 flex-1 text-sm">
+      <span class="truncate font-medium text-gray-950 dark:text-white" data-tw-upload-title>{{ __('Click to upload') }}</span>
+      {% if v.upload_hint %}<span class="text-gray-500 dark:text-gray-400" style="overflow-wrap: anywhere" data-tw-upload-hint>{{ v.upload_hint }}</span>{% endif %}
+      <span class="mt-1.5 hidden h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10" data-tw-upload-bar><span class="block h-full w-0 rounded-full bg-primary-600 transition-[width]"></span></span>
     </span>
     <input type="file" class="sr-only" name="{{ v.path }}.__upload" {% if v.accept %}accept="{{ v.accept }}"{% endif %}
+           {% if v.max_bytes %}data-max-size="{{ v.max_bytes }}" data-too-big="{{ v.too_big }}"{% endif %}
            hx-post="{{ form.refresh_url }}" hx-encoding="multipart/form-data" hx-trigger="change"
            hx-target="#{{ form.id }}" hx-swap="outerHTML" hx-include="closest form">
   </label>
   {% endif %}
   {% endif %}
+  <p class="hidden text-sm text-danger-600 dark:text-danger-400" data-tw-upload-error role="alert"></p>
   {% if v.disabled and not v.files %}<p class="text-sm text-gray-500">{{ __('No file.') }}</p>{% endif %}
   {% if form.ctx and not v.disabled and (v.multiple or not v.files) %}{{ form.ctx.panel.hooks('forms.file-upload.after', form.ctx, field=field, v=v, form=form) }}{% endif %}
 </div>
