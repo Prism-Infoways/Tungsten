@@ -45,7 +45,7 @@ def test_dashboard_has_the_modern_layout(admin):
     assert 'data-tw-widget="quick-actions"' in page
     assert "Selling is better together" in page
     assert 'data-tw-stat="brand"' in admin.get("/admin/_tw/widget/shop-stats", htmx=True).text
-    assert "tw-nav-item-active" in page and "lg:rounded-[1.75rem]" in page  # floating sidebar
+    assert "tw-nav-item-active" in page and "lg:rounded-[1.25rem]" in page  # floating sidebar
 
 
 def test_hero_stat_shows_value_trend_actions_and_bars(admin):

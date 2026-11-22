@@ -4,7 +4,11 @@
 
 @layer base {
   [x-cloak] { display: none !important; }
-  html { -webkit-font-smoothing: antialiased; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-feature-settings: "cv11", "ss03", "calt"; }
+  ::selection { background: rgb(var(--tw-c-primary-500) / 0.22); }
+  h1, h2, h3 { text-wrap: balance; }
+  /* quiet, thin scrollbars */
+  * { scrollbar-width: thin; scrollbar-color: rgb(var(--tw-c-gray-400) / 0.5) transparent; }
 }
 
 @layer components {
@@ -47,26 +51,27 @@
   @media (max-width: 639px) { .tw-fused { grid-template-columns: minmax(0, 1fr); } }
   /* White card with big soft corners on the light gray page (the modern dashboard look). */
   .tw-card {
-    @apply rounded-[1.75rem] bg-white shadow-[0_1px_2px_rgb(0_0_0/0.03),0_10px_30px_-14px_rgb(0_0_0/0.10)] ring-1 ring-gray-950/[0.04]
+    @apply rounded-[1.25rem] bg-white shadow-[0_1px_1px_rgb(0_0_0/0.03),0_3px_8px_-4px_rgb(0_0_0/0.06)] ring-1 ring-gray-950/[0.07]
       dark:bg-gray-900 dark:shadow-none dark:ring-white/[0.08];
   }
   /* Lifts a little on hover (clickable cards). */
-  .tw-card-hover { @apply transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-18px_rgb(0_0_0/0.18)]; }
+  .tw-card-hover { @apply transition duration-150 hover:shadow-[0_1px_1px_rgb(0_0_0/0.04),0_8px_20px_-10px_rgb(0_0_0/0.16)] hover:ring-gray-950/[0.12] dark:hover:ring-white/20; }
   /* Near-black card with white text ("Q4 revenue" style). */
   .tw-card-dark {
-    @apply rounded-[1.75rem] bg-gray-950 text-white shadow-[0_18px_40px_-20px_rgb(0_0_0/0.45)] ring-1 ring-white/10 dark:bg-black;
+    @apply rounded-[1.25rem] bg-gray-950 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.08)] ring-1 ring-gray-950 dark:bg-black dark:ring-white/10;
   }
   /* Card filled with the brand color. */
   .tw-card-brand {
-    @apply relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-primary-500 to-primary-600 text-white
-      shadow-[0_18px_40px_-18px_rgb(var(--tw-c-primary-600)/0.6)];
+    @apply relative overflow-hidden rounded-[1.25rem] bg-primary-600 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.18)] ring-1 ring-primary-700;
   }
   /* Frosted glass panel for use over images or colored backgrounds. */
-  .tw-glass { @apply rounded-[1.75rem] bg-white/60 ring-1 ring-white/70 backdrop-blur-xl dark:bg-white/5 dark:ring-white/10; }
+  .tw-glass { @apply rounded-[1.25rem] bg-white/60 ring-1 ring-white/70 backdrop-blur-xl dark:bg-white/5 dark:ring-white/10; }
   /* Muted inner block inside a card (a card in a card). */
   .tw-well { @apply rounded-2xl bg-gray-50 ring-1 ring-inset ring-gray-950/[0.04] dark:bg-white/[0.03] dark:ring-white/5; }
   /* Soft colored square holding an icon (stat cards, card headers, sections). */
-  .tw-icon-tile { @apply flex shrink-0 items-center justify-center rounded-full; }
+  .tw-icon-tile { @apply flex shrink-0 items-center justify-center rounded-[0.625rem]; }
+  /* Neutral tile for card and section headings: the icon carries the color, not the background. */
+  .tw-icon-tile-plain { @apply bg-gray-50 ring-1 ring-inset ring-gray-950/[0.07] dark:bg-white/[0.04] dark:ring-white/10; }
   /* Small rounded "↑ 12%" pill. */
   .tw-trend-pill { @apply inline-flex items-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-semibold; }
   /* Soft "View all →" link button in card headers. */
@@ -84,18 +89,18 @@
       dark:hover:bg-white/5;
   }
   .tw-nav-item {
-    @apply flex items-center gap-x-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-sidebar-400 transition hover:bg-white/[0.06] hover:text-white;
+    @apply flex items-center gap-x-3 rounded-xl px-3 py-2 text-sm font-medium text-sidebar-400 transition-colors duration-100 hover:bg-white/[0.06] hover:text-white;
   }
   /* The current page: a white pill on the dark sidebar. */
   .tw-nav-item-active {
-    @apply bg-white font-semibold text-gray-950 shadow-[0_6px_20px_-8px_rgb(0_0_0/0.6)] hover:bg-white hover:text-gray-950
+    @apply bg-white font-semibold text-gray-950 shadow-[0_1px_2px_rgb(0_0_0/0.4)] hover:bg-white hover:text-gray-950
       [&>svg:first-child]:text-primary-600;
   }
 
   /* Pill navigation: a white rounded bar whose current item is a black pill (top menu, tabs, segmented). */
   .tw-pill-nav {
     @apply inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-white p-1 shadow-[0_1px_2px_rgb(0_0_0/0.04)]
-      ring-1 ring-gray-950/[0.05] dark:bg-white/5 dark:ring-white/10;
+      ring-1 ring-gray-950/[0.08] dark:bg-white/5 dark:ring-white/10;
   }
   .tw-pill-nav-muted { @apply bg-gray-100 shadow-none ring-0 dark:bg-white/5; }
   .tw-pill-nav-item {
@@ -109,13 +114,13 @@
 
   /* Small rounded label ("June 2025 ▾", filters, tags). */
   .tw-chip {
-    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-white px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-[0.06em]
       text-gray-600 ring-1 ring-inset ring-gray-950/10 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10;
   }
   /* Round white button for the top bar (bell, search, settings). */
   .tw-round-btn {
     @apply relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-gray-600 shadow-[0_1px_2px_rgb(0_0_0/0.04)]
-      ring-1 ring-gray-950/[0.05] transition hover:text-gray-950 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10 dark:hover:text-white;
+      ring-1 ring-gray-950/[0.08] transition-colors hover:bg-gray-50 hover:text-gray-950 dark:bg-white/5 dark:text-gray-300 dark:ring-white/10 dark:hover:text-white;
   }
   .tw-dot { @apply inline-block h-2 w-2 shrink-0 rounded-full; }
   /* Grey shimmer placeholder while something loads. */
