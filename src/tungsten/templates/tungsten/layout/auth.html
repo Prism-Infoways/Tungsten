@@ -15,7 +15,7 @@
         <h2 class="mt-5 text-4xl font-bold leading-tight tracking-tight text-white xl:text-5xl xl:leading-[1.1]">
           {%- if highlight and highlight in heading -%}
             {%- set parts = heading.split(highlight, 1) -%}
-            {{ parts[0] }}<span class="bg-gradient-to-r from-primary-400 to-primary-500 bg-clip-text text-transparent">{{ highlight }}</span>{{ parts[1] }}
+            {{ parts[0] }}<span class="text-primary-400">{{ highlight }}</span>{{ parts[1] }}
           {%- else -%}{{ heading }}{%- endif -%}
         </h2>
         {% if hero.text %}<p class="mt-5 text-lg text-sidebar-300">{{ __(hero.text) }}</p>{% endif %}
@@ -35,8 +35,6 @@
 
   {# ------------------------------------------------------------ form #}
   <div class="relative flex flex-1 flex-col justify-center overflow-hidden bg-gray-50 px-4 py-12 sm:px-6 lg:px-12 dark:bg-gray-950">
-    <div class="pointer-events-none absolute -end-32 -top-32 h-96 w-96 rounded-full bg-primary-200/40 blur-3xl dark:bg-primary-500/10" aria-hidden="true"></div>
-    <div class="pointer-events-none absolute -bottom-40 -start-24 h-96 w-96 rounded-full bg-primary-100/60 blur-3xl dark:bg-primary-500/5" aria-hidden="true"></div>
     <div class="relative mx-auto w-full max-w-md">
       <div class="mb-8 lg:hidden">
         <div class="flex items-center justify-center gap-3 [&_span]:!text-gray-950 dark:[&_span]:!text-white">{% include "tungsten/components/brand.html" %}</div>

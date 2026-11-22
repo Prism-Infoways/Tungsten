@@ -2,6 +2,20 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## Unreleased · design detailing (a calmer, hand-finished look)
+
+The panel no longer looks "generated": colour and decoration are used less, and edges are sharper.
+
+- **No more gradients, glows and blurred blobs.** Primary buttons, brand cards, the chart bars, funnel bars and the banner are flat colours. The glow behind the dashboard title, the sidebar glow, the login page blobs and the decorative circles on cards are gone. The waving emoji in the dashboard title is removed.
+- **Cards:** smaller corners (20px, were 28px), a thin crisp border and a very light shadow instead of a big soft one.
+- **Icons in card and section headings** sit in a small neutral square; only the icon carries the colour (no coloured circle in every card).
+- **Type:** smaller, tighter page titles (28px), 15px card titles, small eyebrow labels, balanced heading line breaks.
+- **Badges and chips** are small rounded rectangles; funnel bars are thin; the sidebar's current item and footer card are flatter.
+- **Banner:** flat tint with fine rings, and it now follows dark mode (it stayed light before).
+- **Small things:** text selection colour, thin scrollbars, hover states on the round top-bar buttons.
+
+Custom themes: card corners changed from `rounded-[1.75rem]` to `rounded-[1.25rem]`; `.tw-icon-tile` is now a rounded square and `.tw-icon-tile-plain` is new.
+
 ## Unreleased · open GitHub issues #131-#145 fixed
 
 Needs a release: `tungsten-admin` (core), `tungsten-tickets`, `tungsten-impersonate` and `tungsten-quick-create` changed.

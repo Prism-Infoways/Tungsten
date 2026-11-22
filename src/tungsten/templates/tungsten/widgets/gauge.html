@@ -2,7 +2,6 @@
 {# GaugeWidget: progress to a target as a half circle or ring. #}
 {% set filled = w.variant in ('dark', 'brand') %}
 <section class="{{ 'tw-card-dark' if w.variant == 'dark' else ('tw-card-brand' if w.variant == 'brand' else 'tw-card') }} relative flex h-full flex-col overflow-hidden p-6" data-tw-widget="gauge">
-  {% if filled %}<span class="pointer-events-none absolute -end-16 -top-16 h-48 w-48 rounded-full bg-white/[0.06]" aria-hidden="true"></span>{% endif %}
   <header class="relative mb-4 flex items-center justify-between gap-3">
     <div class="min-w-0">
       <h3 class="truncate text-base font-semibold tracking-tight {{ 'text-white' if filled else 'text-gray-950 dark:text-white' }}">{{ __(w.heading or '') }}</h3>

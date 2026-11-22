@@ -5,7 +5,7 @@
   {{ ui.week_strip(days) }}
   <ul class="mt-5 grid grid-cols-1 gap-2.5">
     {% for it in entries %}
-    <li class="flex min-w-0 items-center gap-3 rounded-2xl p-3 ring-1 ring-inset ring-gray-950/5 dark:ring-white/10" style="background: linear-gradient(90deg, rgb(var(--tw-c-{{ it.color if it.color in colors.COLOR_NAMES else 'primary' }}-500) / 0.10), transparent 70%)">
+    <li class="flex min-w-0 items-center gap-3 rounded-xl bg-gray-50 p-3 ring-1 ring-inset ring-gray-950/[0.05] dark:bg-white/[0.03] dark:ring-white/10">
       <span class="h-9 w-1 shrink-0 rounded-full" style="background: {{ colors.css_rgb(it.color) }}"></span>
       <div class="min-w-0 flex-1">
         {% if it.url %}<a href="{{ it.url }}" class="block truncate text-sm font-medium text-gray-950 hover:underline dark:text-white">{{ __(it.label) }}</a>{% else %}<p class="truncate text-sm font-medium text-gray-950 dark:text-white">{{ __(it.label) }}</p>{% endif %}

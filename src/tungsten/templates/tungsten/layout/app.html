@@ -4,10 +4,9 @@
 <div class="min-h-full" x-data="{ sidebar: false }"{% if panel.global_search_enabled %} @keydown.window.prevent.ctrl.k="$dispatch('tw-open-search')" @keydown.window.prevent.meta.k="$dispatch('tw-open-search')"{% endif %}>
   {# ------------------------------------------------------------ sidebar #}
   <div x-show="sidebar" x-cloak class="fixed inset-0 z-40 bg-gray-950/50 lg:hidden" @click="sidebar = false"></div>
-  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full max-lg:rtl:translate-x-full flex-col overflow-hidden bg-sidebar-950 text-sidebar-300 shadow-2xl shadow-gray-950/20 transition-transform duration-200 lg:inset-y-3 lg:start-3 lg:rounded-[1.75rem] {{ 'lg:hidden' if panel.top_navigation else 'lg:translate-x-0' }}"
+  <aside class="tw-sb-aside fixed inset-y-0 start-0 z-50 flex w-64 -translate-x-full max-lg:rtl:translate-x-full flex-col overflow-hidden bg-sidebar-950 text-sidebar-300 shadow-2xl shadow-gray-950/20 transition-transform duration-200 lg:inset-y-3 lg:start-3 lg:rounded-[1.25rem] {{ 'lg:hidden' if panel.top_navigation else 'lg:translate-x-0' }}"
          :class="sidebar && '!translate-x-0'">
     {# warm glow at the bottom of the sidebar #}
-    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(ellipse_at_bottom_left,rgb(var(--tw-c-primary-600)/0.22),transparent_65%)]" aria-hidden="true"></div>
     <div class="relative flex h-20 shrink-0 items-center justify-between gap-2 px-5">
       <a href="{{ panel.url() }}" class="tw-sb-brand flex min-w-0 items-center gap-2.5">{% include "tungsten/components/brand.html" %}</a>
       {% if not panel.brand_logo %}<span class="tw-sb-label me-auto shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-medium text-sidebar-400 ring-1 ring-inset ring-white/10">v{{ version }}</span>{% endif %}
@@ -71,8 +70,8 @@
     </nav>
     <div class="tw-sb-label relative p-3">
       {% if panel.sidebar_footer is not none %}{{ panel.sidebar_footer }}{% else %}
-      <div class="flex items-center gap-3 rounded-[1.25rem] bg-gradient-to-br from-primary-500/25 via-white/5 to-white/[0.03] p-3 ring-1 ring-inset ring-primary-400/20">
-        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500/20 text-primary-400 ring-1 ring-inset ring-primary-400/30">{{ icon('crown', 'h-5 w-5') }}</span>
+      <div class="flex items-center gap-3 rounded-2xl bg-white/[0.04] p-3 ring-1 ring-inset ring-white/10">
+        <span class="flex h-9 w-9 items-center justify-center rounded-[0.625rem] bg-white/[0.06] text-primary-400 ring-1 ring-inset ring-white/10">{{ icon('crown', 'h-[1.125rem] w-[1.125rem]') }}</span>
         <div class="min-w-0 flex-1">
           <p class="truncate text-sm font-semibold text-white">{{ panel.brand_name }}</p>
           <p class="truncate text-xs text-sidebar-400">{{ __(panel.brand_tagline) if panel.brand_tagline else 'v' ~ version }}</p>

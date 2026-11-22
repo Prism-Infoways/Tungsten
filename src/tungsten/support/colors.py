@@ -85,7 +85,7 @@ BADGE = {
 }
 
 BUTTON = {
-    "primary": "bg-gradient-to-b from-primary-500 to-primary-600 text-white shadow-sm shadow-primary-600/25 hover:from-primary-400 hover:to-primary-500 focus-visible:ring-primary-500/50",
+    "primary": "bg-primary-600 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.18),0_1px_2px_rgb(0_0_0/0.12)] hover:bg-primary-700 active:bg-primary-800 focus-visible:ring-primary-500/50 dark:bg-primary-500 dark:hover:bg-primary-400",
     "success": "bg-success-600 text-white shadow-sm hover:bg-success-500 focus-visible:ring-success-500/50 dark:bg-success-500 dark:hover:bg-success-400",
     "danger": "bg-danger-600 text-white shadow-sm hover:bg-danger-500 focus-visible:ring-danger-500/50 dark:bg-danger-500 dark:hover:bg-danger-400",
     "warning": "bg-warning-500 text-white shadow-sm hover:bg-warning-400 focus-visible:ring-warning-500/50",

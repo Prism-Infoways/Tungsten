@@ -418,17 +418,9 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
         var c = ds.color || "primary";
         ds.borderColor = cssColor(c, 500);
         if (type === "bar") {
-          // soft vertical gradient: lighter at the top, full color at the bottom
-          ds.backgroundColor = function (context) {
-            var area = context.chart.chartArea;
-            if (!area) return cssColor(c, 500, 0.85);
-            var g = context.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-            g.addColorStop(0, cssColor(c, 400));
-            g.addColorStop(1, cssColor(c, 600, 0.9));
-            return g;
-          };
+          ds.backgroundColor = cssColor(c, 500);
           ds.hoverBackgroundColor = cssColor(c, 600);
-          ds.borderRadius = ds.borderRadius === undefined ? { topLeft: 8, topRight: 8 } : ds.borderRadius;
+          ds.borderRadius = ds.borderRadius === undefined ? { topLeft: 4, topRight: 4 } : ds.borderRadius;
           ds.borderSkipped = false;
           ds.borderWidth = 0;
           ds.maxBarThickness = ds.maxBarThickness || 30;

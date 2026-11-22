@@ -3,8 +3,8 @@
 <section class="tw-card relative flex h-full flex-col justify-between gap-6 overflow-hidden p-6" data-tw-widget="hero-stat">
   <header class="flex items-center justify-between gap-4">
     <div class="flex min-w-0 items-center gap-3">
-      {% if stat.icon_name %}<span class="tw-icon-tile h-10 w-10 {{ colors.pick(colors.SOFT_ICON, stat.color_name) }}">{{ icon(stat.icon_name, 'h-5 w-5') }}</span>{% endif %}
-      <h3 class="truncate text-base font-semibold tracking-tight text-gray-950 dark:text-white">{{ __(stat.label or w.heading or '') }}</h3>
+      {% if stat.icon_name %}<span class="tw-icon-tile tw-icon-tile-plain h-9 w-9 {{ colors.pick(colors.TEXT, stat.color_name) }}">{{ icon(stat.icon_name, 'h-[1.125rem] w-[1.125rem]') }}</span>{% endif %}
+      <h3 class="truncate text-[0.9375rem] font-semibold leading-6 tracking-[-0.01em] text-gray-950 dark:text-white">{{ __(stat.label or w.heading or '') }}</h3>
     </div>
     {% if w.description %}<span class="tw-chip">{{ __(w.description) }}</span>{% endif %}
   </header>
