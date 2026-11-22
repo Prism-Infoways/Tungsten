@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tungsten-kanban"
-version = "0.1.1"
+version = "0.1.2"
 description = "Kanban boards for Tungsten: show any resource as drag-and-drop columns, with ready boards for leads, tickets and leave."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -101,7 +101,7 @@ from .service import (
 from .views import document_data
 from .widgets import CashFlowChart, ExpenseCategoryChart, FinanceStats, ReportStats, report_range
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 log = logging.getLogger("tungsten.finance")
 
