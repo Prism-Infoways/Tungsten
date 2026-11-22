@@ -2,7 +2,9 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
-## Unreleased · design detailing (a calmer, hand-finished look)
+## 2026-11-22 · tungsten-admin 0.1.15: design detailing (a calmer, hand-finished look)
+
+Also released: `tungsten-finance` 0.2.1, `tungsten-kanban` 0.1.2 and `tungsten-calendar` 0.1.2 (visual fixes, see "pixel-perfect polish" below).
 
 The panel no longer looks "generated": colour and decoration are used less, and edges are sharper.
 
@@ -16,9 +18,9 @@ The panel no longer looks "generated": colour and decoration are used less, and 
 
 Custom themes: card corners changed from `rounded-[1.75rem]` to `rounded-[1.25rem]`; `.tw-icon-tile` is now a rounded square and `.tw-icon-tile-plain` is new.
 
-## Unreleased · open GitHub issues #131-#145 fixed
+## 2026-11-22 · tungsten-admin 0.1.15: open GitHub issues #131-#145 fixed
 
-Needs a release: `tungsten-admin` (core), `tungsten-tickets`, `tungsten-impersonate` and `tungsten-quick-create` changed.
+The core fixes are in `tungsten-admin` 0.1.15. The `tungsten-tickets`, `tungsten-impersonate` and `tungsten-quick-create` changes are not released yet.
 
 - **Two-factor set-up page no longer reloads in a loop (issue #145).** With `Auth(two_factor_required=True)` (or email verification), the bell's badge poll and other background requests from the step page itself are not sent to the step page again.
 - **Titles keep short forms (issue #144):** "Edit MCP prompt", not "Edit mcp prompt". New `tungsten.i18n.lower_label()`.
@@ -32,7 +34,7 @@ Needs a release: `tungsten-admin` (core), `tungsten-tickets`, `tungsten-imperson
 - **Layout (issue #143):** the top bar user button no longer wraps at 768-1100px, earlier breadcrumbs stay on one line, Dashboard is lit at the panel home, the bell panel fits a phone, the search shortcut badge no longer covers the placeholder, new `Panel(brand_mark=...)` for the collapsed sidebar, and a new `footer` hook sits at the bottom of the window.
 - **`tungsten-impersonate` (issue #132):** the sidebar starts below the "logged in as" bar.
 - **`tungsten-tickets` (issue #131):** ticket times, due dates and "overdue" use the panel's time zone (`Panel(timezone=...)`), not the server clock.
-## Unreleased · pixel-perfect polish
+## 2026-11-22 · tungsten-admin 0.1.15: pixel-perfect polish
 
 Small visual fixes found by checking every panel screen (and every plugin demo) in light and dark mode, on desktop and phone.
 
