@@ -86,7 +86,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {% macro card(heading=None, description=None, padding='p-6', classes='', link=None, link_label='View all', icon_name=None, icon_color='primary') %}
 <section class="tw-card {{ classes }}">
   {% if heading %}
-  <header class="flex items-center justify-between gap-4 px-6 pt-5">
+  <header class="flex items-center justify-between gap-4 px-6 pt-6">
     {{ card_heading(heading, description, icon_name, icon_color) }}
     {% if link %}{{ card_link(link, link_label) }}{% endif %}
   </header>
@@ -360,8 +360,9 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {% endmacro %}
 
 {# Rounded columns, one highlighted. columns: list of dicts {label, display, height (0-100), active}. #}
-{% macro columns(cols, color='primary', height='12rem') %}
-<div class="flex items-end gap-2 sm:gap-3" style="height: {{ height }}">
+{% macro columns(cols, color='primary', height='12rem', fill=false) %}
+{#- fill: grow with a flex-column parent (a taller card), never shorter than height -#}
+<div class="flex items-end gap-2 pt-9 sm:gap-3 {{ 'flex-1' if fill }}" style="{{ 'min-height' if fill else 'height' }}: {{ height }}">
   {% for col in cols %}
   <div class="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
     <div class="relative flex w-full flex-1 items-end justify-center">

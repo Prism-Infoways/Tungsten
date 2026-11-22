@@ -1,5 +1,5 @@
 /* Tungsten Kanban boards */
-.tk-board { --tk-bg: rgb(var(--tw-c-gray-100, 243 244 246)); --tk-card: #fff; --tk-line: rgb(3 7 18 / .08); --tk-muted: rgb(var(--tw-c-gray-500, 107 114 128)); }
+.tk-board { --tk-bg: rgb(3 7 18 / .045); --tk-card: #fff; --tk-line: rgb(3 7 18 / .08); --tk-muted: rgb(var(--tw-c-gray-500, 107 114 128)); }
 .dark .tk-board { --tk-bg: rgb(255 255 255 / .04); --tk-card: rgb(var(--tw-c-gray-900, 17 24 39)); --tk-line: rgb(255 255 255 / .1); }
 .tk-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; margin-bottom: 1rem; }
 .tk-search { display: flex; align-items: center; gap: .5rem; min-width: 14rem; flex: 0 1 22rem; padding: .375rem .875rem; border-radius: 999px; background: var(--tk-card); box-shadow: inset 0 0 0 1px var(--tk-line); }
@@ -8,7 +8,7 @@
 .tk-mine { display: inline-flex; align-items: center; gap: .4rem; font-size: .875rem; cursor: pointer; }
 .tk-total { margin-inline-start: auto; font-size: .75rem; color: var(--tk-muted); }
 .tk-lanes { display: flex; gap: 1rem; align-items: flex-start; overflow-x: auto; padding-bottom: 1rem; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
-.tk-lane { flex: 0 0 18.5rem; max-width: 85vw; display: flex; flex-direction: column; border-radius: 1.25rem; background: var(--tk-bg); scroll-snap-align: start; }
+.tk-lane { flex: 1 0 16rem; max-width: min(24rem, 85vw); display: flex; flex-direction: column; border-radius: 1.25rem; background: var(--tk-bg); scroll-snap-align: start; }
 .tk-lane-head { display: flex; align-items: center; gap: .5rem; padding: .75rem .875rem .5rem; position: sticky; top: 0; }
 .tk-dot { width: .625rem; height: .625rem; border-radius: 9999px; flex: none; }
 .tk-lane-title { flex: 1; min-width: 0; font-size: .875rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

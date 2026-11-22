@@ -1,6 +1,6 @@
 {% import "tungsten/components/ui.html" as ui %}
 <section class="tw-card flex h-full flex-col p-6">
-  <header class="mb-4 flex items-center justify-between gap-4">
+  <header class="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
     {% if w.heading %}{{ ui.card_heading(__(w.heading), __(w.description) if w.description else none, w.icon, w.icon_color) }}{% else %}<span></span>{% endif %}
     {% if filters %}
     <select class="tw-input w-auto shrink-0 py-1.5 pe-9 text-sm" aria-label="{{ __('Period') }}" name="filter"

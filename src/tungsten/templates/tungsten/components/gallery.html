@@ -24,7 +24,7 @@
 </div>
 {% endcall %}
 
-<div class="grid gap-6 lg:grid-cols-3">
+<div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
   <div class="lg:col-span-2">
   {% call section('Navigation pills', 'ui.pill_tabs(items) · ui.segmented(name, options, value)') %}
   <div class="tw-card flex flex-col gap-5 p-6">
@@ -43,7 +43,7 @@
   {% endcall %}
 </div>
 
-<div class="grid gap-6 lg:grid-cols-3">
+<div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
   {% call section('Progress ring', 'ui.progress_ring(percent, color, size)') %}
   <div class="tw-card flex items-center justify-around gap-4 p-6">
     {{ ui.progress_ring(42, 'primary', 104, 11, 'Websites') }}
@@ -62,7 +62,7 @@
   {% endcall %}
 </div>
 
-<div class="grid gap-6 lg:grid-cols-2">
+<div class="grid gap-6 lg:grid-cols-2 [&>*]:min-w-0">
   {% call section('Columns', 'ui.columns(cols, color, height)') %}
   <div class="tw-card p-6">
     {{ ui.columns([{'label': 'Jan', 'display': '120', 'height': 55}, {'label': 'Feb', 'display': '90', 'height': 40}, {'label': 'Mar', 'display': '₹1,300', 'height': 90, 'active': true}, {'label': 'Apr', 'display': '60', 'height': 28}, {'label': 'May', 'display': '140', 'height': 62}, {'label': 'Jun', 'display': '100', 'height': 46}], 'info', '13rem') }}
@@ -76,7 +76,7 @@
   {% endcall %}
 </div>
 
-<div class="grid gap-6 lg:grid-cols-3">
+<div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
   {% call section('Timeline', 'ui.timeline_item(title, description, time, icon, color)') %}
   <div class="tw-card p-6"><ol>
     {{ ui.timeline_item('Order ORD-031 paid', 'Nikhil Verma · ₹7,196', '2h ago', 'badge-check', 'success') }}
@@ -100,7 +100,7 @@
   {% endcall %}
 </div>
 
-<div class="grid gap-6 lg:grid-cols-3">
+<div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
   {% call section('Alerts', "ui.alert(heading, text, color)") %}
   <div class="grid gap-3">
     {{ ui.alert('Backup finished', 'All 12 tables were saved.', 'success') }}

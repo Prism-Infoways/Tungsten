@@ -189,7 +189,7 @@ class RecentOrders(TableWidget):
                 TextColumn("customer.name").label("Customer").avatar("customer.avatar"),
                 TextColumn("total").label("Amount").money(INR, 0),
                 TextColumn("status").badge(),
-                TextColumn("created_at").label("Date").date(),
+                TextColumn("created_at").label("Date").date("%d %b"),
             ])
             .default_sort("created_at", "desc")
             .limit(5)

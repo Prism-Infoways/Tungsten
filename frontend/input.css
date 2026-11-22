@@ -211,3 +211,25 @@
 @media (prefers-reduced-motion: no-preference) {
   .tw-rise { animation: tw-rise .45s cubic-bezier(.2,.7,.2,1) both; }
 }
+
+/* Polish: rich editor toolbar and tag chips (soft round buttons that also read well in dark mode). */
+@layer components {
+  trix-toolbar .trix-button-row { row-gap: 0.25rem; column-gap: 0.75rem !important; }
+  trix-toolbar .trix-button-group:not(:first-child) { margin-left: 0 !important; margin-inline-start: 0 !important; }
+  trix-toolbar .trix-button-group { @apply mb-1 gap-0.5 overflow-visible rounded-none border-0 !important; }
+  trix-toolbar .trix-button {
+    @apply h-8 min-w-8 rounded-lg border-0 bg-transparent text-gray-700 transition-colors hover:bg-gray-100
+      dark:bg-transparent dark:text-gray-200 dark:hover:bg-white/10 !important;
+  }
+  trix-toolbar .trix-button.trix-active { @apply bg-gray-950/[0.07] text-gray-950 dark:bg-white/15 dark:text-white !important; }
+  trix-toolbar .trix-button:disabled { @apply bg-transparent !important; }
+  trix-toolbar .trix-button--icon { @apply w-8 max-w-none !important; }
+  trix-toolbar .trix-button--icon::before { inset: 0.375rem; background-size: 1.125rem; }
+  .dark trix-toolbar .trix-button--icon::before { filter: invert(1); }
+  trix-toolbar .trix-button.tw-trix-text-button { @apply min-w-8 dark:text-gray-200 !important; }
+
+  .ts-wrapper.tw-ts.plugin-remove_button .item .remove { @apply ms-1 rounded border-0 px-1 hover:bg-primary-600/10 !important; }
+  .ts-wrapper.tw-ts.plugin-remove_button .item { @apply pe-1 !important; }
+  /* A read-only searchable select looks like the other read-only fields (grey, not faded white). */
+  .ts-wrapper.tw-ts.disabled .ts-control { @apply cursor-not-allowed bg-gray-50 text-gray-500 opacity-100 dark:bg-transparent dark:text-gray-400 !important; }
+}

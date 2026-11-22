@@ -456,7 +456,7 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
       interaction: { intersect: false, mode: round ? "nearest" : "index" },
       plugins: {
         legend: { display: !round || !canvas.closest("section").querySelector("ul"), position: round ? "bottom" : "top", align: "end",
-                  labels: { usePointStyle: true, boxWidth: 8, color: text } },
+                  labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 16, color: text } },
         tooltip: {
           backgroundColor: "rgba(24,24,27,0.95)", padding: 10, cornerRadius: 8, boxPadding: 4, usePointStyle: true,
           titleFont: { weight: "500" }, titleColor: "#a1a1aa", bodyFont: { weight: "600" },

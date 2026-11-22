@@ -15,7 +15,7 @@
     {% if subheading %}<p class="mt-1 text-sm text-gray-500 sm:text-base dark:text-gray-400">{{ subheading }}</p>{% endif %}
   </div>
   {% set _hook_args = {'host': host, 'record': record if record is defined else None} %}
-  <div id="tw-page-header-actions" class="flex flex-wrap items-center gap-3">
+  <div id="tw-page-header-actions" class="flex flex-wrap items-center gap-3 lg:shrink-0 [&_.tw-btn]:whitespace-nowrap">
     {% if ctx and ctx.panel %}{{ ctx.panel.hooks('page.header-actions.before', ctx, **_hook_args) }}{% endif %}
     {% for a in header_actions or [] %}{{ a.render(ctx, host, record if record is defined else None, style=(None if a._style or a.__class__.__name__ == 'ActionGroup' else 'button')) }}{% endfor %}
     {% if extra_actions is defined %}{{ extra_actions }}{% endif %}

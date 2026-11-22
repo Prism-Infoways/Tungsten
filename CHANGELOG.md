@@ -18,6 +18,20 @@ Needs a release: `tungsten-admin` (core), `tungsten-tickets`, `tungsten-imperson
 - **Layout (issue #143):** the top bar user button no longer wraps at 768-1100px, earlier breadcrumbs stay on one line, Dashboard is lit at the panel home, the bell panel fits a phone, the search shortcut badge no longer covers the placeholder, new `Panel(brand_mark=...)` for the collapsed sidebar, and a new `footer` hook sits at the bottom of the window.
 - **`tungsten-impersonate` (issue #132):** the sidebar starts below the "logged in as" bar.
 - **`tungsten-tickets` (issue #131):** ticket times, due dates and "overdue" use the panel's time zone (`Panel(timezone=...)`), not the server clock.
+## Unreleased · pixel-perfect polish
+
+Small visual fixes found by checking every panel screen (and every plugin demo) in light and dark mode, on desktop and phone.
+
+- **Dashboard cards line up.** All card headings now sit 24px from the top and side, table widgets fill their row (no short card next to taller ones) and their first column lines up with the heading. Widget tables no longer cut off the last column.
+- **Column chart:** the bars grow with a taller card (no empty gap above them), and the value bubble above the tallest bar no longer covers the card title on a phone. Chart and column cards move their period picker under the title when space is short, so the title is not cut to "Revenue o…".
+- **Chart legends:** small round dots with more space between items.
+- **Rich editor toolbar:** soft round buttons that fit on one row on desktop and look right in dark mode (no more grey boxes).
+- **Tag chips** in a searchable select lose the odd divider before the ×. A read-only searchable select is grey like the other read-only fields.
+- **Sidebar:** a long menu fades out above the footer card instead of cutting an item in half; a long brand name stays on one line.
+- **Login page:** the light bulb picture no longer slides under the feature tiles on shorter screens.
+- **Page header:** action buttons stay on one line ("Create biometric machine" no longer wraps).
+- **UI kit page** fits a phone screen (no sideways scroll). Table summary values ("Sum: ₹40,685") stay on one line.
+- **Plugins:** Finance report cards use the modern card style and fit a phone; the Calendar "Upcoming" widget fits a phone; Kanban lanes fill the page width (all four columns show on a laptop) and stand out from the grey page, and the board's Search button matches the search box height.
 
 ## 2026-10-28 · tungsten-admin 0.1.14: every open GitHub issue fixed
 

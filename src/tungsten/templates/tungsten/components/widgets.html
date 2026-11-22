@@ -3,7 +3,7 @@
 {% if widgets %}
 <div class="mb-6 grid grid-cols-1 gap-6 {{ cols.get(columns or 4, cols[4]) }}">
   {% for w in widgets %}
-  <div class="{{ w.span_class() }}">
+  <div class="min-w-0 {{ w.span_class() }}">
     {% if w.lazy %}
     <div class="h-full" hx-get="{{ w.get_url(ctx) }}"
          hx-trigger="load{% if w.polling_interval %}, every {{ w.polling_interval }}{% endif %}" hx-swap="innerHTML">
