@@ -712,6 +712,171 @@ window.twT = function (text) { return (window.twLang && window.twLang[text]) || 
     if (e.detail.boosted) dirty = false;
   });
 
+  // SPA mode: a boosted link inherits hx-target / hx-swap from the nearest parent that sets them (a table's
+  // form, a record form, a modal form), so the next page was drawn inside that box (#134). A boosted link
+  // that does not say where it goes itself always replaces the whole page.
+  document.addEventListener("htmx:beforeSwap", function (e) {
+    var d = e.detail;
+    if (!d.boosted) return;
+    var from = (d.requestConfig && d.requestConfig.elt) || d.elt;
+    if (from && from.hasAttribute && from.hasAttribute("hx-target")) return;
+    if (d.target !== document.body) {
+      d.target = document.body;
+      d.swapOverride = "innerHTML show:window:top";
+      if (!from || !from.hasAttribute || !from.hasAttribute("hx-select")) d.selectOverride = "unset";
+    }
+  });
+
+  // ------------------------------------------------------------------ file uploads (FileUpload)
+  // A picked file is sent at once. Check its size first (#136), and while it travels show its name and
+  // progress, and hold back the submit buttons and the other fields, so the form is not sent without it or
+  // redrawn under it (#135).
+  function isUpload(el) {
+    return el && el.matches && el.matches('input[type="file"][name$=".__upload"]');
+  }
+  function uploadError(input, text) {
+    var box = input.closest("[data-tw-upload-field]");
+    var p = box && box.querySelector("[data-tw-upload-error]");
+    var zone = input.closest("[data-tw-dropzone]");
+    if (p) { p.textContent = text || ""; p.classList.toggle("hidden", !text); }
+    if (zone) zone.classList.toggle("tw-dropzone-error", !!text);
+  }
+  function sizeLabel(n) {
+    function d1(v) { return v.toFixed(1).replace(/\.0$/, ""); }
+    if (n >= 1073741824) return d1(n / 1073741824) + " GB";
+    if (n >= 1048576) return d1(n / 1048576) + " MB";
+    return Math.max(1, Math.round(n / 1024)) + " KB";
+  }
+  function uploadBusy(input, on) {
+    var form = input.closest("form");
+    var zone = input.closest("[data-tw-dropzone]");
+    if (on) {
+      var held = [];
+      if (form) {
+        var buttons = Array.prototype.slice.call(form.querySelectorAll('button[type="submit"], button:not([type])'));
+        if (form.id) buttons = buttons.concat(Array.prototype.slice.call(document.querySelectorAll('button[form="' + form.id + '"]')));
+        buttons.forEach(function (b) { if (!b.disabled) { b.disabled = true; held.push(b); } });
+        form.querySelectorAll("[data-field]").forEach(function (f) {
+          if (!f.contains(input) && !f.inert && !f.querySelector("[data-tw-uploading]")) { f.inert = true; held.push(f); }
+        });
+      }
+      input._twHeld = held;
+      input.setAttribute("data-tw-uploading", "");
+      if (zone) {
+        zone.setAttribute("aria-busy", "true");
+        var title = zone.querySelector("[data-tw-upload-title]");
+        var files = input.files ? Array.prototype.map.call(input.files, function (f) { return f.name; }) : [];
+        if (title) { title.setAttribute("data-tw-was", title.textContent); title.textContent = files.join(", ") || title.textContent; }
+        var bar = zone.querySelector("[data-tw-upload-bar]");
+        if (bar) { bar.classList.remove("hidden"); bar.firstElementChild.style.width = "5%"; }
+      }
+    } else {
+      (input._twHeld || []).forEach(function (el) { if (el.tagName === "BUTTON") el.disabled = false; else el.inert = false; });
+      input._twHeld = null;
+      input.removeAttribute("data-tw-uploading");
+      if (zone) {
+        zone.removeAttribute("aria-busy");
+        var t = zone.querySelector("[data-tw-upload-title]");
+        if (t && t.hasAttribute("data-tw-was")) { t.textContent = t.getAttribute("data-tw-was"); t.removeAttribute("data-tw-was"); }
+        var b = zone.querySelector("[data-tw-upload-bar]");
+        if (b) { b.classList.add("hidden"); b.firstElementChild.style.width = "0"; }
+      }
+    }
+  }
+  document.addEventListener("htmx:beforeRequest", function (e) {
+    var input = e.detail.elt;
+    if (!isUpload(input)) return;
+    var files = input.files ? Array.prototype.slice.call(input.files) : [];
+    if (!files.length) { e.preventDefault(); return; }  // the file dialog was closed without a pick
+    var max = parseInt(input.getAttribute("data-max-size") || "0", 10);
+    var big = max ? files.filter(function (f) { return f.size > max; })[0] : null;
+    if (big) {
+      e.preventDefault();
+      var msg = (input.getAttribute("data-too-big") || twT("The file is too large."))
+        .replace("{name}", big.name).replace("{size}", sizeLabel(big.size));
+      uploadError(input, msg);
+      input.value = "";
+      return;
+    }
+    uploadError(input, "");
+    uploadBusy(input, true);
+  });
+  document.addEventListener("htmx:xhr:progress", function (e) {
+    var input = e.target;
+    if (!isUpload(input) || !e.detail || !e.detail.lengthComputable) return;
+    var zone = input.closest("[data-tw-dropzone]");
+    var bar = zone && zone.querySelector("[data-tw-upload-bar]");
+    if (bar) bar.firstElementChild.style.width = Math.max(5, Math.round(100 * e.detail.loaded / e.detail.total)) + "%";
+  });
+  document.addEventListener("htmx:afterRequest", function (e) {
+    // after a successful swap this event comes from a parent still in the page: the input is requestConfig.elt
+    var input = (e.detail.requestConfig && e.detail.requestConfig.elt) || e.detail.elt;
+    if (!isUpload(input) || !input.hasAttribute("data-tw-uploading")) return;
+    uploadBusy(input, false);
+    if (!e.detail.successful) {
+      uploadError(input, twT("The file could not be uploaded."));
+      input.value = "";  // so the same file can be picked again
+    }
+  });
+
+  // After a failed submit, bring the first field with a mistake into view and focus it (#141).
+  document.addEventListener("htmx:afterSettle", function (e) {
+    var cfg = e.detail.requestConfig;
+    var from = cfg && cfg.elt;
+    if (!from || !cfg || cfg.verb !== "post") return;
+    var submitted = from.tagName === "FORM" || (from.type === "submit");
+    if (!submitted) return;
+    var scope = e.detail.target && e.detail.target.isConnected ? e.detail.target : document;
+    var error = scope.querySelector && scope.querySelector("[data-field] [data-error], [data-field] > [data-error]");
+    if (!error) return;
+    var field = error.closest("[data-field]");
+    if (!field) return;
+    field.scrollIntoView({ block: "center", behavior: "smooth" });
+    var input = field.querySelector("input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [contenteditable=true]");
+    if (input && input.focus) { try { input.focus({ preventScroll: true }); } catch (err) { input.focus(); } }
+  });
+
+  // Tab stays inside an open popup (#139).
+  window.twTrapFocus = function (e, box) {
+    var items = Array.prototype.filter.call(
+      box.querySelectorAll('a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable=true]'),
+      function (el) { return el.offsetParent !== null || el === document.activeElement; });
+    if (!items.length) return;
+    var first = items[0], last = items[items.length - 1];
+    if (!box.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+
+  // A form's submit buttons are off while its request runs: a double click sends it once (#139).
+  document.addEventListener("htmx:beforeRequest", function (e) {
+    var form = e.detail.elt;
+    if (!form || form.tagName !== "FORM" || e.defaultPrevented) return;
+    var held = [];
+    var buttons = Array.prototype.slice.call(form.querySelectorAll('button[type="submit"], button:not([type])'));
+    if (form.id) buttons = buttons.concat(Array.prototype.slice.call(document.querySelectorAll('button[form="' + form.id + '"]')));
+    buttons.forEach(function (b) { if (!b.disabled) { b.disabled = true; held.push(b); } });
+    form._twSubmitHeld = held;
+  });
+  document.addEventListener("htmx:afterRequest", function (e) {
+    var form = (e.detail.requestConfig && e.detail.requestConfig.elt) || e.detail.elt;
+    if (!form || !form._twSubmitHeld) return;
+    form._twSubmitHeld.forEach(function (b) { b.disabled = false; });
+    form._twSubmitHeld = null;
+  });
+
+  // Sticky bars above the page (data-tw-top-banner): keep --tw-banner-h at their height so the fixed
+  // sidebar starts below them (#132).
+  function bannerHeight() {
+    var h = 0;
+    document.querySelectorAll("[data-tw-top-banner]").forEach(function (b) { h += b.getBoundingClientRect().height; });
+    if (h) document.documentElement.style.setProperty("--tw-banner-h", h + "px");
+    else document.documentElement.style.removeProperty("--tw-banner-h");
+  }
+  document.addEventListener("DOMContentLoaded", bannerHeight);
+  document.addEventListener("htmx:afterSettle", bannerHeight);
+  window.addEventListener("resize", bannerHeight);
+
   // ------------------------------------------------------------------ input masks (TextInput.mask)
   function maskSlots(p) { return (p.match(/[9a*]/g) || []).length; }
   function applyPattern(value, patterns) {

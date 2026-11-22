@@ -269,7 +269,7 @@ def test_setup_page_keeps_secrets(admin, panel):
     configure(panel, channel="cloud", access_token="KEEP", app_secret="KEEP2")
     r = admin.post("/admin/whatsapp", {"channel": "cloud", "country_code": "+91", "phone_number_id": "PN9",
                                        "business_account_id": "", "access_token": "", "app_secret": ""})
-    assert "The whatsapp business account id field is required." in r.text  # needed for replies now
+    assert "The WhatsApp business account ID field is required." in r.text  # needed for replies now
     r = admin.post("/admin/whatsapp", {"channel": "cloud", "country_code": "+91", "phone_number_id": "PN9",
                                        "business_account_id": "WABA9", "access_token": "", "app_secret": ""})
     assert r.headers.get("HX-Redirect") == "/admin/whatsapp", r.text[:300]  # reload: the next buttons show now

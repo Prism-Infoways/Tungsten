@@ -84,7 +84,7 @@ def test_wrong_and_big_files_are_refused(admin, panel):
     r = upload(admin, LIBRARY_UPLOAD, "files", "evil.html", b"<script>alert(1)</script>", "text/html")
     assert "not allowed" in r.text
     r = upload(admin, LIBRARY_UPLOAD, "files", "big.pdf", b"%PDF" + b"0" * 60 * 1024, "application/pdf")
-    assert "greater than 50 kilobytes" in r.text
+    assert "is 60 KB. The biggest file you can upload here is 50 KB." in r.text.replace("&quot;", "\"")
     assert items(panel) == []
 
 

@@ -89,6 +89,7 @@ class Panel:
         brand_name: str = "Tungsten",
         brand_logo: str | None = None,
         brand_logo_dark: str | None = None,
+        brand_mark: str | None = None,
         brand_tagline: str | None = None,
         favicon: str | None = None,
         colors: dict[str, Any] | None = None,
@@ -148,6 +149,8 @@ class Panel:
         self.brand_name = brand_name
         self.brand_logo = brand_logo
         self.brand_logo_dark = brand_logo_dark
+        #: a small square logo for the collapsed sidebar (the wide brand_logo does not fit there; #143)
+        self.brand_mark = brand_mark
         self.brand_tagline = brand_tagline
         self.favicon = favicon
         self.colors = dict(colors or {})
@@ -662,7 +665,10 @@ class Panel:
         if self.dashboard is not None and self.dashboard.show_in_navigation and self.dashboard.can_access(ctx):
             items.append(NavigationItem(self.dashboard.get_navigation_label(), self.dashboard.get_url(ctx),
                                         self.dashboard.icon, self.dashboard.navigation_group,
-                                        self.dashboard.navigation_sort, active=current.rstrip("/") == self.url().rstrip("/")))
+                                        self.dashboard.navigation_sort,
+                                        active=bool(ctx.request.scope.get("tw_dashboard"))
+                                        or current.rstrip("/") in (self.url().rstrip("/"),
+                                                                   self.dashboard.get_url(ctx).rstrip("/"))))
         for r in self._resources:
             if r.cluster is not None or not r.show_in_navigation or r.parent_resource is not None \
                     or not r.can(ctx, "view_any"):

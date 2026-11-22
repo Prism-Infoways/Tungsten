@@ -2,6 +2,23 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## Unreleased · open GitHub issues #131-#145 fixed
+
+Needs a release: `tungsten-admin` (core), `tungsten-tickets`, `tungsten-impersonate` and `tungsten-quick-create` changed.
+
+- **Two-factor set-up page no longer reloads in a loop (issue #145).** With `Auth(two_factor_required=True)` (or email verification), the bell's badge poll and other background requests from the step page itself are not sent to the step page again.
+- **Titles keep short forms (issue #144):** "Edit MCP prompt", not "Edit mcp prompt". New `tungsten.i18n.lower_label()`.
+- **SPA mode (issue #134):** a row action link, Cancel on a record form, or any plain link inside a box with its own `hx-target` now opens the next page as the whole page, not inside that box.
+- **Uploads (issues #135, #136, #140):** a file over `max_size` is refused in the browser before it is sent, and the message names the file and its size (`":name" is :size. The biggest file you can upload here is :limit.`; your own `max` message also gets `:name`, `:size` and `:limit`). While a file uploads, the box shows its name and progress, and the submit buttons and other fields wait. A failed upload says so in the field. Long file names are cut with "…".
+- **Forms (issues #137, #141):** CheckboxList "Select all" / "Deselect all" refresh a `live()` list. Text inputs, selects and searchable selects are all 40px high; a searchable select and a file drop zone turn red on a mistake; the upload hint shows once; a table repeater works on a phone; after a failed submit the first field with a mistake is scrolled into view.
+- **Popups (issue #139):** a confirm-only popup focuses its button, Tab stays inside, the submit button is off while it runs (no double submit), and the spinner no longer pushes the label off centre.
+- **Wizard (issue #138):** the step bar scrolls to the current step on a phone (`aria-current="step"`).
+- **Repeater (issue #133):** a searchable select's list is no longer cut off inside a repeater row.
+- **Tables and cards (issue #142):** `align_end()` columns with a description sit under their heading, no empty toolbar strip, card descriptions wrap, no empty stat footer, phone (stacked) cells wrap.
+- **Layout (issue #143):** the top bar user button no longer wraps at 768-1100px, earlier breadcrumbs stay on one line, Dashboard is lit at the panel home, the bell panel fits a phone, the search shortcut badge no longer covers the placeholder, new `Panel(brand_mark=...)` for the collapsed sidebar, and a new `footer` hook sits at the bottom of the window.
+- **`tungsten-impersonate` (issue #132):** the sidebar starts below the "logged in as" bar.
+- **`tungsten-tickets` (issue #131):** ticket times, due dates and "overdue" use the panel's time zone (`Panel(timezone=...)`), not the server clock.
+
 ## 2026-10-28 · tungsten-admin 0.1.14: every open GitHub issue fixed
 
 Also released: `tungsten-tickets` 0.2.0, `tungsten-impersonate` 0.1.1, `tungsten-mcp` 0.1.4 and `tungsten-filament` 0.1.1 (all need tungsten-admin 0.1.14). After upgrading, **run `panel.create_tables(engine)` once**.

@@ -189,6 +189,16 @@ def test_two_factor_required_forces_setup(app_and_panel, admin):
         r = admin.get("/admin/products", follow_redirects=False)
         assert r.headers["location"] == "/admin/two-factor"
         assert admin.get("/admin/two-factor").status_code == 200
+        # the bell's poll is not sent to the step page (that reloaded it in a loop, #145)
+        r = admin.get("/admin/_tw/notifications/badge", htmx=True, follow_redirects=False)
+        assert r.status_code in (200, 204) and "HX-Redirect" not in r.headers and "location" not in r.headers
+        # any other background request from the step page itself gets an empty answer, not a redirect
+        r = admin.get("/admin/products", htmx=True, follow_redirects=False,
+                      headers={"HX-Current-URL": "http://testserver/admin/two-factor"})
+        assert r.status_code == 204 and "HX-Redirect" not in r.headers
+        # a link clicked elsewhere is still sent to the step
+        r = admin.get("/admin/products", htmx=True, follow_redirects=False)
+        assert r.headers.get("HX-Redirect") == "/admin/two-factor"
     finally:
         panel.auth.two_factor_required = False
 

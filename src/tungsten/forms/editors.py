@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from markupsafe import Markup
 
-from ..i18n import __
+from ..i18n import __, lower_label
 from ..support.evaluate import evaluate
 from ..support.markdown import markdown_to_html
 from .fields import Textarea
@@ -113,7 +113,7 @@ class CodeEditor(Textarea):
             try:
                 return _json.loads(value)
             except ValueError as exc:
-                raise ValueError(__("The :attribute must be valid JSON (:error).", attribute=self.get_label().lower(),
+                raise ValueError(__("The :attribute must be valid JSON (:error).", attribute=lower_label(self.get_label()),
                                     error=str(exc))) from exc
         return value
 

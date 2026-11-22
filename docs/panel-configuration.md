@@ -52,6 +52,7 @@ All options are keyword-only and have defaults, so you only pass what you want t
 | `brand_name` | `"Tungsten"` | The name in the sidebar, on the login page and in the browser tab title. |
 | `brand_logo` | `None` | URL of a logo image. It replaces the default icon and brand name. |
 | `brand_logo_dark` | `None` | URL of a logo shown in dark mode instead of `brand_logo`. |
+| `brand_mark` | `None` | URL of a small square logo, shown in place of `brand_logo` when the sidebar is collapsed. |
 | `brand_tagline` | `None` | A short line shown under the brand on the sign-in pages. |
 | `favicon` | Tungsten icon | URL of the browser tab icon. |
 | `colors` | orange primary | Brand colors as palette names, hex values or shade maps, e.g. `{"primary": "indigo"}`. |

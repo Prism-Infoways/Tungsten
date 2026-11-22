@@ -130,6 +130,10 @@ class TicketsPlugin(Plugin):
     # ------------------------------------------------------------------ setup
     def register(self, panel: Any) -> None:
         self.panel = panel
+        if callable(getattr(panel, "now", None)):
+            from .models import set_clock
+
+            set_clock(panel.now)  # times in the panel's timezone, not the server's clock (#131)
         resources = [self.ticket_resource, self.category_resource, self.saved_reply_resource]
         for resource in resources:
             resource.navigation_group = self.navigation_group

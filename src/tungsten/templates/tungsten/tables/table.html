@@ -72,7 +72,9 @@
     {% endif %}
 
     {% if table._toolbar %}
-    {# ------------------------------------------------------------ toolbar #}
+    {# ------------------------------------------------------------ toolbar (not drawn when it has nothing in it, #142) #}
+    {% set end_tools = (groups and not table._group_picker_hidden) or toggleable or reorderable or header_actions %}
+    {% if table.is_searchable() or inline_filters or panel_filters or end_tools %}
     <div class="flex flex-wrap items-center gap-3 p-4">
       {% if table.is_searchable() %}
       <div class="w-full sm:w-72">{{ ui.search_input('search', table.search, search_placeholder, table.id ~ '-search') }}</div>
@@ -105,6 +107,7 @@
       </div>
       {% else %}{{ filters_button }}{% endif %}
       {% endif %}
+      {% if end_tools %}
       <div class="ms-auto flex flex-wrap items-center gap-3">
         {% if groups and not table._group_picker_hidden %}
         <select name="group" class="tw-input w-auto pe-9">
@@ -135,7 +138,9 @@
         {% endif %}
         {% for a in header_actions %}{{ a.render(ctx, host, None, table_id=table.id) }}{% endfor %}
       </div>
+      {% endif %}
     </div>
+    {% endif %}
 
     {# ------------------------------------------------------------ active filter chips #}
     {% if indicators %}
@@ -290,7 +295,7 @@
             {% endif %}
             {% for c in columns if not layout %}
             {% set td = c.td_attributes(table, row.record) if c._cell_attributes is not none else {} %}
-            <td class="px-3 py-3 {{ td.pop('class', '') }} {{ 'whitespace-normal' if c._wrap else 'whitespace-nowrap' }} {{ 'max-md:flex max-md:items-start max-md:justify-between max-md:gap-4 max-md:py-1.5 max-md:text-end max-md:before:shrink-0 max-md:before:text-start max-md:before:text-sm max-md:before:font-medium max-md:before:text-gray-500 max-md:before:content-[attr(data-label)] dark:max-md:before:text-gray-400' if stacked }}"
+            <td class="px-3 py-3 {{ td.pop('class', '') }} {{ 'whitespace-normal' if c._wrap else 'whitespace-nowrap' }} {{ 'max-md:whitespace-normal max-md:break-words max-md:flex max-md:items-start max-md:justify-between max-md:gap-4 max-md:py-1.5 max-md:text-end max-md:before:shrink-0 max-md:before:text-start max-md:before:text-sm max-md:before:font-medium max-md:before:text-gray-500 max-md:before:content-[attr(data-label)] dark:max-md:before:text-gray-400' if stacked }}"
                 {% if stacked %}data-label="{{ c.get_label() }}"{% endif %} {{ attrs(td) if td }}>
               {{ row_cell(table, row, c) }}
             </td>

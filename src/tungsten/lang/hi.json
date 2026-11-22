@@ -572,5 +572,7 @@
   "The :attribute field must be a file of type: :values.": ":attribute फ़ाइल इनमें से किसी प्रकार की होनी चाहिए: :values।",
   "Images": "चित्र",
   "Videos": "वीडियो",
-  "Audio": "ऑडियो"
+  "Audio": "ऑडियो",
+  "The file did not arrive. Please pick it again.": "फ़ाइल नहीं पहुँची। कृपया उसे फिर से चुनें।",
+  "\":name\" is :size. The biggest file you can upload here is :limit.": "\":name\" :size की है। यहाँ सबसे बड़ी फ़ाइल :limit तक अपलोड हो सकती है।"
 }

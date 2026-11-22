@@ -24,7 +24,7 @@ from .context import Context
 from .forms.form import Form, ValidationError
 from .hosts import Host, RelationHost
 from .pages import PageHost
-from .i18n import maybe, reset_locale, set_locale
+from .i18n import lower_label, maybe, reset_locale, set_locale
 from .i18n import translate as __
 from .notifications import Notification
 from .panel import STATIC_DIR
@@ -212,19 +212,43 @@ class Routes:
                     "You were away for a while, so we signed you out to keep your account safe.").warning().send(ctx)
             return ctx.go(panel.url("login", next=self._next_after_login(request)))
         path = request.url.path.rstrip("/")
+        # the bell's badge and list only show the user's own data: a step page (2FA set-up, email
+        # verification) polls them too, and sending those polls to the step would reload it in a loop (#145)
+        if (path + "/").find("/_tw/notifications/") != -1:
+            return None
         if panel.auth.email_verification and path != panel.url("email-verification", "prompt"):
             from .auth.verification import needs_verification
 
             if needs_verification(panel, ctx.user):
-                return ctx.go(panel.url("email-verification", "prompt"))
+                return self._step_redirect(ctx, panel.url("email-verification", "prompt"))
         if panel.auth.two_factor_required and path != panel.url("two-factor"):
             from .auth.two_factor import TwoFactor
 
             if not TwoFactor(ctx, ctx.user).enabled:
+                step = panel.url("two-factor")
+                if self._from_page(request, step):
+                    return Response(status_code=204)
                 Notification("Two-factor authentication required").body(
                     "Please set up two-factor authentication to continue.").warning().send(ctx)
-                return ctx.go(panel.url("two-factor"))
+                return ctx.go(step)
         return None
+
+    @staticmethod
+    def _from_page(request: Request, page: str) -> bool:
+        """True for a background (HTMX) request sent from ``page`` itself."""
+        from urllib.parse import urlsplit
+
+        if request.headers.get("HX-Request") != "true" or request.headers.get("HX-Boosted") == "true":
+            return False
+        current = urlsplit(request.headers.get("HX-Current-URL") or "").path.rstrip("/")
+        return current == page.rstrip("/")
+
+    def _step_redirect(self, ctx: Context, step: str) -> Response:
+        """Send the user to a step they still owe; a background request from that step's own page gets an
+        empty answer instead of a redirect that would reload the page (#145)."""
+        if self._from_page(ctx.request, step):
+            return Response(status_code=204)
+        return ctx.go(step)
 
     def _next_after_login(self, request: Request) -> str | None:
         """The page to go back to after signing in: for an HTMX request (a lazy widget, a poll) the page it came
@@ -1229,6 +1253,7 @@ class Routes:
             if first is None:
                 raise NotFound()
             return ctx.go(first.get_url(ctx))
+        ctx.request.scope["tw_dashboard"] = True  # lights the Dashboard menu item, whatever its url (#143)
         return self.custom_page(ctx, fd, self.panel.dashboard)
 
     def custom_page(self, ctx: Context, fd: Any, page: Any) -> Response:
@@ -1362,7 +1387,7 @@ class Routes:
             operation="create",
             header_actions=actions,
             relations=[],
-            title=resource.page_title(ctx, "create") or __("Create :label", label=resource.get_label().lower()),
+            title=resource.page_title(ctx, "create") or __("Create :label", label=lower_label(resource.get_label())),
             subheading=resource.page_subheading(ctx, "create"),
             breadcrumbs=[(resource.plural_label_for(ctx), resource.get_url(ctx)), (__("Create"), None)],
         )
@@ -1443,7 +1468,7 @@ class Routes:
             relations=relations,
             trashed=host.is_trashed(record),
             title=resource.page_title(ctx, operation, record)
-            or (__("Edit :label", label=resource.get_label().lower()) if operation == "edit" else title_record),
+            or (__("Edit :label", label=lower_label(resource.get_label())) if operation == "edit" else title_record),
             subheading=resource.page_subheading(ctx, operation, record),
             breadcrumbs=[(resource.plural_label_for(ctx), resource.get_url(ctx)),
                          (title_record, None) if operation == "view" else (__("Edit"), None)],
@@ -1549,7 +1574,7 @@ class Routes:
             header_actions=actions,
             relations=[],
             cancel_url=back,
-            title=__("Create :label", label=host.model_label().lower()),
+            title=__("Create :label", label=lower_label(host.model_label())),
             breadcrumbs=[*self._owner_crumbs(ctx, host), (host.manager.get_title(), back), (__("Create"), None)],
         )
 
@@ -1619,7 +1644,7 @@ class Routes:
             relations=relations,
             cancel_url=back,
             trashed=host.is_trashed(record),
-            title=(__("Edit :label", label=host.model_label().lower()) if operation == "edit" else title_record),
+            title=(__("Edit :label", label=lower_label(host.model_label())) if operation == "edit" else title_record),
             breadcrumbs=[*self._owner_crumbs(ctx, host), (host.manager.get_title(), back),
                          (title_record, None) if operation == "view" else (__("Edit"), None)],
         )
@@ -2051,6 +2076,12 @@ class Routes:
             upload = fd.get(key)
             path = key[: -len(".__upload")]
             if not getattr(upload, "filename", None):
+                # the upload's own request came without the file (a proxy can drop the part): say so in the
+                # field instead of drawing it empty again (#135)
+                if ctx.request.headers.get("HX-Trigger-Name") == key:
+                    owner = form.form_for(path)
+                    if owner.find_visible(path) is not None:
+                        owner.add_error(path, __("The file did not arrive. Please pick it again."))
                 continue
             owner = form.form_for(path)
             found = owner.find_visible(path)  # a hidden field takes no files (issue #107)
@@ -2408,8 +2439,8 @@ class Routes:
         if fd is None:
             form.fill()
             return ctx.render("tungsten/pages/tenant-form.html", form=form, action_url=self.panel.url("tenant", "new"),
-                              title=__("Register :label", label=tenancy.get_label().lower()),
-                              subheading=__("Create a new :label to work in.", label=tenancy.get_label().lower()),
+                              title=__("Register :label", label=lower_label(tenancy.get_label())),
+                              subheading=__("Create a new :label to work in.", label=lower_label(tenancy.get_label())),
                               submit_label=__("Register"), submit_icon="plus")
         form.load(fd)
         try:

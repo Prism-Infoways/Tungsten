@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from markupsafe import Markup
 
-from ..i18n import maybe
+from ..i18n import lower_label, maybe
 from ..i18n import translate as __
 from ..support.component import Component, headline
 from ..support.evaluate import call, evaluate
@@ -287,9 +287,9 @@ class Field(SchemaComponentMixin, Component):
             if result is True or result is None:
                 continue
             if isinstance(result, str):
-                errors.append(__(result, attribute=label.lower()))
+                errors.append(__(result, attribute=lower_label(label)))
             else:
-                errors.append(str(evaluate(message, **form.ev(base))) if message else __("The :attribute is invalid.", attribute=label.lower()))
+                errors.append(str(evaluate(message, **form.ev(base))) if message else __("The :attribute is invalid.", attribute=lower_label(label)))
         if self._unique and not is_blank(value):
             err = self._check_unique(form, value)
             if err:
@@ -329,11 +329,11 @@ class Field(SchemaComponentMixin, Component):
         try:
             value = self.cast(state)
         except ValueError as exc:
-            errors.setdefault(path, []).append(__(str(exc), attribute=label.lower()))
+            errors.setdefault(path, []).append(__(str(exc), attribute=lower_label(label)))
             return
         if is_blank(value):
             if self.is_required(form, base) and not self.is_disabled(form, base):
-                errors.setdefault(path, []).append(__("The :attribute field is required.", attribute=label.lower()))
+                errors.setdefault(path, []).append(__("The :attribute field is required.", attribute=lower_label(label)))
                 return
         else:
             msgs = self.validate_value(form, base, value)
@@ -1064,7 +1064,7 @@ class Select(HasOptions):
         create = getattr(self, "_create_option_form", None)
         if create is not None:
             action = (Action("create_option").label(__("Create")).icon("plus").color("gray")
-                      .form(create[0], create[1]).modal_heading(lambda: __("Create :label", label=self.get_label().lower()))
+                      .form(create[0], create[1]).modal_heading(lambda: __("Create :label", label=lower_label(self.get_label())))
                       .modal_submit_label(__("Create"))
                       .authorize(lambda form, ctx: self._can_option(form, ctx, "create"))
                       .action(self._create_option))
@@ -1074,7 +1074,7 @@ class Select(HasOptions):
         edit = getattr(self, "_edit_option_form", None)
         if edit is not None:
             action = (Action("edit_option").label(__("Edit")).icon("pencil").color("gray")
-                      .form(edit[0], edit[1]).modal_heading(lambda: __("Edit :label", label=self.get_label().lower()))
+                      .form(edit[0], edit[1]).modal_heading(lambda: __("Edit :label", label=lower_label(self.get_label())))
                       .modal_submit_label(__("Save changes"))
                       .visible(lambda state: not self._multiple and state not in (None, "", []))
                       .authorize(lambda form, ctx, state: self._can_option(form, ctx, "update", state))
@@ -1979,6 +1979,13 @@ class FileUpload(Field):
                 labels.append(label)
         return labels
 
+    def too_big_message(self) -> str:
+        """The "max" message with ``{name}`` / ``{size}`` left for the browser's own size check (#136)."""
+        if not self._max_size:
+            return ""
+        return self._upload_message("max", '":name" is :size. The biggest file you can upload here is :limit.',
+                                    max=self._max_size, limit=self.size_label(), name="{name}", size="{size}")
+
     def size_label(self) -> str:
         if not self._max_size:
             return ""
@@ -2060,8 +2067,11 @@ class FileUpload(Field):
 
     def check_upload(self, filename: str, content_type: str, size: int) -> str | None:
         if self._max_size is not None and size > self._max_size * 1024:
-            return self._upload_message("max", "The :attribute field must not be greater than :max kilobytes.",
-                                        max=self._max_size)
+            # :name and :size are the picked file's; :max is the limit in kilobytes (as before), :limit the
+            # same limit in words ("20 MB", as in the hint; #136)
+            return self._upload_message("max", '":name" is :size. The biggest file you can upload here is :limit.',
+                                        max=self._max_size, limit=self.size_label(), name=filename,
+                                        size=file_size_label(size))
         if self._accepted:
             ok = False
             for t in self._accepted:
@@ -2130,10 +2140,24 @@ class FileUpload(Field):
             hint = f"{types} {__('up to')} {self.size_label()}" if self._max_size else types
         else:
             hint = evaluate(self._upload_hint, **form.ev(base))
+        # the upload hint is shown once, inside the drop zone; ``v.hint`` stays the field's own hint() (#141)
         v.update(multiple=self._multiple, image=self._image, avatar=self._avatar,
                  accept=",".join(self._accepted or []), max_size=self._max_size,
-                 hint=__(str(hint)) if hint not in (None, False, "") else "")
+                 max_bytes=self._max_size * 1024 if self._max_size else None, too_big=self.too_big_message(),
+                 upload_hint=__(str(hint)) if hint not in (None, False, "") else "")
         return v
+
+
+def file_size_label(size: int) -> str:
+    """A file size in words: "820 KB", "3.4 MB"."""
+    def one_decimal(value: float) -> str:
+        return f"{value:.1f}".removesuffix(".0")
+
+    if size >= 1024 * 1024 * 1024:
+        return f"{one_decimal(size / 1024 ** 3)} GB"
+    if size >= 1024 * 1024:
+        return f"{one_decimal(size / 1024 ** 2)} MB"
+    return f"{max(1, round(size / 1024))} KB"
 
 
 class Placeholder(Field):

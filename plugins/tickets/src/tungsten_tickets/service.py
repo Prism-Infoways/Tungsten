@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy import select
 
 from .models import Ticket, TicketCategory, TicketReply
+from .models import now as clock_now
 
 log = logging.getLogger("tungsten.tickets")
 
@@ -47,7 +48,7 @@ def tickets_plugin(db: Any) -> Any:
 
 
 def _now() -> dt.datetime:
-    return dt.datetime.now().replace(microsecond=0)
+    return clock_now().replace(microsecond=0)
 
 
 def status_label(plugin: Any, key: str | None) -> str:

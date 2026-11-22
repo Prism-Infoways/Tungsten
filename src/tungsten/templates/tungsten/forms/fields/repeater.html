@@ -2,7 +2,7 @@
 {% call wrapper(field, v) %}
 {% set btn = 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.gray %}
 {% if v.table %}
-<div class="overflow-x-auto rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10">
+<div class="relative overflow-x-auto rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10">
   <table class="w-full text-sm">
     <thead class="bg-gray-50 dark:bg-white/5">
       <tr>
@@ -15,9 +15,9 @@
       <tr class="align-top">
         <input type="hidden" name="{{ row.base }}.__row" value="1">
         {% if row.key %}<input type="hidden" name="{{ row.base }}.__key" value="{{ row.key }}">{% endif %}
-        {% for f in v.row_fields %}<td class="px-2 py-2 [&_.tw-label]:sr-only">{{ f.render(form, row.base) }}</td>{% endfor %}
+        {% for f in v.row_fields %}<td class="min-w-[10rem] px-2 py-2 [&_.tw-label]:sr-only">{{ f.render(form, row.base) }}</td>{% endfor %}
         {% if not v.disabled %}
-        <td class="px-2 py-2"><div class="flex items-center">
+        <td class="w-px px-2 py-2"><div class="flex h-10 items-center">
           {% if v.can_delete %}{{ ui_action(form, 'repeater.remove:' ~ v.path ~ ':' ~ row.index, __('Delete'), 'tw-icon-btn h-7 w-7 ' ~ colors.ICON_BUTTON.danger, 'trash-2') }}{% endif %}
         </div></td>
         {% endif %}
@@ -29,11 +29,11 @@
 {% else %}
 <ul class="grid gap-4">
   {% for row in v.rows %}
-  <li class="tw-card overflow-hidden" x-data="{ open: true }">
+  <li class="tw-card" x-data="{ open: true }">
     <input type="hidden" name="{{ row.base }}.__row" value="1">
     {% if row.key %}<input type="hidden" name="{{ row.base }}.__key" value="{{ row.key }}">{% endif %}
     {% if row.type %}<input type="hidden" name="{{ row.base }}.__type" value="{{ row.type }}">{% endif %}
-    <div class="flex items-center gap-x-2 border-b border-gray-100 bg-gray-50/60 px-4 py-2 dark:border-white/5 dark:bg-white/5">
+    <div class="flex items-center gap-x-2 rounded-t-[1.75rem] border-b border-gray-100 bg-gray-50/60 px-4 py-2 dark:border-white/5 dark:bg-white/5">
       {% if row.block_label %}
       <span class="flex flex-1 items-center gap-2 truncate text-sm font-medium text-gray-950 dark:text-white">{{ icon(row.block_icon, 'h-4 w-4 text-gray-400') }}{{ row.label or row.block_label }}</span>
       {% else %}
