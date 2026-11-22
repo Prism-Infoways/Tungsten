@@ -286,6 +286,15 @@ def update_language_file(file: str | Path, strings: Iterable[str]) -> tuple[int,
     return added, sum(1 for v in data.values() if not v)
 
 
+def lower_label(label: Any) -> str:
+    """A label for use inside a sentence ("Edit :label"): each word lower-cased, except short forms written in
+    capitals ("MCP prompt" stays "MCP prompt", "Blog Post" becomes "blog post"; issue #144)."""
+    def word(w: str) -> str:
+        return w if sum(c.isupper() for c in w) >= 2 else w.lower()
+
+    return re.sub(r"\S+", lambda m: word(m.group(0)), str(label))
+
+
 def is_rtl(locale: str | None) -> bool:
     return (locale or "").split("_")[0] in RTL_LOCALES
 
@@ -293,5 +302,5 @@ def is_rtl(locale: str | None) -> bool:
 __ = translate
 _ = translate
 
-__all__ = ["LANGUAGE_NAMES", "Translator", "_", "__", "current_locale", "extract_strings", "is_rtl", "maybe", "set_locale",
+__all__ = ["LANGUAGE_NAMES", "Translator", "_", "__", "current_locale", "extract_strings", "is_rtl", "lower_label", "maybe", "set_locale",
            "translate", "update_language_file"]

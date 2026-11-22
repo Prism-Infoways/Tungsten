@@ -27,6 +27,7 @@ from markupsafe import Markup
 
 from tungsten import Notification, Plugin
 from tungsten.forms.form import ValidationError
+from tungsten.i18n import lower_label
 from tungsten.i18n import translate as __
 from tungsten.routes import Forbidden, NotFound, Routes
 from tungsten.support.evaluate import call
@@ -300,7 +301,7 @@ class QuickCreatePlugin(Plugin):
     def _modal(self, ctx: Any, resource: Any, form: Any) -> Response:
         m = {
             "endpoint": self.panel.url("_quick-create", resource.get_slug()),
-            "heading": __("Create :label", label=resource.get_label().lower()),
+            "heading": __("Create :label", label=lower_label(resource.get_label())),
             "description": self._live_note(ctx),
             "icon": resource.icon,
             "icon_color": "primary",

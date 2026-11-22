@@ -222,6 +222,7 @@ The names are `chart`, `trix`, `select`, `sortable` and `qr`. `twNeed()` loads e
 | `user-menu.items` | In the user menu, after "My profile" and your menu items |
 | `content.start` | Above the main content of every panel page |
 | `content.end` | Below the main content of every panel page |
+| `footer` | A page footer: at the bottom of the window when the content is short, under the content otherwise |
 | `auth.login.form.after` | Under the login form |
 | `resource.list.before-table` | On every resource list page, just above the table. Also gets `resource`, `host` and `table` |
 | `forms.file-upload.after` | Under every file field that can take more files. Also gets `field`, `v` (the field's view data) and `form` |

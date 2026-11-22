@@ -16,7 +16,7 @@
   </div>
 {% endmacro %}
 {% call wrapper(field, v) %}
-<div x-data="{ toggleAll(on) { $root.querySelectorAll('input[type=checkbox]:not(:disabled)').forEach(c => c.checked = on); } }">
+<div x-data="{ toggleAll(on) { let boxes = [...$root.querySelectorAll('input[type=checkbox]:not(:disabled)')], changed = boxes.filter(c => c.checked !== on); boxes.forEach(c => c.checked = on); if (changed.length) changed[0].dispatchEvent(new Event('change', { bubbles: true })); } }">
   {% if v.bulk and not v.disabled %}
   <div class="mb-2 flex gap-x-3 text-sm">
     <button type="button" class="{{ colors.LINK.primary }} font-medium" @click="toggleAll(true)">{{ __('Select all') }}</button>

@@ -74,7 +74,7 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
   {% if icon_name %}<span class="tw-icon-tile h-10 w-10 {{ colors.pick(colors.SOFT_ICON, icon_color) }}">{{ icon(icon_name, 'h-5 w-5') }}</span>{% endif %}
   <div class="min-w-0">
     <h3 class="truncate text-base font-semibold tracking-tight text-gray-950 dark:text-white">{{ heading }}</h3>
-    {% if description %}<p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+    {% if description %}<p class="text-sm text-gray-500 dark:text-gray-400" style="overflow-wrap: anywhere">{{ description }}</p>{% endif %}
   </div>
 </div>
 {% endmacro %}
@@ -111,10 +111,12 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
 {# ---------------------------------------------------------------- headers #}
 {% macro breadcrumbs(items) %}
 {% if items %}
-<nav class="mb-2 flex items-center gap-x-2 text-sm text-gray-500 dark:text-gray-400" aria-label="{{ __('Breadcrumb') }}">
+{# earlier crumbs keep one line; only the last one is cut with "…" (#143) #}
+<nav class="mb-2 flex min-w-0 items-center gap-x-2 text-sm text-gray-500 dark:text-gray-400" aria-label="{{ __('Breadcrumb') }}">
   {% for label, url in items %}
-    {% if not loop.first %}{{ icon('chevron-right', 'h-4 w-4 text-gray-400') }}{% endif %}
-    {% if url %}<a href="{{ url }}" class="hover:text-gray-700 dark:hover:text-gray-200">{{ label }}</a>{% else %}<span>{{ label }}</span>{% endif %}
+    {% if not loop.first %}<span class="shrink-0 rtl:rotate-180">{{ icon('chevron-right', 'h-4 w-4 text-gray-400') }}</span>{% endif %}
+    {% set cls = 'min-w-0 truncate' if loop.last else 'shrink-0 whitespace-nowrap' %}
+    {% if url %}<a href="{{ url }}" class="{{ cls }} hover:text-gray-700 dark:hover:text-gray-200" {% if loop.last %}title="{{ label }}"{% endif %}>{{ label }}</a>{% else %}<span class="{{ cls }}" {% if loop.last %}title="{{ label }}"{% endif %}>{{ label }}</span>{% endif %}
   {% endfor %}
 </nav>
 {% endif %}
@@ -177,10 +179,12 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
     <span class="tw-trend-pill {{ 'bg-white/20 text-white' if filled else colors.pick(colors.BADGE, c) }}">{{ icon('arrow-up' if trend_direction == 'up' else 'arrow-down', 'h-3 w-3') }}{{ trend_value }}</span>
     {% endif %}
   </div>
+  {% if description or chart %}{# no empty footer row under the number (#142) #}
   <div class="relative mt-3 flex min-h-[2.5rem] items-end justify-between gap-3">
     {% if description %}<p class="line-clamp-2 min-w-0 flex-1 text-sm leading-snug {{ 'text-white/75' if filled else 'text-gray-500 dark:text-gray-400' }}" title="{{ description }}">{{ description }}</p>{% else %}<span></span>{% endif %}
     {% if chart %}<div class="shrink-0 {{ '[&_path]:!stroke-white [&_stop]:![stop-color:white]' if filled }}">{{ sparkline(chart, trend_color or color, id) }}</div>{% endif %}
   </div>
+  {% endif %}
 </{{ tag }}>
 {% endmacro %}
 

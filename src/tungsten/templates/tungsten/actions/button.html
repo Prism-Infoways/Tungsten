@@ -10,7 +10,7 @@
 {% if a.disabled %}
 <button type="button" class="{{ cls }} cursor-not-allowed opacity-50" disabled{{ aria }}>{{ label_html }}</button>
 {% elif a.url %}
-<a href="{{ a.url }}" class="{{ cls }}" {{ keys }} {% if a.new_tab %}target="_blank" rel="noopener"{% endif %}
+<a href="{{ a.url }}" class="{{ cls }}" {{ keys }} {% if a.new_tab %}target="_blank" rel="noopener" hx-boost="false"{% else %}hx-target="body" hx-swap="innerHTML show:window:top"{% endif %}
    {{ aria }}>{{ label_html }}</a>
 {% elif a.modal %}
 <button type="button" class="{{ cls }}" {{ keys }} {{ aria }}

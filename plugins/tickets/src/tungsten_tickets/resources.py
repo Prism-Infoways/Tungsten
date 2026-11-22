@@ -35,6 +35,7 @@ from tungsten.support.colors import COLOR_NAMES
 from tungsten.tables import DateFilter, ListTab, SelectFilter, TextColumn, ToggleColumn
 
 from .models import SavedReply, Ticket, TicketCategory
+from .models import now as clock_now
 from .service import (
     CLOSED_STATUSES,
     DEFAULT_PRIORITIES,
@@ -477,7 +478,7 @@ class TicketResource(Resource):
                 ListTab("unassigned").label("Unassigned").badge(color="warning").query(
                     lambda query, model: query.where(is_open(model), model.assigned_to.is_(None))),
                 ListTab("overdue").label("Overdue").badge(color="danger").query(
-                    lambda query, model: query.where(is_open(model), model.due_at < dt.datetime.now())),
+                    lambda query, model: query.where(is_open(model), model.due_at < clock_now())),
                 ListTab("waiting").label("Waiting on customer").query(
                     lambda query, model: query.where(model.status == "waiting")),
                 ListTab("done").label("Resolved").query(
