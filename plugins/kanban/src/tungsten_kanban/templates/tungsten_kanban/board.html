@@ -19,7 +19,7 @@
       <span>{{ __('Only mine') }}</span>
     </label>
     {% endif %}
-    {% if board.search %}<button type="submit" class="{{ ui.button_classes('gray', size='sm', outlined=true) }}">{{ __('Search') }}</button>{% endif %}
+    {% if board.search %}<button type="submit" class="{{ ui.button_classes('gray', outlined=true) }}">{{ __('Search') }}</button>{% endif %}
     {% if q or mine %}<a href="{{ page_url }}" class="{{ ui.button_classes('gray', style='link') }}">{{ __('Clear') }}</a>{% endif %}
     <span class="tk-total">{{ __(':n cards', n=total) }}</span>
     {% if quick_url %}<button type="button" class="{{ ui.button_classes('primary', size='sm') }}" hx-get="{{ quick_url }}"

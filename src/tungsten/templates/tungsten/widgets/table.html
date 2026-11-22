@@ -1,12 +1,12 @@
 {% import "tungsten/components/ui.html" as ui %}
 <div class="h-full [&>[data-tw-table]]:h-full">
   {% if w.heading or link %}
-  <div class="tw-card overflow-hidden">
-    <header class="flex items-center justify-between gap-4 px-5 pt-5">
+  <div class="tw-card flex h-full flex-col overflow-hidden">
+    <header class="flex items-center justify-between gap-4 px-6 pt-6">
       {{ ui.card_heading(__(w.heading) if w.heading else '', __(w.description) if w.description else none, w.icon, w.icon_color) }}
       {% if link %}{{ ui.card_link(link, w.link_label) }}{% endif %}
     </header>
-    <div class="mt-4 [&>[data-tw-table]]:rounded-none [&>[data-tw-table]]:shadow-none [&>[data-tw-table]]:ring-0">{{ table.render() }}</div>
+    <div class="mt-4 flex-1 [&_td]:px-2.5 [&_th]:px-2.5 [&_td:first-child]:ps-6 [&_th:first-child]:ps-6 [&_td:last-child]:pe-6 [&_th:last-child]:pe-6 [&>[data-tw-table]]:h-full [&>[data-tw-table]]:rounded-none [&>[data-tw-table]]:shadow-none [&>[data-tw-table]]:ring-0">{{ table.render() }}</div>
   </div>
   {% else %}{{ table.render() }}{% endif %}
 </div>

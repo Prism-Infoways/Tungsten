@@ -1,7 +1,7 @@
 {% import "tungsten/components/ui.html" as ui %}
 {# ColumnsWidget: rounded columns with one highlighted. #}
 <section class="tw-card flex h-full flex-col p-6" data-tw-widget="columns">
-  <header class="mb-6 flex items-center justify-between gap-4">
+  <header class="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
     {{ ui.card_heading(__(w.heading) if w.heading else '', __(w.description) if w.description else none, w.icon, w.icon_color) }}
     {% if filters %}
     <select class="tw-input w-auto shrink-0 rounded-full py-1.5 pe-9 text-xs font-semibold uppercase tracking-wide" aria-label="{{ __('Period') }}" name="filter"

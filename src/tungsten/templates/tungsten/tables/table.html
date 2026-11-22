@@ -314,7 +314,7 @@
             <td class="px-3 py-3 align-top text-sm {{ 'max-md:flex max-md:justify-between max-md:gap-4 max-md:py-1 max-md:before:font-medium max-md:before:text-gray-500 max-md:before:content-[attr(data-label)]' if stacked and summaries.get(c.name) }} {{ 'max-md:hidden' if stacked and not summaries.get(c.name) }}"
                 {% if stacked and summaries.get(c.name) %}data-label="{{ c.get_label() }}"{% endif %}>
               {% for s in summaries.get(c.name, []) %}
-              <div class="{{ 'text-end' if c._alignment == 'end' else '' }}"><span class="text-gray-500 dark:text-gray-400">{{ s.label }}:</span> <span class="font-semibold text-gray-950 dark:text-white">{{ s.value }}</span></div>
+              <div class="whitespace-nowrap {{ 'text-end' if c._alignment == 'end' else '' }}"><span class="text-gray-500 dark:text-gray-400">{{ s.label }}:</span> <span class="font-semibold text-gray-950 dark:text-white">{{ s.value }}</span></div>
               {% endfor %}
               {% if loop.first and not summaries.get(c.name) %}<span class="font-medium text-gray-950 dark:text-white">{{ __('Summary') }}</span>{% endif %}
             </td>
