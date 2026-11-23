@@ -40,7 +40,7 @@ from .service import (
 )
 from .widgets import TicketStats
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 log = logging.getLogger("tungsten.tickets")
 

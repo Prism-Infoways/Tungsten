@@ -32,7 +32,7 @@ from tungsten.i18n import translate as __
 from tungsten.routes import Forbidden, NotFound, Routes
 from tungsten.support.evaluate import call
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 log = logging.getLogger("tungsten.quick_create")
 

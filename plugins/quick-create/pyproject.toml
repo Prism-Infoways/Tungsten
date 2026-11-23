@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tungsten-quick-create"
-version = "0.1.0"
+version = "0.1.1"
 description = "Quick Create plugin for Tungsten: a + New button in the top bar to add any record from any page."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Prism Infoways" }]
 keywords = ["tungsten", "tungsten-admin", "quick-create", "shortcut", "productivity", "fastapi", "admin"]
-dependencies = ["tungsten-admin>=0.1.7"]
+dependencies = ["tungsten-admin>=0.1.15"]
 
 [project.urls]
 Homepage = "https://tungsten.prisminfoways.com/"
