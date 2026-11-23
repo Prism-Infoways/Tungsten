@@ -20,7 +20,7 @@ Custom themes: card corners changed from `rounded-[1.75rem]` to `rounded-[1.25re
 
 ## 2026-11-22 · tungsten-admin 0.1.15: open GitHub issues #131-#145 fixed
 
-The core fixes are in `tungsten-admin` 0.1.15. The `tungsten-tickets`, `tungsten-impersonate` and `tungsten-quick-create` changes are not released yet.
+The core fixes are in `tungsten-admin` 0.1.15. Released on 2026-11-23: `tungsten-tickets` 0.2.1, `tungsten-impersonate` 0.1.2 and `tungsten-quick-create` 0.1.1 (the last two need tungsten-admin 0.1.15).
 
 - **Two-factor set-up page no longer reloads in a loop (issue #145).** With `Auth(two_factor_required=True)` (or email verification), the bell's badge poll and other background requests from the step page itself are not sent to the step page again.
 - **Titles keep short forms (issue #144):** "Edit MCP prompt", not "Edit mcp prompt". New `tungsten.i18n.lower_label()`.
