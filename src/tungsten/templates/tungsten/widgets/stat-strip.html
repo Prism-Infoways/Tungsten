@@ -1,0 +1,8 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# StatStripWidget: a row of numbers split by thin lines. #}
+<div data-tw-widget="stat-strip">
+{% if w.heading %}<div class="mb-3 px-1">{{ ui.card_heading(__(w.heading), __(w.description) if w.description else none, w.icon, w.icon_color) }}</div>{% endif %}
+{% set rows = [] %}
+{% for it in entries %}{% set _ = rows.append({'label': __(it.label), 'value': it.value, 'trend': it.badge, 'direction': 'down' if it.color == 'danger' else 'up'}) %}{% endfor %}
+{% if rows %}{{ ui.stat_strip(rows) }}{% else %}<div class="tw-card p-6 text-center text-sm text-gray-500">{{ __('No data yet.') }}</div>{% endif %}
+</div>

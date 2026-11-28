@@ -52,9 +52,11 @@ from .widgets import (
     QuickActionsWidget,
     ScheduleWidget,
     Stat,
+    StatStripWidget,
     StatsOverviewWidget,
     TableWidget,
     TeamWidget,
+    TransactionsWidget,
     Widget,
 )
 
@@ -63,6 +65,7 @@ __all__ = [
     "Context", "Dashboard", "FunnelWidget", "GaugeWidget", "HeroStatWidget", "Item", "LeaderboardWidget", "LocalStorage",
     "NavigationGroup", "NavigationItem", "Notification", "Page", "Panel", "Plugin", "ProgressItem", "ProgressListWidget",
     "QuickActionsWidget", "RelationManager", "Resource", "ScheduleWidget", "SecurityHeadersMiddleware", "Stat",
-    "StatsOverviewWidget", "Storage", "TableWidget", "TeamWidget", "Tenancy", "Widget",
+    "StatStripWidget", "StatsOverviewWidget", "Storage", "TableWidget", "TeamWidget", "Tenancy",
+    "TransactionsWidget", "Widget",
     "__", "__version__", "current_context", "hash_password", "translate", "verify_password",
 ]
