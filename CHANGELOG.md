@@ -2,7 +2,7 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
-## 2026-11-28 · tungsten-admin (next release): page kit
+## 2026-11-28 · tungsten-admin 0.1.16: page kit
 
 17 new UI blocks and 2 new widgets for whole pages: billing, profile, orders, pricing, chat and smart-device screens. We studied a popular dashboard template page by page (with a small crawl script in `promo/inspiration/crawl.py`) and built Tungsten's own versions in its flat, crisp style. Light, dark and phone all work. See them under **Settings → UI kit** in the demo ("Page kit" part).
 
