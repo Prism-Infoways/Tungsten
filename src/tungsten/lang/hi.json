@@ -574,5 +574,20 @@
   "Videos": "वीडियो",
   "Audio": "ऑडियो",
   "The file did not arrive. Please pick it again.": "फ़ाइल नहीं पहुँची। कृपया उसे फिर से चुनें।",
-  "\":name\" is :size. The biggest file you can upload here is :limit.": "\":name\" :size की है। यहाँ सबसे बड़ी फ़ाइल :limit तक अपलोड हो सकती है।"
+  "\":name\" is :size. The biggest file you can upload here is :limit.": "\":name\" :size की है। यहाँ सबसे बड़ी फ़ाइल :limit तक अपलोड हो सकती है।",
+  "Invoice date": "चालान की तारीख",
+  "Due date": "देय तिथि",
+  "Billed to": "बिल पाने वाला",
+  "Qty": "मात्रा",
+  "Card holder": "कार्ड धारक",
+  "Default": "डिफ़ॉल्ट",
+  "On": "चालू",
+  "Page kit": "पेज किट",
+  "Off": "बंद",
+  "Item": "आइटम",
+  "Invoice no": "चालान नंबर",
+  "Rate": "दर",
+  "Card ending in": "कार्ड के आखिरी अंक",
+  "Pending": "बाकी",
+  "Amount": "राशि"
 }

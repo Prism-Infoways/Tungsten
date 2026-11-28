@@ -1,0 +1,12 @@
+{% import "tungsten/components/ui.html" as ui %}
+{# TransactionsWidget: money in and out, grouped by the item's description. #}
+{% call ui.card(__(w.heading) if w.heading else none, __(w.description) if w.description else none, 'px-6 pb-4 pt-3', 'h-full', link, w.link_label, w.icon, w.icon_color) %}
+<div class="divide-y divide-gray-100 dark:divide-white/5" data-tw-widget="transactions">
+  {% for it in entries %}
+  {% if it.description %}<p class="pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-gray-400 first:pt-0">{{ __(it.description) }}</p>{% endif %}
+  {{ ui.transaction_row(__(it.label), it.time, it.value, {'success': 'in', 'danger': 'out'}.get(it.color, 'pending')) }}
+  {% else %}
+  <p class="py-6 text-center text-sm text-gray-500">{{ __('Nothing here yet.') }}</p>
+  {% endfor %}
+</div>
+{% endcall %}

@@ -511,3 +511,25 @@ class ChecklistWidget(_ItemsWidget):
         done = sum(1 for it in entries if it.done)
         return {"entries": entries, "link": cls.link, "done": done,
                 "percent": round(done / len(entries) * 100) if entries else 0}
+
+
+class StatStripWidget(_ItemsWidget):
+    """A row of numbers split by thin lines in one card ("Earnings · Customers · Avg. value · Refund rate").
+
+    ``items()`` returns ``Item("Earnings", "₹23,980", badge="12%")``; ``badge`` shows as a trend pill,
+    and ``color="danger"`` points it down.
+    """
+
+    template = "tungsten/widgets/stat-strip.html"
+    column_span = "full"
+
+
+class TransactionsWidget(_ItemsWidget):
+    """Money in and out, grouped under small headings ("Newest", "Yesterday").
+
+    ``items()`` returns ``Item("Netflix", "₹2,500", time="27 Mar, 12:30", color="danger")``. ``color``
+    picks the direction: ``success`` (money in), ``danger`` (money out) or ``gray`` (pending).
+    ``description`` starts a new group with that heading.
+    """
+
+    template = "tungsten/widgets/transactions.html"

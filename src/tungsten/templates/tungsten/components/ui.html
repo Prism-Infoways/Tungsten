@@ -429,3 +429,327 @@ tw-btn {{ sizes.get(size, sizes.md) }} {{ colors.pick(colors.BUTTON, color) }}
   </div>
 </div>
 {% endmacro %}
+
+
+{# ================================================================ page kit
+   Bigger blocks for whole pages: media and project cards, payment cards, invoices, pricing, profile
+   headers, chat, order tracking and more. Flat and crisp like the rest of the panel; light, dark and
+   phone. See docs/ui-components.md ("Page kit"). #}
+
+{# A card with an optional picture on top: places, products, projects.
+   people: list of {name, avatar} drawn as an avatar group in the footer. #}
+{% macro media_card(title, text=None, image_url=None, eyebrow=None, meta=None, value=None, href=None, people=None, button_label=None, image_alt='') %}
+<article class="tw-card group flex h-full min-w-0 flex-col overflow-hidden" data-tw-ui="media-card">
+  {% if image_url %}
+  <div class="aspect-[16/10] overflow-hidden bg-gray-100 dark:bg-white/5">
+    <img src="{{ image_url }}" alt="{{ image_alt }}" loading="lazy" class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]">
+  </div>
+  {% endif %}
+  <div class="flex flex-1 flex-col p-5">
+    {% if eyebrow %}<p class="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ eyebrow }}</p>{% endif %}
+    <h3 class="text-[0.9375rem] font-semibold leading-6 tracking-[-0.01em] text-gray-950 dark:text-white">
+      {% if href and not button_label %}<a href="{{ href }}" class="hover:underline">{{ title }}</a>{% else %}{{ title }}{% endif %}
+    </h3>
+    {% if text %}<p class="mt-1.5 line-clamp-3 text-sm text-gray-500 dark:text-gray-400">{{ text }}</p>{% endif %}
+    {% if meta or value is not none or people or button_label %}
+    <div class="mt-auto pt-4"><div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-white/10">
+      {% if button_label %}<a href="{{ href or '#' }}" class="{{ button_classes('gray', 'button', 'sm', true) }}">{{ __(button_label) }}</a>
+      {% elif meta %}<span class="inline-flex min-w-0 items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">{{ icon('map-pin', 'h-4 w-4 shrink-0') }}<span class="truncate">{{ meta }}</span></span>{% endif %}
+      {% if people %}{{ avatar_group(people, 3, 'h-8 w-8') }}{% endif %}
+      {% if value is not none %}<span class="text-sm font-semibold tabular-nums text-gray-950 dark:text-white">{{ value }}</span>{% endif %}
+    </div></div>
+    {% endif %}
+  </div>
+</article>
+{% endmacro %}
+
+{# A bank card drawn flat: ui.payment_card('7852', 'Jack Peterson', '11/27', 'Visa') #}
+{% macro payment_card(last4, holder, expires=None, brand=None, variant='dark') %}
+{% set dark = variant == 'dark' %}
+<div class="{{ 'tw-card-dark' if dark else 'tw-card' }} relative flex aspect-[1.586] w-full max-w-sm min-w-0 flex-col justify-between overflow-hidden p-5 sm:p-6" data-tw-ui="payment-card">
+  <div class="flex items-center justify-between gap-3">
+    <span class="{{ 'text-white/70' if dark else 'text-gray-400' }}">{{ icon('wifi', 'h-5 w-5 rotate-90') }}</span>
+    {% if brand %}<span class="text-sm font-semibold tracking-wide {{ 'text-white' if dark else 'text-gray-950 dark:text-white' }}">{{ brand }}</span>{% endif %}
+  </div>
+  <p class="font-mono text-lg tracking-[0.18em] tabular-nums sm:text-xl {{ 'text-white' if dark else 'text-gray-950 dark:text-white' }}" aria-label="{{ __('Card ending in') }} {{ last4 }}">•••• •••• •••• {{ last4 }}</p>
+  <div class="flex items-end justify-between gap-4">
+    <div class="min-w-0">
+      <p class="text-[0.6875rem] uppercase tracking-wider {{ 'text-white/60' if dark else 'text-gray-500 dark:text-gray-400' }}">{{ __('Card holder') }}</p>
+      <p class="truncate text-sm font-medium {{ 'text-white' if dark else 'text-gray-950 dark:text-white' }}">{{ holder }}</p>
+    </div>
+    {% if expires %}
+    <div class="shrink-0 text-end">
+      <p class="text-[0.6875rem] uppercase tracking-wider {{ 'text-white/60' if dark else 'text-gray-500 dark:text-gray-400' }}">{{ __('Expires') }}</p>
+      <p class="text-sm font-medium tabular-nums {{ 'text-white' if dark else 'text-gray-950 dark:text-white' }}">{{ expires }}</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{# A saved card row with an edit button: ui.payment_method('7852', 'Mastercard', '#') #}
+{% macro payment_method(last4, brand=None, edit_url=None, default=false) %}
+<div class="flex min-w-0 items-center gap-3 rounded-2xl p-3 ring-1 ring-inset ring-gray-950/10 dark:ring-white/10" data-tw-ui="payment-method">
+  <span class="tw-icon-tile tw-icon-tile-plain h-9 w-9 text-gray-700 dark:text-gray-200">{{ icon('credit-card', 'h-4 w-4') }}</span>
+  <div class="min-w-0 flex-1">
+    <p class="truncate font-mono text-sm tracking-widest tabular-nums text-gray-950 dark:text-white">•••• {{ last4 }}</p>
+    {% if brand %}<p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ brand }}</p>{% endif %}
+  </div>
+  {% if default %}{{ badge(__('Default'), 'gray') }}{% endif %}
+  {% if edit_url %}{{ icon_button('pencil', 'Edit', 'gray', edit_url, bordered=false) }}{% endif %}
+</div>
+{% endmacro %}
+
+{# A centred tile: an icon, a label, a muted line and a value under a line ("Salary  +₹2,000"). #}
+{% macro stat_tile(label, value, description=None, icon_name=None, color='gray') %}
+<div class="tw-card flex h-full min-w-0 flex-col items-center p-5 text-center" data-tw-ui="stat-tile">
+  {% if icon_name %}<span class="tw-icon-tile tw-icon-tile-plain mb-3 h-10 w-10 {{ colors.pick(colors.TEXT, color) if color != 'gray' else 'text-gray-700 dark:text-gray-200' }}">{{ icon(icon_name, 'h-5 w-5') }}</span>{% endif %}
+  <p class="max-w-full truncate text-sm font-semibold text-gray-950 dark:text-white">{{ label }}</p>
+  {% if description %}<p class="max-w-full truncate text-xs text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+  <span class="my-3 h-px w-full bg-gray-100 dark:bg-white/10"></span>
+  <p class="text-lg font-semibold tracking-tight tabular-nums text-gray-950 dark:text-white">{{ value }}</p>
+</div>
+{% endmacro %}
+
+{# A row of numbers split by thin lines. items: list of {label, value, trend, direction}. Wraps to 2 columns on a phone. #}
+{% macro stat_strip(items) %}
+<div class="tw-card grid min-w-0 grid-cols-2 overflow-hidden {{ {1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-4', 5: 'sm:grid-cols-5'}.get(items | length, 'sm:grid-cols-4') }}" data-tw-ui="stat-strip">
+  {% for it in items %}
+  <div class="min-w-0 border-gray-100 p-5 text-center dark:border-white/10 {{ 'border-s' if not loop.first }} {{ 'max-sm:border-s-0' if loop.index0 % 2 == 0 }} {{ 'max-sm:border-t' if loop.index0 >= 2 }}">
+    <p class="truncate text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ it.label }}</p>
+    <p class="mt-1 text-xl font-semibold tracking-tight tabular-nums text-gray-950 sm:text-2xl dark:text-white">{{ it.value }}</p>
+    {% if it.trend %}<div class="mt-1 flex justify-center">{{ trend_pill(it.trend, it.direction or 'up') }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# A big reading with its unit: ui.metric('21', '°C', 'Living room', 'Temperature') #}
+{% macro metric(value, unit=None, label=None, description=None) %}
+<div class="tw-card flex h-full min-w-0 flex-col items-center justify-center p-5 text-center" data-tw-ui="metric">
+  <p class="text-gray-950 dark:text-white"><span class="text-4xl font-semibold tracking-[-0.03em] tabular-nums">{{ value }}</span>{% if unit %}<span class="ms-0.5 align-top text-sm font-medium text-gray-500 dark:text-gray-400">{{ unit }}</span>{% endif %}</p>
+  {% if label %}<p class="mt-1 text-sm font-medium text-gray-950 dark:text-white">{{ label }}</p>{% endif %}
+  {% if description %}<p class="text-xs text-gray-500 dark:text-gray-400">{{ description }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{# An on/off tile for a device or a feature. It turns dark while switched on (no JavaScript). #}
+{% macro toggle_tile(name, label, icon_name='power', checked=false, description=None, value='1') %}
+<label class="tw-card group flex min-h-[9rem] min-w-0 cursor-pointer flex-col justify-between gap-4 p-4 transition has-[:checked]:bg-gray-950 has-[:checked]:ring-gray-950 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary-500 dark:has-[:checked]:bg-white dark:has-[:checked]:ring-white" data-tw-ui="toggle-tile">
+  <span class="flex items-center justify-between gap-2">
+    <span class="text-xs font-medium text-gray-500 group-has-[:checked]:text-white/70 dark:group-has-[:checked]:text-gray-500"><span class="group-has-[:checked]:hidden">{{ __('Off') }}</span><span class="hidden group-has-[:checked]:inline">{{ __('On') }}</span></span>
+    <span class="relative inline-flex shrink-0">
+      <input type="checkbox" name="{{ name }}" value="{{ value }}" class="peer sr-only" {% if checked %}checked{% endif %}>
+      <span class="h-5 w-9 rounded-full bg-gray-200 transition peer-checked:bg-white/25 dark:bg-white/10 dark:peer-checked:bg-gray-950/20"></span>
+      <span class="absolute start-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-4 rtl:peer-checked:-translate-x-4 dark:peer-checked:bg-gray-950"></span>
+    </span>
+  </span>
+  <span class="text-gray-700 group-has-[:checked]:text-white dark:text-gray-200 dark:group-has-[:checked]:text-gray-950">{{ icon(icon_name, 'h-7 w-7') }}</span>
+  <span class="min-w-0">
+    <span class="block truncate text-sm font-semibold text-gray-950 group-has-[:checked]:text-white dark:text-white dark:group-has-[:checked]:text-gray-950">{{ __(label) }}</span>
+    {% if description %}<span class="block truncate text-xs text-gray-500 group-has-[:checked]:text-white/60 dark:text-gray-400 dark:group-has-[:checked]:text-gray-500">{{ __(description) }}</span>{% endif %}
+  </span>
+</label>
+{% endmacro %}
+
+{# One money movement. direction: in | out | pending. ui.transaction_row('Netflix', '27 Mar, 12:30', '₹2,500', 'out') #}
+{% macro transaction_row(title, time=None, amount=None, direction='in') %}
+{% set tone = {'in': 'text-success-600 dark:text-success-400', 'out': 'text-danger-600 dark:text-danger-400'}.get(direction, 'text-gray-500 dark:text-gray-400') %}
+<div class="flex min-w-0 items-center gap-3 py-2.5" data-tw-ui="transaction">
+  <span class="tw-icon-tile tw-icon-tile-plain h-9 w-9 {{ tone }}">{{ icon({'in': 'arrow-down-left', 'out': 'arrow-up-right'}.get(direction, 'clock'), 'h-4 w-4') }}</span>
+  <div class="min-w-0 flex-1">
+    <p class="truncate text-sm font-medium text-gray-950 dark:text-white">{{ title }}</p>
+    {% if time %}<p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ time }}</p>{% endif %}
+  </div>
+  {% if direction == 'pending' %}<span class="shrink-0 text-sm font-medium text-gray-500 dark:text-gray-400">{{ amount or __('Pending') }}</span>
+  {% elif amount %}<span class="shrink-0 text-sm font-semibold tabular-nums {{ tone }}">{{ '+' if direction == 'in' else '−' }} {{ amount }}</span>{% endif %}
+</div>
+{% endmacro %}
+
+{# Label / value rows. items: list of (label, value) pairs or {label, value}. total: a last row in bold. #}
+{% macro description_list(items, total=None, total_label='Total') %}
+<dl class="grid min-w-0 gap-2.5 text-sm" data-tw-ui="description-list">
+  {% for it in items %}
+  {% set label = it.label if it.label is defined else it[0] %}{% set val = it.value if it.value is defined else it[1] %}
+  <div class="flex items-baseline justify-between gap-4">
+    <dt class="shrink-0 text-gray-500 dark:text-gray-400">{{ label }}</dt>
+    <dd class="min-w-0 text-end font-medium text-gray-950 dark:text-white" style="overflow-wrap: anywhere">{{ val }}</dd>
+  </div>
+  {% endfor %}
+  {% if total is not none %}
+  <div class="mt-1 flex items-baseline justify-between gap-4 border-t border-gray-100 pt-3 dark:border-white/10">
+    <dt class="font-semibold text-gray-950 dark:text-white">{{ __(total_label) }}</dt>
+    <dd class="text-lg font-semibold tabular-nums text-gray-950 dark:text-white">{{ total }}</dd>
+  </div>
+  {% endif %}
+</dl>
+{% endmacro %}
+
+{# A printable invoice. seller / buyer: lists of lines. items: list of {name, qty, rate, amount}.
+   totals: (label, value) rows before the total. #}
+{% macro invoice(number, issued=None, due=None, seller=[], buyer=[], items=[], totals=[], total=None, note=None, brand=None) %}
+<article class="tw-card min-w-0 p-6 sm:p-10 print:shadow-none print:ring-0" data-tw-ui="invoice">
+  <header class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+    <div class="min-w-0 text-sm text-gray-500 dark:text-gray-400">
+      {% if brand %}<p class="mb-2 text-lg font-semibold tracking-tight text-gray-950 dark:text-white">{{ brand }}</p>{% endif %}
+      {% for line in seller %}<p>{{ line }}</p>{% endfor %}
+    </div>
+    <div class="min-w-0 text-sm text-gray-500 sm:text-end dark:text-gray-400">
+      <p class="mb-1 text-xs font-medium uppercase tracking-wider">{{ __('Billed to') }}</p>
+      {% for line in buyer %}<p class="{{ 'font-semibold text-gray-950 dark:text-white' if loop.first }}">{{ line }}</p>{% endfor %}
+    </div>
+  </header>
+  <div class="mt-8 flex flex-col gap-4 border-t border-gray-100 pt-6 sm:flex-row sm:items-end sm:justify-between dark:border-white/10">
+    <div>
+      <p class="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ __('Invoice no') }}</p>
+      <p class="text-xl font-semibold tracking-tight text-gray-950 dark:text-white">{{ number }}</p>
+    </div>
+    <dl class="grid grid-cols-[auto_auto] gap-x-6 gap-y-1 text-sm sm:text-end">
+      {% if issued %}<dt class="text-gray-500 dark:text-gray-400">{{ __('Invoice date') }}</dt><dd class="font-medium tabular-nums text-gray-950 dark:text-white">{{ issued }}</dd>{% endif %}
+      {% if due %}<dt class="text-gray-500 dark:text-gray-400">{{ __('Due date') }}</dt><dd class="font-medium tabular-nums text-gray-950 dark:text-white">{{ due }}</dd>{% endif %}
+    </dl>
+  </div>
+  <div class="mt-6 overflow-x-auto">
+    <table class="w-full min-w-[28rem] text-sm">
+      <thead><tr class="border-b border-gray-200 text-start text-xs uppercase tracking-wider text-gray-500 dark:border-white/10 dark:text-gray-400">
+        <th class="py-2 pe-4 text-start font-medium">{{ __('Item') }}</th><th class="px-4 py-2 text-end font-medium">{{ __('Qty') }}</th>
+        <th class="px-4 py-2 text-end font-medium">{{ __('Rate') }}</th><th class="py-2 ps-4 text-end font-medium">{{ __('Amount') }}</th>
+      </tr></thead>
+      <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+        {% for it in items %}
+        <tr><td class="py-3 pe-4 text-gray-950 dark:text-white">{{ it.name }}</td><td class="px-4 py-3 text-end tabular-nums text-gray-500 dark:text-gray-400">{{ it.qty }}</td>
+          <td class="px-4 py-3 text-end tabular-nums text-gray-500 dark:text-gray-400">{{ it.rate }}</td><td class="py-3 ps-4 text-end font-medium tabular-nums text-gray-950 dark:text-white">{{ it.amount }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="mt-4 flex justify-end"><div class="w-full sm:max-w-xs">{{ description_list(totals, total) }}</div></div>
+  {% if note or caller %}
+  <footer class="mt-8 flex flex-col gap-4 border-t border-gray-100 pt-6 sm:flex-row sm:items-end sm:justify-between dark:border-white/10">
+    {% if note %}<p class="text-sm text-gray-500 dark:text-gray-400">{{ note }}</p>{% endif %}
+    {% if caller %}<div class="flex shrink-0 gap-2 print:hidden">{{ caller() }}</div>{% endif %}
+  </footer>
+  {% endif %}
+</article>
+{% endmacro %}
+
+{# The top of a profile page: a cover strip, the avatar, name, a line under it and pill tabs.
+   With no cover_url the cover is a plain grey band. #}
+{% macro profile_header(name, subtitle=None, avatar_url=None, cover_url=None, tabs=None) %}
+<section class="tw-card min-w-0 overflow-hidden" data-tw-ui="profile-header">
+  <div class="h-28 bg-gray-100 sm:h-36 dark:bg-white/5">{% if cover_url %}<img src="{{ cover_url }}" alt="" class="h-full w-full object-cover">{% endif %}</div>
+  <div class="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+    <div class="flex min-w-0 items-end gap-4">
+      <span class="-mt-10 shrink-0 rounded-full ring-4 ring-white dark:ring-gray-900">{{ avatar(name, avatar_url, 'h-20 w-20', 'text-xl') }}</span>
+      <div class="min-w-0 pb-1">
+        <h2 class="truncate text-lg font-semibold tracking-tight text-gray-950 dark:text-white">{{ name }}</h2>
+        {% if subtitle %}<p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ subtitle }}</p>{% endif %}
+      </div>
+    </div>
+    {% if tabs %}<div class="min-w-0 overflow-x-auto">{{ pill_tabs(tabs, muted=true) }}</div>{% endif %}
+  </div>
+</section>
+{% endmacro %}
+
+{# One plan. features: list of strings or {text, included}. highlighted=true draws the dark card. #}
+{% macro pricing_card(name, price, period=None, description=None, features=[], button_label='Get started', href='#', highlighted=false, eyebrow=None) %}
+{% set dark = highlighted %}
+<section class="{{ 'tw-card-dark' if dark else 'tw-card' }} flex h-full min-w-0 flex-col p-6" data-tw-ui="pricing-card">
+  <div class="flex items-center justify-between gap-3">
+    <h3 class="text-sm font-semibold uppercase tracking-wider {{ 'text-white/80' if dark else 'text-gray-500 dark:text-gray-400' }}">{{ __(name) }}</h3>
+    {% if eyebrow %}<span class="rounded-md px-2 py-0.5 text-xs font-semibold {{ 'bg-white text-gray-950' if dark else 'bg-gray-950 text-white dark:bg-white dark:text-gray-950' }}">{{ __(eyebrow) }}</span>{% endif %}
+  </div>
+  <p class="mt-4 {{ 'text-white' if dark else 'text-gray-950 dark:text-white' }}"><span class="text-4xl font-semibold tracking-[-0.03em] tabular-nums">{{ price }}</span>{% if period %}<span class="ms-1 text-sm {{ 'text-white/60' if dark else 'text-gray-500 dark:text-gray-400' }}">/ {{ __(period) }}</span>{% endif %}</p>
+  {% if description %}<p class="mt-2 text-sm {{ 'text-white/70' if dark else 'text-gray-500 dark:text-gray-400' }}">{{ __(description) }}</p>{% endif %}
+  <ul class="mt-6 grid flex-1 content-start gap-3 text-sm">
+    {% for f in features %}
+    {% set text = f.text if f.text is defined else f %}{% set on = f.included if f.included is defined else true %}
+    <li class="flex items-start gap-2.5 {{ '' if on else 'line-through opacity-50' }} {{ 'text-white/90' if dark else 'text-gray-700 dark:text-gray-300' }}">
+      <span class="mt-0.5 shrink-0">{{ icon('check' if on else 'minus', 'h-4 w-4') }}</span><span class="min-w-0">{{ __(text) }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <a href="{{ href }}" class="tw-btn mt-6 w-full justify-center px-4 py-2.5 {{ 'bg-white text-gray-950 hover:bg-white/90' if dark else 'bg-gray-950 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-950 dark:hover:bg-gray-200' }}">{{ __(button_label) }}</a>
+</section>
+{% endmacro %}
+
+{# Numbered "how it works" steps. items: list of {title, text, value, icon}. #}
+{% macro steps(items) %}
+<ol class="grid min-w-0 gap-4 sm:grid-cols-2 {{ 'lg:grid-cols-3' if items | length == 3 else ('lg:grid-cols-4' if items | length >= 4) }}" data-tw-ui="steps">
+  {% for it in items %}
+  <li class="tw-well flex min-w-0 flex-col gap-3 p-4">
+    <span class="flex items-center gap-2">
+      <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-950 text-xs font-semibold text-white dark:bg-white dark:text-gray-950">{{ loop.index }}</span>
+      {% if it.icon %}<span class="text-gray-500 dark:text-gray-400">{{ icon(it.icon, 'h-4 w-4') }}</span>{% endif %}
+    </span>
+    <span class="min-w-0">
+      <span class="block text-sm font-semibold text-gray-950 dark:text-white">{{ __(it.title) }}</span>
+      {% if it.text %}<span class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">{{ __(it.text) }}</span>{% endif %}
+    </span>
+    {% if it.value %}<span class="mt-auto text-lg font-semibold tabular-nums text-gray-950 dark:text-white">{{ it.value }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% endmacro %}
+
+{# A read-only value with a Copy button (referral codes, API keys, links). #}
+{% macro copy_field(value, label=None, hint=None, id=None) %}
+<div class="min-w-0" x-data="{ copied: false }" data-tw-ui="copy-field">
+  {% if label %}<label {% if id %}for="{{ id }}"{% endif %} class="mb-1.5 block text-sm font-medium text-gray-950 dark:text-white">{{ __(label) }}</label>{% endif %}
+  <div class="flex gap-2">
+    <input type="text" readonly value="{{ value }}" {% if id %}id="{{ id }}"{% endif %} x-ref="value" class="tw-input min-w-0 flex-1 font-mono text-sm" @focus="$el.select()">
+    <button type="button" class="{{ button_classes('gray', 'button', 'md', true) }} shrink-0" @click="navigator.clipboard.writeText($refs.value.value); copied = true; setTimeout(() => copied = false, 1500)">
+      <span x-show="!copied">{{ icon('copy', 'h-4 w-4') }}</span><span x-show="copied" x-cloak>{{ icon('check', 'h-4 w-4') }}</span>
+      <span x-text="copied ? {{ __('Copied') | tojson | forceescape }} : {{ __('Copy') | tojson | forceescape }}">{{ __('Copy') }}</span>
+    </button>
+  </div>
+  {% if hint %}<p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">{{ __(hint) }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{# One chat message. mine=true puts it on the right in a dark bubble. #}
+{% macro chat_bubble(text, time=None, mine=false, name=None, avatar_url=None) %}
+<div class="flex min-w-0 items-end gap-2 {{ 'flex-row-reverse' if mine }}" data-tw-ui="chat-bubble">
+  {% if not mine and name %}{{ avatar(name, avatar_url, 'h-8 w-8', 'text-xs') }}{% endif %}
+  <div class="max-w-[80%] min-w-0 sm:max-w-[70%]">
+    <div class="rounded-2xl px-4 py-2.5 text-sm {{ 'rounded-ee-md bg-gray-950 text-white dark:bg-white dark:text-gray-950' if mine else 'rounded-es-md bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-100' }}" style="overflow-wrap: anywhere">{{ text }}</div>
+    {% if time %}<p class="mt-1 px-1 text-[11px] text-gray-400 {{ 'text-end' if mine }}">{{ time }}</p>{% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{# Stars for a score: ui.rating(4.5, count=128) #}
+{% macro rating(value, max=5, count=None) %}
+{% set v = [[value or 0, 0] | max, max] | min %}
+<span class="inline-flex items-center gap-1.5" role="img" aria-label="{{ v }} / {{ max }}" data-tw-ui="rating">
+  <span class="inline-flex text-warning-500">
+    {% for i in range(max) %}
+    {% if v >= i + 1 %}{{ icon('star', 'h-4 w-4 fill-current') }}
+    {% elif v >= i + 0.5 %}<span class="relative inline-flex">{{ icon('star', 'h-4 w-4 text-gray-300 dark:text-white/20') }}<span class="absolute inset-0 overflow-hidden" style="width: 50%">{{ icon('star', 'h-4 w-4 fill-current') }}</span></span>
+    {% else %}{{ icon('star', 'h-4 w-4 text-gray-300 dark:text-white/20') }}{% endif %}
+    {% endfor %}
+  </span>
+  <span class="text-sm font-medium tabular-nums text-gray-950 dark:text-white">{{ v }}</span>
+  {% if count is not none %}<span class="text-sm text-gray-500 dark:text-gray-400">({{ count }})</span>{% endif %}
+</span>
+{% endmacro %}
+
+{# Order tracking steps across the card (down the card on a phone).
+   items: list of {label, time}. current: index of the step in progress; earlier ones are done. #}
+{% macro progress_steps(items, current=0) %}
+<ol class="flex min-w-0 flex-col gap-4 sm:flex-row sm:gap-0" data-tw-ui="progress-steps">
+  {% for it in items %}
+  {% set done = loop.index0 < current %}{% set now = loop.index0 == current %}
+  <li class="relative flex min-w-0 gap-3 sm:flex-1 sm:flex-col sm:items-center sm:text-center" {% if now %}aria-current="step"{% endif %}>
+    {% if not loop.last %}<span class="absolute start-[0.9375rem] top-9 -bottom-4 w-px sm:start-[calc(50%+1.25rem)] sm:top-[0.9375rem] sm:bottom-auto sm:h-px sm:w-[calc(100%-2.5rem)] {{ 'bg-gray-950 dark:bg-white' if done else 'bg-gray-200 dark:bg-white/10' }}" aria-hidden="true"></span>{% endif %}
+    <span class="relative flex h-[1.875rem] w-[1.875rem] shrink-0 items-center justify-center rounded-full text-xs font-semibold {{ 'bg-gray-950 text-white dark:bg-white dark:text-gray-950' if done else ('bg-white text-gray-950 ring-2 ring-gray-950 dark:bg-gray-900 dark:text-white dark:ring-white' if now else 'bg-gray-100 text-gray-400 dark:bg-white/5') }}">
+      {% if done %}{{ icon('check', 'h-4 w-4') }}{% else %}{{ loop.index }}{% endif %}
+    </span>
+    <span class="min-w-0 sm:mt-2 sm:px-2">
+      <span class="block text-sm font-medium {{ 'text-gray-950 dark:text-white' if done or now else 'text-gray-500 dark:text-gray-400' }}">{{ __(it.label) }}</span>
+      {% if it.time %}<span class="block text-xs text-gray-400">{{ it.time }}</span>{% endif %}
+    </span>
+  </li>
+  {% endfor %}
+</ol>
+{% endmacro %}

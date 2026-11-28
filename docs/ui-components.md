@@ -96,6 +96,33 @@ Percent values are always kept between 0 and 100. Rings, gauges and meters have 
 | `ui.skeleton(lines)` | Gray loading lines. |
 | `ui.divider(label)` | A thin line with optional text in the middle. |
 
+### Page kit
+
+Bigger blocks for whole pages (billing, profile, orders, pricing, chat). Ideas came from a study of popular
+dashboard templates; the code and styles are Tungsten's own and keep the flat, crisp look.
+
+| Macro | What it draws |
+| --- | --- |
+| `ui.profile_header(name, subtitle, avatar_url, cover_url, tabs)` | The top of a profile page: a cover band (plain grey with no `cover_url`), a big avatar, the name and pill tabs. |
+| `ui.stat_strip(items)` | A row of numbers in one card, split by thin lines. `items`: dicts with `label`, `value`, optional `trend` and `direction`. Two per row on a phone. |
+| `ui.stat_tile(label, value, description, icon_name, color)` | A centred tile: icon, label, a muted line and the value under a rule ("Salary  +₹2,000"). |
+| `ui.metric(value, unit, label, description)` | A big reading with its unit ("21 °C · Living room"). |
+| `ui.payment_card(last4, holder, expires, brand, variant)` | A bank card drawn flat. Only the last four digits are shown. `variant='light'` gives a white card. |
+| `ui.payment_method(last4, brand, edit_url, default)` | A saved card row with an edit button. |
+| `ui.transaction_row(title, time, amount, direction)` | Money in (`'in'`, green +), out (`'out'`, red −) or `'pending'`. |
+| `ui.description_list(items, total, total_label)` | Label / value rows (order summary, billing info). `items` are `(label, value)` pairs or dicts; `total` adds a bold last row. |
+| `ui.invoice(number, issued, due, seller, buyer, items, totals, total, note, brand)` | A printable invoice. `seller`/`buyer` are lists of lines, `items` dicts with `name`, `qty`, `rate`, `amount`. Use `{% call %}` to add buttons (e.g. Print) in its footer. |
+| `ui.pricing_card(name, price, period, description, features, button_label, href, highlighted, eyebrow)` | One plan. `features` are strings or `{text, included}`; `highlighted=true` draws the dark card. Pair with `ui.segmented` for Monthly / Yearly. |
+| `ui.steps(items)` | Numbered "how it works" blocks. `items`: dicts with `title`, `text`, `value`, `icon`. |
+| `ui.progress_steps(items, current)` | Order tracking across the card (down the card on a phone). Steps before `current` are ticked. |
+| `ui.toggle_tile(name, label, icon_name, checked, description)` | An on/off tile for a device or feature. It is a real checkbox and turns dark while on (no JavaScript). |
+| `ui.media_card(title, text, image_url, eyebrow, meta, value, href, people, button_label)` | A card with an optional picture: places, products, projects. `people` adds an avatar group. |
+| `ui.copy_field(value, label, hint, id)` | A read-only value with a Copy button (referral codes, links). |
+| `ui.chat_bubble(text, time, mine, name, avatar_url)` | One chat message; `mine=true` puts it on the right in a dark bubble. |
+| `ui.rating(value, max, count)` | Stars with half stars, the score and an optional count. |
+
+Two widgets use the same blocks: `StatStripWidget` and `TransactionsWidget`. See [Modern widgets](modern-widgets).
+
 ## CSS classes
 
 These classes are in the panel's stylesheet, so you can use them in any template or in `Markup` returned from `content()`.

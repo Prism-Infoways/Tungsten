@@ -258,6 +258,38 @@ class SetupGuide(ChecklistWidget):
                 Item("Set up payments", description="Connect a gateway", url="/admin/settings")]
 ```
 
+## Stat strip
+
+`StatStripWidget` shows several numbers in one card, split by thin lines (full width by default). `badge` becomes a trend pill; `color="danger"` points it down.
+
+```python
+from tungsten import Item, StatStripWidget
+
+class ReferralNumbers(StatStripWidget):
+    @classmethod
+    def items(cls, db):
+        return [Item("Earnings", "₹23,980", badge="12%"), Item("Customers", "2,400"),
+                Item("Avg. value", "₹480", badge="3%", color="danger"), Item("Refund rate", "4%")]
+```
+
+## Transactions
+
+`TransactionsWidget` lists money in and out. `color` is the direction: `success` (in, green +), `danger` (out, red −) or `gray` (pending). A `description` starts a new group with that heading ("Newest", "Yesterday").
+
+```python
+from tungsten import Item, TransactionsWidget
+
+class LatestPayments(TransactionsWidget):
+    heading = "Your transactions"
+    icon = "receipt"
+
+    @classmethod
+    def items(cls, db):
+        return [Item("Netflix", "₹2,500", time="27 Mar, 12:30", color="danger", description="Newest"),
+                Item("Apple", "₹2,000", time="27 Mar, 04:30", color="success"),
+                Item("Webflow", time="26 Mar", color="gray", description="Yesterday")]
+```
+
 ## Filled stats cards
 
 The cards of a `StatsOverviewWidget` can be filled too: `Stat(...).highlight()` uses the brand color and `Stat(...).highlight("dark")` is near black. Use it for the one number that matters most.

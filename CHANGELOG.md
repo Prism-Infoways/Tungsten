@@ -2,6 +2,14 @@
 
 All notable changes to Tungsten (`tungsten-admin`) and its official plugins. Newest first.
 
+## 2026-11-28 · tungsten-admin (next release): page kit
+
+17 new UI blocks and 2 new widgets for whole pages: billing, profile, orders, pricing, chat and smart-device screens. We studied a popular dashboard template page by page (with a small crawl script in `promo/inspiration/crawl.py`) and built Tungsten's own versions in its flat, crisp style. Light, dark and phone all work. See them under **Settings → UI kit** in the demo ("Page kit" part).
+
+- **New macros in `ui.html`:** `profile_header`, `stat_strip`, `stat_tile`, `metric`, `payment_card`, `payment_method`, `transaction_row`, `description_list`, `invoice` (printable), `pricing_card`, `steps`, `progress_steps` (order tracking), `toggle_tile`, `media_card`, `copy_field`, `chat_bubble`, `rating`.
+- **New widgets:** `StatStripWidget` (several numbers in one card) and `TransactionsWidget` (money in and out, grouped by day).
+- Docs: [UI components](ui-components) ("Page kit") and [Modern widgets](modern-widgets).
+
 ## 2026-11-22 · tungsten-admin 0.1.15: design detailing (a calmer, hand-finished look)
 
 Also released: `tungsten-finance` 0.2.1, `tungsten-kanban` 0.1.2 and `tungsten-calendar` 0.1.2 (visual fixes, see "pixel-perfect polish" below).

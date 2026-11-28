@@ -124,4 +124,115 @@
   </div>
   {% endcall %}
 </div>
+
+<div class="mb-4 mt-12 flex items-center gap-3"><h2 class="text-xl font-semibold tracking-tight text-gray-950 dark:text-white">{{ __('Page kit') }}</h2><span class="h-px flex-1 bg-gray-200 dark:bg-white/10"></span></div>
+
+{% call section('Profile header', 'ui.profile_header(name, subtitle, avatar_url, cover_url, tabs)') %}
+{{ ui.profile_header('Riya Kapoor', 'Store manager · Mumbai', tabs=[{'label': 'Overview', 'url': '#', 'active': true}, {'label': 'Orders', 'url': '#'}, {'label': 'Settings', 'url': '#'}]) }}
+{% endcall %}
+
+{% call section('Stat strip', 'ui.stat_strip(items) · StatStripWidget') %}
+{{ ui.stat_strip([{'label': 'Earnings', 'value': '₹23,980', 'trend': '12%'}, {'label': 'Customers', 'value': '2,400'}, {'label': 'Avg. value', 'value': '₹480', 'trend': '3%', 'direction': 'down'}, {'label': 'Refund rate', 'value': '4%'}]) }}
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
+  <div class="lg:col-span-2">
+  {% call section('Payment cards', "ui.payment_card(last4, holder, expires, brand) · ui.stat_tile(label, value, ...)") %}
+  <div class="grid grid-cols-2 gap-4 sm:gap-6 xl:grid-cols-4">
+    <div class="col-span-2">{{ ui.payment_card('7852', 'Jack Peterson', '11/27', 'VISA') }}</div>
+    {{ ui.stat_tile('Salary', '+₹2,000', 'Belong interactive', 'landmark') }}
+    {{ ui.stat_tile('PayPal', '₹455.00', 'Freelance payment', 'wallet') }}
+  </div>
+  {% endcall %}
+  </div>
+  {% call section('Payment methods', 'ui.payment_method(last4, brand, edit_url)') %}
+  <div class="tw-card grid gap-3 p-6">
+    {{ ui.payment_method('7852', 'Mastercard', '#', true) }}
+    {{ ui.payment_method('5248', 'Visa', '#') }}
+    {{ ui.button('Add new card', 'gray', 'plus', outlined=true) }}
+  </div>
+  {% endcall %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3 [&>*]:min-w-0">
+  {% call section('Transactions', "ui.transaction_row(title, time, amount, 'in' | 'out' | 'pending') · TransactionsWidget") %}
+  <div class="tw-card divide-y divide-gray-100 px-6 py-3 dark:divide-white/5">
+    {{ ui.transaction_row('Netflix', '27 Mar, 12:30 PM', '₹2,500', 'out') }}
+    {{ ui.transaction_row('Apple', '27 Mar, 04:30 AM', '₹2,000', 'in') }}
+    {{ ui.transaction_row('Stripe', '26 Mar, 01:45 PM', '₹750', 'in') }}
+    {{ ui.transaction_row('Webflow', '26 Mar, 05:00 AM', none, 'pending') }}
+  </div>
+  {% endcall %}
+  {% call section('Order summary', 'ui.description_list(items, total)') %}
+  <div class="tw-card p-6">
+    {{ ui.description_list([('Product price', '₹900'), ('Delivery', '₹140'), ('Taxes', '₹19.50')], '₹1,059.50') }}
+  </div>
+  {% endcall %}
+  {% call section('Copy field & rating', 'ui.copy_field(value, label, hint) · ui.rating(value, count=n)') %}
+  <div class="tw-card grid gap-5 p-6">
+    {{ ui.copy_field('tungsten-ref-4f2a91', 'Referral code', 'Share it with a friend. Each code works once.', 'g-copy') }}
+    <div class="flex flex-wrap items-center gap-4">{{ ui.rating(4.5, count=128) }}{{ ui.rating(3) }}</div>
+  </div>
+  {% endcall %}
+</div>
+
+{% call section('Order tracking', 'ui.progress_steps(items, current)') %}
+<div class="tw-card p-6">
+  {{ ui.progress_steps([{'label': 'Order received', 'time': '22 Dec, 07:20 AM'}, {'label': 'Order packed', 'time': '22 Dec, 07:21 AM'}, {'label': 'With courier', 'time': '22 Dec, 08:10 AM'}, {'label': 'Delivered'}], 2) }}
+</div>
+{% endcall %}
+
+{% call section('Toggle tiles & readings', "ui.toggle_tile(name, label, icon, checked) · ui.metric(value, unit, label)") %}
+<div class="grid grid-cols-2 gap-6 sm:grid-cols-3 xl:grid-cols-6">
+  {{ ui.toggle_tile('g_t1', 'Humidity', 'droplets', false, 'Off for 3 days') }}
+  {{ ui.toggle_tile('g_t2', 'Temperature', 'thermometer', true, 'Active') }}
+  {{ ui.toggle_tile('g_t3', 'Wi-Fi', 'wifi', true, 'Active') }}
+  {{ ui.toggle_tile('g_t4', 'Lights', 'lightbulb', false, 'Off for 27 min') }}
+  {{ ui.metric('21', '°C', 'Living room', 'Temperature') }}
+  {{ ui.metric('87', 'm³', 'Water', 'This month') }}
+</div>
+{% endcall %}
+
+{% call section('Media & project cards', 'ui.media_card(title, text, image_url, eyebrow, meta, value, href, people, button_label)') %}
+<div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+  {{ ui.media_card('Sea-view apartment', 'Two rooms, a balcony and a short walk to the beach.', eyebrow='Stay', meta='Goa, India', value='₹4,900 / night') }}
+  {{ ui.media_card('Mountain cabin', 'Quiet wooden cabin with a fireplace and a big kitchen.', eyebrow='Stay', meta='Manali, India', value='₹3,200 / night') }}
+  {{ ui.media_card('Shop redesign', 'New product pages, faster checkout and a cleaner cart.', eyebrow='Project #2', href='#', people=people, button_label='View project') }}
+  {{ ui.media_card('Mobile app', 'Order tracking and push alerts for every customer.', eyebrow='Project #3', href='#', people=people[2:], button_label='View project') }}
+</div>
+{% endcall %}
+
+{% call section('How it works', 'ui.steps(items)') %}
+<div class="tw-card p-6">
+  {{ ui.steps([{'title': 'Share your link', 'text': 'Send your referral code to a friend.', 'value': '₹100', 'icon': 'share-2'}, {'title': 'Friend orders', 'text': 'They get 10% off their first order.', 'value': '10%', 'icon': 'shopping-bag'}, {'title': 'You get paid', 'text': 'Earn on every order they make.', 'value': '₹500', 'icon': 'wallet'}]) }}
+</div>
+{% endcall %}
+
+{% call section('Pricing', 'ui.pricing_card(name, price, period, description, features, button_label, href, highlighted)') %}
+<div class="mb-4 flex justify-center">{{ ui.segmented('g_billing', {'month': 'Monthly', 'year': 'Yearly'}, 'month') }}</div>
+<div class="grid gap-6 md:grid-cols-3">
+  {{ ui.pricing_card('Starter', '₹0', 'month', 'For trying things out.', ['1 admin user', '3 resources', {'text': 'Email support', 'included': false}], 'Start free') }}
+  {{ ui.pricing_card('Business', '₹1,499', 'month', 'For growing shops.', ['10 admin users', 'Unlimited resources', 'Email support', 'Backups every day'], 'Choose Business', highlighted=true, eyebrow='Popular') }}
+  {{ ui.pricing_card('Enterprise', '₹4,999', 'month', 'For big teams.', ['Unlimited users', 'Unlimited resources', 'Phone support', 'Own server'], 'Contact us') }}
+</div>
+{% endcall %}
+
+<div class="grid gap-6 lg:grid-cols-5 [&>*]:min-w-0">
+  <div class="lg:col-span-2">
+  {% call section('Chat', 'ui.chat_bubble(text, time, mine, name)') %}
+  <div class="tw-card grid gap-4 p-6">
+    {{ ui.chat_bubble('Hi! Is order ORD-031 shipped yet?', '10:42', false, 'Sophia Brown') }}
+    {{ ui.chat_bubble('Yes, it left today. You will get the tracking link by email.', '10:44', true) }}
+    {{ ui.chat_bubble('Great, thank you!', '10:45', false, 'Sophia Brown') }}
+  </div>
+  {% endcall %}
+  </div>
+  <div class="lg:col-span-3">
+  {% call section('Invoice', 'ui.invoice(number, issued, due, seller, buyer, items, totals, total, note)') %}
+  {% call ui.invoice('#0453119', '06 Mar 2026', '11 Mar 2026', ['12 MG Road', 'Bengaluru 560001', '+91 80 1234 5678'], ['Nikhil Verma', '4006 Park Street', 'Kolkata 700016'], [{'name': 'Premium support', 'qty': 1, 'rate': '₹900', 'amount': '₹900'}, {'name': 'Theme licence', 'qty': 3, 'rate': '₹1,000', 'amount': '₹3,000'}, {'name': 'Setup service', 'qty': 1, 'rate': '₹890', 'amount': '₹890'}], [('Subtotal', '₹4,790'), ('GST 18%', '₹862.20')], '₹5,652.20', 'Thank you! Questions? Write to billing@example.com.', 'Acme Store') %}
+    {{ ui.button('Print', 'gray', 'printer', outlined=true, attrs_='onclick="window.print()"') }}
+  {% endcall %}
+  {% endcall %}
+  </div>
+</div>
 </div>

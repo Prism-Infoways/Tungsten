@@ -11,3 +11,4 @@ storage/
 *.sqlite3
 .DS_Store
 .claude/worktrees/
+promo/inspiration/out/
